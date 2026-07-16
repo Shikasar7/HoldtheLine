@@ -24,6 +24,7 @@ public partial class BattleScene : Control
     private readonly Dictionary<int, Button> _standees = new();
     private Button _oppLeaderBtn = null!, _endTurnBtn = null!, _leaderPowerBtn = null!;
     private Label _turnLabel = null!, _oppInfo = null!, _selfInfo = null!, _logLabel = null!;
+    private Panel _detailPanel = null!; // left-side card inspector (click a piece to show it)
 
     private readonly List<GameEvent> _pendingEvents = new();
     private bool _busy;
@@ -172,6 +173,10 @@ public partial class BattleScene : Control
         menuBtn.AddThemeFontSizeOverride("font_size", 18);
         menuBtn.Pressed += () => GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn");
         _hudLayer.AddChild(menuBtn);
+
+        _detailPanel = new Panel { Position = DetailOrigin, Size = new Vector2(DetailW, DetailH), Visible = false };
+        _detailPanel.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.PanelDark, BattleTheme.Accent, 2, 12));
+        _hudLayer.AddChild(_detailPanel);
     }
 
     private Control NewLayer()
@@ -419,22 +424,23 @@ public partial class BattleScene : Control
 
     private void OnUnitClicked(int entityId)
     {
+        // Inspecting a piece works any time — even during animations or the AI's turn.
+        var unit = _host.GetView(ViewSeat).Units.FirstOrDefault(u => u.EntityId == entityId);
+        if (unit != null) ShowUnitDetail(unit);
+
         if (_busy) return;
         int seat = ActiveSeat;
 
         // If we're mid-target-pick, treat as a target first.
         if (_selKind is SelKind.Card or SelKind.Leader && TryPickUnitTarget(entityId)) return;
 
-        var view = _host.GetView(seat);
-        var unit = view.Units.FirstOrDefault(u => u.EntityId == entityId);
         if (unit is null) return;
 
         if (unit.OwnerSeat != seat)
         {
             // Clicking an enemy while a unit is selected = attack it.
             if (_selKind == SelKind.Unit && TryPickUnitTarget(entityId)) return;
-            Log("那是敌方随从。");
-            return;
+            return; // enemy piece: detail is already shown, nothing else to do
         }
 
         var legal = _host.LegalCommands(seat);
@@ -756,6 +762,152 @@ public partial class BattleScene : Control
         menu.Pressed += () => GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn");
         panel.AddChild(menu);
     }
+
+    // ---------- card inspector (click a piece) ----------
+
+    private static readonly Vector2 DetailOrigin = new(28, 140);
+    private const float DetailW = 512f;
+    private const float DetailH = 656f;
+
+    private void ShowUnitDetail(UnitView u)
+    {
+        var def = _cards.Get(u.CardId);
+        foreach (Node child in _detailPanel.GetChildren())
+            child.QueueFree();
+        _detailPanel.Visible = true;
+
+        const float pad = 16f;
+        float innerW = DetailW - pad * 2;
+        var faction = FactionColor(def.Faction);
+
+        // Card art: the real image once the AI-art pipeline ships it, else a faction-tinted placeholder.
+        const float artH = 196f;
+        var artPath = $"res://assets/cards/{def.Id}.png";
+        if (ResourceLoader.Exists(artPath))
+        {
+            _detailPanel.AddChild(new TextureRect
+            {
+                Texture = GD.Load<Texture2D>(artPath),
+                Position = new Vector2(pad, pad),
+                Size = new Vector2(innerW, artH),
+                MouseFilter = MouseFilterEnum.Ignore,
+                ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+            });
+        }
+        else
+        {
+            _detailPanel.AddChild(new ColorRect { Color = faction.Darkened(0.2f), Position = new Vector2(pad, pad), Size = new Vector2(innerW, artH), MouseFilter = MouseFilterEnum.Ignore });
+            var ph = BattleTheme.MakeLabel(def.Name, 34, new Color(1, 1, 1, 0.85f), HorizontalAlignment.Center);
+            ph.Position = new Vector2(pad, pad);
+            ph.Size = new Vector2(innerW, artH);
+            ph.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            _detailPanel.AddChild(ph);
+            var tag = BattleTheme.MakeLabel("〔插画占位〕", 14, new Color(1, 1, 1, 0.5f), HorizontalAlignment.Center);
+            tag.Position = new Vector2(pad, pad + artH - 26);
+            tag.Size = new Vector2(innerW, 20);
+            _detailPanel.AddChild(tag);
+        }
+
+        float y = pad + artH + 12;
+        void Add(string text, int size, Color color, float h, bool wrap = false)
+        {
+            var label = BattleTheme.MakeLabel(text, size, color);
+            label.Position = new Vector2(pad, y);
+            label.Size = new Vector2(innerW, h);
+            if (wrap) label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            _detailPanel.AddChild(label);
+            y += h + 6;
+        }
+
+        Add(def.Name, 30, BattleTheme.TextMain, 40);
+        Add($"{RarityName(def.Rarity)} · {FactionName(def.Faction)} · 随从", 16, BattleTheme.TextDim, 22);
+        Add($"辉尘 {def.Cost}      攻击 {u.Atk}      生命 {u.CurrentHp}/{u.MaxHp}", 20, BattleTheme.TextMain, 28);
+        if (def.Text.Length > 0)
+            Add(def.Text, 16, BattleTheme.TextMain, 58, wrap: true);
+
+        foreach (var k in u.Keywords)
+            Add($"【{KeywordDisplayName(k)}】{KeywordDesc(k.Keyword)}", 15, BattleTheme.Accent, 46, wrap: true);
+
+        var lore = BattleTheme.MakeLabel(FactionLore(def.Faction), 14, BattleTheme.TextDim);
+        lore.Position = new Vector2(pad, DetailH - 58);
+        lore.Size = new Vector2(innerW, 48);
+        lore.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _detailPanel.AddChild(lore);
+
+        // Close button added last so it sits on top of the art and is always clickable.
+        var close = BattleTheme.MakeButton(new Vector2(DetailW - 46, 10), new Vector2(36, 36), BattleTheme.PanelDark, BattleTheme.TextDim, 1, 8);
+        close.Text = "✕";
+        close.AddThemeFontSizeOverride("font_size", 20);
+        close.Pressed += HideDetail;
+        _detailPanel.AddChild(close);
+    }
+
+    private void HideDetail() => _detailPanel.Visible = false;
+
+    private static string RarityName(Rarity r) => r switch
+    {
+        Rarity.Common => "普通",
+        Rarity.Rare => "稀有",
+        Rarity.Epic => "史诗",
+        Rarity.Legendary => "传说",
+        _ => "衍生",
+    };
+
+    private static string FactionName(string faction) => faction switch
+    {
+        "iron_vow" => "铁誓军团",
+        "wildpack" => "荒野游群",
+        _ => "中立",
+    };
+
+    private static string FactionLore(string faction) => faction switch
+    {
+        "iron_vow" => "铁誓军团 —— 誓约骑士与堡垒工程师,断层战争中最后的正规军。以墙为盾,寸土不让。",
+        "wildpack" => "荒野游群 —— 兽人与掠猎兽骑手,在断层荒原上以速度为生存法则。风过之处,防线洞开。",
+        _ => "中立 —— 游荡在断层各段防线之间的雇佣兵、民兵与工匠,为辉尘而战。",
+    };
+
+    private static string KeywordDisplayName(KeywordSpec k) => k.Keyword switch
+    {
+        Keyword.Swift => $"疾行 {k.Value}",
+        Keyword.Range => $"射程 {k.Value}",
+        _ => KeywordDesc0(k.Keyword),
+    };
+
+    private static string KeywordDesc0(Keyword k) => k switch
+    {
+        Keyword.Charge => "冲锋",
+        Keyword.Assault => "突袭",
+        Keyword.Guard => "守护",
+        Keyword.HoldFast => "坚守",
+        Keyword.Trample => "践踏",
+        Keyword.CheapShot => "偷袭",
+        Keyword.Shield => "持盾",
+        Keyword.Garrison => "驻防",
+        Keyword.Leap => "跃障",
+        Keyword.PackTactics => "围猎",
+        Keyword.Hidden => "伏兵",
+        _ => k.ToString(),
+    };
+
+    private static string KeywordDesc(Keyword k) => k switch
+    {
+        Keyword.Charge => "部署当回合即可移动与攻击。",
+        Keyword.Assault => "部署当回合可攻击,但不能移动。",
+        Keyword.Swift => "每回合可移动的格数提升。",
+        Keyword.Range => "可攻击同一行/列、直线且中间无阻挡的敌人,不受反击。",
+        Keyword.Guard => "与其相邻的敌方随从必须优先攻击它。",
+        Keyword.HoldFast => "本回合未移动时,受到的伤害 -1。",
+        Keyword.Trample => "近战消灭敌方随从后,可立即占据其空出的格子。",
+        Keyword.CheapShot => "近战攻击不受反击。",
+        Keyword.Shield => "免疫下一次受到的伤害。",
+        Keyword.Garrison => "位于己方底线行时 +1/+1。",
+        Keyword.Leap => "移动时可跨过一个随从,直线跳跃 2 格。",
+        Keyword.PackTactics => "近战攻击一个与你另一友方相邻的敌人时,伤害 +1。",
+        Keyword.Hidden => "不能被选为目标,直到它造成伤害。",
+        _ => "",
+    };
 
     // ---------- tiny animation helpers ----------
 
