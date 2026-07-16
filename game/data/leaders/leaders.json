@@ -1,0 +1,26 @@
+[
+  {
+    "id": "leader_iv_valen",
+    "name": "瓦伦丁·铁誓",
+    "faction": "iron_vow",
+    "skill_cost": 2,
+    "skill_name": "筑垒",
+    "text": "筑垒(2费):使一个友方随从获得守护,直到你的下个回合。",
+    "art_prompt": "a veteran commander of the iron oath, greatshield planted, stern and grey",
+    "skill_effects": [
+      { "trigger": "leader_skill", "action": "grant_keyword", "target": "target_unit", "keyword": "guard", "duration": "your_next_turn" }
+    ]
+  },
+  {
+    "id": "leader_wp_saen",
+    "name": "风语者·萨恩",
+    "faction": "wildpack",
+    "skill_cost": 2,
+    "skill_name": "狩猎号角",
+    "text": "狩猎号角(2费):使一个友方随从本回合移动力 +1。",
+    "art_prompt": "a wind-speaker warchief with a great curved horn, feathers and beast-bone",
+    "skill_effects": [
+      { "trigger": "leader_skill", "action": "move_bonus", "target": "target_unit", "amount": 1 }
+    ]
+  }
+]

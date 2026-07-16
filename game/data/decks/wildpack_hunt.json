@@ -1,0 +1,25 @@
+[
+  {
+    "id": "wildpack_hunt",
+    "name": "狂猎",
+    "faction": "wildpack",
+    "leader": "leader_wp_saen",
+    "cards": [
+      { "id": "wp_pup", "count": 3 },
+      { "id": "wp_fang_rider", "count": 2 },
+      { "id": "wp_flanker", "count": 2 },
+      { "id": "wp_raider", "count": 4 },
+      { "id": "wp_dire_wolf", "count": 3 },
+      { "id": "wp_stalker", "count": 2 },
+      { "id": "wp_howler", "count": 2 },
+      { "id": "wp_ambusher", "count": 2 },
+      { "id": "wp_pack_alpha", "count": 2 },
+      { "id": "wp_windrunner", "count": 1 },
+      { "id": "wp_rift_leaper", "count": 1 },
+      { "id": "wp_packlord", "count": 1 },
+      { "id": "wp_hunt_signal", "count": 2 },
+      { "id": "wp_pounce", "count": 2 },
+      { "id": "wp_blood_scent", "count": 1 }
+    ]
+  }
+]

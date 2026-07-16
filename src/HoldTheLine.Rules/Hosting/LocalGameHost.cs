@@ -26,11 +26,14 @@ public sealed class LocalGameHost : IGameHost
     public bool LoopbackSerialization { get; }
 
     public LocalGameHost(CardDatabase db, MatchConfig config, bool loopbackSerialization = true)
+        : this(db, LeaderDatabase.Empty, config, loopbackSerialization) { }
+
+    public LocalGameHost(CardDatabase db, LeaderDatabase leaders, MatchConfig config, bool loopbackSerialization = true)
     {
         Config = config;
         LoopbackSerialization = loopbackSerialization;
-        _resolver = new Resolver(db);
-        var (state, events) = GameFactory.CreateGame(config, db);
+        _resolver = new Resolver(db, leaders);
+        var (state, events) = GameFactory.CreateGame(config, db, leaders);
         _state = state;
         _eventLog.AddRange(events);
     }

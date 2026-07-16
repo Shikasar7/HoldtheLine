@@ -1,54 +1,75 @@
 using HoldTheLine.Rules.Cards;
-using HoldTheLine.Rules.Events;
 using HoldTheLine.Rules.Geometry;
 using HoldTheLine.Rules.State;
 
 namespace HoldTheLine.Rules.Engine;
 
 /// <summary>
-/// Executes data-driven EffectSpecs. P1 implements the minimal primitive set (damage / buff /
-/// draw / gain_mana × self / target_unit / adjacent_*); P2 extends this class ONLY — new
-/// primitives must not leak special cases into the resolver.
+/// Executes data-driven EffectSpecs. All card/leader effects flow through here so new mechanics
+/// never leak special cases into the resolver. Shared state mutations live on ResolutionContext.
 /// </summary>
 internal static class EffectEngine
 {
-    /// <param name="source">The unit the effect originates from; null for orders.</param>
-    /// <param name="targetUnitId">Explicit target carried by the command (target == "target_unit").</param>
+    /// <param name="source">The unit the effect originates from; null for orders and leader skills.</param>
+    /// <param name="targetUnitId">Explicit unit target from the command (target == target_unit*).</param>
+    /// <param name="targetCell">Explicit cell target from the command (spatial selectors, e.g. column_enemies).</param>
     public static void RunTrigger(
         ResolutionContext ctx,
         UnitInstance? source,
         int ownerSeat,
         IReadOnlyList<EffectSpec> effects,
         string trigger,
-        int? targetUnitId)
+        int? targetUnitId,
+        Cell? targetCell = null)
     {
         foreach (var spec in effects)
         {
             if (spec.Trigger != trigger)
                 continue;
-            Run(ctx, source, ownerSeat, spec, targetUnitId);
+            Run(ctx, source, ownerSeat, spec, targetUnitId, targetCell);
         }
         ctx.ProcessDeaths();
     }
 
-    /// <summary>Pre-validation used by the resolver before paying costs: does this effect's explicit target exist?</summary>
-    public static RuleError? ValidateExplicitTargets(ResolutionContext ctx, IReadOnlyList<EffectSpec> effects, string trigger, int? targetUnitId)
+    /// <summary>Pre-validation used before paying costs: do the effect's declared targets exist and satisfy filters?</summary>
+    public static RuleError? ValidateTargets(
+        ResolutionContext ctx,
+        int ownerSeat,
+        IReadOnlyList<EffectSpec> effects,
+        string trigger,
+        int? targetUnitId,
+        Cell? targetCell)
     {
         foreach (var spec in effects)
         {
-            if (spec.Trigger != trigger || spec.Target != "target_unit")
+            if (spec.Trigger != trigger)
                 continue;
-            if (targetUnitId is null)
-                return new RuleError(RuleErrorCode.InvalidTarget, "This card requires a unit target.");
-            if (ctx.State.FindUnit(targetUnitId.Value) is null)
-                return new RuleError(RuleErrorCode.UnknownEntity, $"Target unit {targetUnitId.Value} does not exist.");
+
+            if (spec.NeedsUnitTarget)
+            {
+                if (targetUnitId is null)
+                    return new RuleError(RuleErrorCode.InvalidTarget, "This effect requires a unit target.");
+                var target = ctx.State.FindUnit(targetUnitId.Value);
+                if (target is null)
+                    return new RuleError(RuleErrorCode.UnknownEntity, $"Target unit {targetUnitId.Value} does not exist.");
+                if (spec.Target == "target_unit_own_half")
+                {
+                    if (target.OwnerSeat == ownerSeat)
+                        return new RuleError(RuleErrorCode.InvalidTarget, "This targets an enemy unit.");
+                    if (!BoardGeometry.InOwnHalf(ownerSeat, target.Cell))
+                        return new RuleError(RuleErrorCode.InvalidTarget, "Target must be in your half of the board.");
+                }
+            }
+
+            if (spec.NeedsCellTarget && targetCell is null)
+                return new RuleError(RuleErrorCode.InvalidTarget, "This effect requires a target cell.");
         }
         return null;
     }
 
-    private static void Run(ResolutionContext ctx, UnitInstance? source, int ownerSeat, EffectSpec spec, int? targetUnitId)
+    private static void Run(ResolutionContext ctx, UnitInstance? source, int ownerSeat, EffectSpec spec, int? targetUnitId, Cell? targetCell)
     {
-        var targets = ResolveTargets(ctx, source, spec.Target, targetUnitId);
+        var targets = ResolveTargets(ctx, source, ownerSeat, spec.Target, targetUnitId, targetCell);
 
         switch (spec.Action)
         {
@@ -57,13 +78,18 @@ internal static class EffectEngine
                     ctx.DamageUnit(t, spec.Amount);
                 break;
 
+            case "heal":
+                foreach (var t in targets)
+                    ctx.HealUnit(t, spec.Amount);
+                break;
+
             case "buff":
                 foreach (var t in targets)
                 {
                     t.Atk += spec.Atk;
                     t.MaxHp += spec.Hp;
                     t.CurrentHp += spec.Hp;
-                    ctx.Emit(new UnitBuffedEvent
+                    ctx.Emit(new Events.UnitBuffedEvent
                     {
                         UnitEntityId = t.EntityId,
                         AtkDelta = spec.Atk,
@@ -72,6 +98,20 @@ internal static class EffectEngine
                         NewHp = t.CurrentHp,
                     });
                 }
+                break;
+
+            case "grant_keyword":
+                foreach (var t in targets)
+                    ctx.GrantKeyword(t, spec.GrantKeyword!.Value, spec.GrantKeywordValue, spec.Duration, ownerSeat);
+                break;
+
+            case "move_bonus":
+                foreach (var t in targets)
+                    ctx.AddMoveBonus(t, spec.Amount);
+                break;
+
+            case "summon":
+                ctx.SummonUnits(ownerSeat, spec.SummonCardId!, spec.Amount);
                 break;
 
             case "draw":
@@ -83,12 +123,13 @@ internal static class EffectEngine
                 break;
 
             default:
-                // CardDatabase validation guarantees this is unreachable; keep it loud, not silent.
+                // CardDatabase / LeaderDatabase validation guarantees this is unreachable; stay loud.
                 throw new InvalidOperationException($"Unknown effect action '{spec.Action}'.");
         }
     }
 
-    private static List<UnitInstance> ResolveTargets(ResolutionContext ctx, UnitInstance? source, string target, int? targetUnitId)
+    private static List<UnitInstance> ResolveTargets(
+        ResolutionContext ctx, UnitInstance? source, int ownerSeat, string target, int? targetUnitId, Cell? targetCell)
     {
         switch (target)
         {
@@ -99,6 +140,7 @@ internal static class EffectEngine
                 return source is null ? [] : [source];
 
             case "target_unit":
+            case "target_unit_own_half":
                 var explicitTarget = targetUnitId is null ? null : ctx.State.FindUnit(targetUnitId.Value);
                 return explicitTarget is null ? [] : [explicitTarget];
 
@@ -111,6 +153,24 @@ internal static class EffectEngine
                     .Select(ctx.State.UnitAt)
                     .Where(u => u != null && (u.OwnerSeat == source.OwnerSeat) == allies)
                     .Select(u => u!)
+                    .ToList();
+
+            case "column_enemies":
+                if (targetCell is null)
+                    return [];
+                return ctx.State.Units
+                    .Where(u => u.OwnerSeat != ownerSeat && u.Cell.Col == targetCell.Value.Col)
+                    .ToList();
+
+            case "allies_home_row":
+                int homeRow = BoardGeometry.HomeRow(ownerSeat);
+                return ctx.State.Units
+                    .Where(u => u.OwnerSeat == ownerSeat && u.Cell.Row == homeRow)
+                    .ToList();
+
+            case "all_allies":
+                return ctx.State.Units
+                    .Where(u => u.OwnerSeat == ownerSeat)
                     .ToList();
 
             default:

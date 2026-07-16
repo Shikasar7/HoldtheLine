@@ -10,6 +10,16 @@ public sealed class CardInstance
     public string CardId { get; set; } = "";
 }
 
+/// <summary>A keyword granted for a limited time (grant_keyword with a non-permanent duration).</summary>
+public sealed class TempKeywordGrant
+{
+    public KeywordSpec Spec { get; set; } = new(Keyword.Guard);
+    /// <summary>end_of_turn | your_next_turn.</summary>
+    public string Expiry { get; set; } = "end_of_turn";
+    /// <summary>Seat that granted it — needed to resolve "your next turn".</summary>
+    public int GrantedBySeat { get; set; }
+}
+
 public sealed class UnitInstance
 {
     public int EntityId { get; set; }
@@ -33,14 +43,34 @@ public sealed class UnitInstance
     /// <summary>持盾 charge still available.</summary>
     public bool ShieldActive { get; set; }
 
-    /// <summary>Runtime copy of the definition's keywords (buffs may add/remove later).</summary>
+    /// <summary>Extra movement points this turn (move_bonus effects); reset at the owner's turn start.</summary>
+    public int BonusMovement { get; set; }
+
+    /// <summary>Whether the 驻防 (Garrison) +1/+1 is currently applied (unit is on its home row).</summary>
+    public bool GarrisonApplied { get; set; }
+
+    /// <summary>Runtime copy of the definition's keywords (permanent grants append here).</summary>
     public List<KeywordSpec> Keywords { get; set; } = new();
 
-    public bool HasKeyword(Keyword k) => Keywords.Any(s => s.Keyword == k);
+    /// <summary>Time-limited keyword grants (pounce, 筑垒, …); expire at turn boundaries.</summary>
+    public List<TempKeywordGrant> TempGrants { get; set; } = new();
 
-    public int KeywordValue(Keyword k) => Keywords.FirstOrDefault(s => s.Keyword == k)?.Value ?? 0;
+    public bool HasKeyword(Keyword k) =>
+        Keywords.Any(s => s.Keyword == k) || TempGrants.Any(g => g.Spec.Keyword == k);
 
-    public int MovementPerTurn => HasKeyword(Keyword.Swift) ? KeywordValue(Keyword.Swift) : 1;
+    /// <summary>Highest value across permanent and temporary grants of the keyword (for Swift/Range).</summary>
+    public int KeywordValue(Keyword k)
+    {
+        int value = 0;
+        bool found = false;
+        foreach (var s in Keywords)
+            if (s.Keyword == k) { value = Math.Max(value, s.Value); found = true; }
+        foreach (var g in TempGrants)
+            if (g.Spec.Keyword == k) { value = Math.Max(value, g.Spec.Value); found = true; }
+        return found ? value : 0;
+    }
+
+    public int MovementPerTurn => (HasKeyword(Keyword.Swift) ? KeywordValue(Keyword.Swift) : 1) + BonusMovement;
 }
 
 public sealed class PlayerState
@@ -55,6 +85,8 @@ public sealed class PlayerState
     public List<CardInstance> Deck { get; set; } = new();
     public List<string> Graveyard { get; set; } = new();
     public int Fatigue { get; set; }
+    /// <summary>Leader skill is once per turn; reset at this player's turn start.</summary>
+    public bool LeaderSkillUsedThisTurn { get; set; }
 }
 
 public sealed record GameResult

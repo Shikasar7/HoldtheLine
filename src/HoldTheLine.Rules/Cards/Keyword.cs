@@ -36,6 +36,9 @@ public enum Keyword
     /// <summary>持盾 — ignores the first instance of damage it would take.</summary>
     Shield,
 
+    /// <summary>跃障 — may move to a straight-line distance-2 empty cell in one step, crossing an intervening unit.</summary>
+    Leap,
+
     /// <summary>伏兵 — untargetable until it deals damage; revealed by adjacent enemies. (Deferred; not implemented in P1.)</summary>
     Hidden,
 }

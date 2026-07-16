@@ -71,12 +71,100 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "draw", Amount = 2 }],
     };
 
+    // ---- P2 fixtures ----
+
+    public static readonly CardDefinition Garrison = new()
+    { Id = "t_garrison", Name = "Garrison 2/2", Cost = 2, Atk = 2, Hp = 2, Keywords = [new(Keyword.Garrison)] };
+
+    public static readonly CardDefinition Leaper = new()
+    { Id = "t_leaper", Name = "Leaper 3/3", Cost = 3, Atk = 3, Hp = 3, Keywords = [new(Keyword.Leap)] };
+
+    public static readonly CardDefinition PupToken = new()
+    { Id = "t_pup", Name = "Pup 1/1", Rarity = Rarity.Token, Cost = 1, Atk = 1, Hp = 1, Keywords = [new(Keyword.Swift, 2)] };
+
+    public static readonly CardDefinition Medic = new()
+    {
+        Id = "t_medic", Name = "Medic 2/3", Cost = 3, Atk = 2, Hp = 3,
+        Effects = [new EffectSpec { Trigger = "battlecry", Action = "heal", Target = "target_unit", Amount = 2 }],
+    };
+
+    public static readonly CardDefinition GrantGuardOrder = new()
+    {
+        Id = "t_grant_guard", Name = "Entrench", Type = CardType.Order, Cost = 2,
+        Effects = [new EffectSpec { Trigger = "play", Action = "grant_keyword", Target = "target_unit", GrantKeyword = Keyword.Guard, Duration = "permanent" }],
+    };
+
+    public static readonly CardDefinition PounceOrder = new()
+    {
+        Id = "t_pounce", Name = "Pounce", Type = CardType.Order, Cost = 2,
+        Effects = [new EffectSpec { Trigger = "play", Action = "grant_keyword", Target = "target_unit", GrantKeyword = Keyword.CheapShot, Duration = "end_of_turn" }],
+    };
+
+    public static readonly CardDefinition GrantShieldOrder = new()
+    {
+        Id = "t_grant_shield", Name = "Shield Wall", Type = CardType.Order, Cost = 2,
+        Effects = [new EffectSpec { Trigger = "play", Action = "grant_keyword", Target = "target_unit", GrantKeyword = Keyword.Shield, Duration = "permanent" }],
+    };
+
+    public static readonly CardDefinition SpeedOrder = new()
+    {
+        Id = "t_speed", Name = "Hunt Signal", Type = CardType.Order, Cost = 1,
+        Effects = [new EffectSpec { Trigger = "play", Action = "move_bonus", Target = "target_unit", Amount = 2 }],
+    };
+
+    public static readonly CardDefinition SummonOrder = new()
+    {
+        Id = "t_pack_call", Name = "Pack Call", Type = CardType.Order, Rarity = Rarity.Rare, Cost = 3,
+        Effects = [new EffectSpec { Trigger = "play", Action = "summon", SummonCardId = "t_pup", Amount = 2 }],
+    };
+
+    public static readonly CardDefinition ColumnOrder = new()
+    {
+        Id = "t_column", Name = "Focused Barrage", Type = CardType.Order, Rarity = Rarity.Rare, Cost = 3,
+        Effects = [new EffectSpec { Trigger = "play", Action = "damage", Target = "column_enemies", Amount = 1 }],
+    };
+
+    public static readonly CardDefinition HomeRowBuffOrder = new()
+    {
+        Id = "t_homebuff", Name = "Hold the Line", Type = CardType.Order, Rarity = Rarity.Rare, Cost = 3,
+        Effects = [new EffectSpec { Trigger = "play", Action = "buff", Target = "allies_home_row", Atk = 1, Hp = 1 }],
+    };
+
+    public static readonly CardDefinition OwnHalfSnipe = new()
+    {
+        Id = "t_ownhalf", Name = "Overline Execution", Type = CardType.Order, Rarity = Rarity.Rare, Cost = 4,
+        Effects = [new EffectSpec { Trigger = "play", Action = "damage", Target = "target_unit_own_half", Amount = 4 }],
+    };
+
+    public static readonly CardDefinition AllAlliesBuff = new()
+    {
+        Id = "t_allbuff", Name = "Blood Scent", Type = CardType.Order, Cost = 3,
+        Effects = [new EffectSpec { Trigger = "play", Action = "buff", Target = "all_allies", Atk = 1 }],
+    };
+
     public static CardDatabase Db { get; } = new([
         Vanilla, BigVanilla, Charger, Assaulter, Scout, Archer, GuardUnit, Holder,
         Trampler, Sneak, Shielded, BattlecryBuffer, Bomber, Coin, ZapOrder, DrawOrder,
+        Garrison, Leaper, PupToken, Medic, GrantGuardOrder, PounceOrder, GrantShieldOrder,
+        SpeedOrder, SummonOrder, ColumnOrder, HomeRowBuffOrder, OwnHalfSnipe, AllAlliesBuff,
     ]);
 
-    public static Resolver NewResolver() => new(Db);
+    // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.
+    public static readonly LeaderDefinition Valen = new()
+    {
+        Id = "leader_valen", Name = "Valen", SkillCost = 2,
+        SkillEffects = [new EffectSpec { Trigger = "leader_skill", Action = "grant_keyword", Target = "target_unit", GrantKeyword = Keyword.Guard, Duration = "your_next_turn" }],
+    };
+
+    public static readonly LeaderDefinition Saen = new()
+    {
+        Id = "leader_saen", Name = "Saen", SkillCost = 2,
+        SkillEffects = [new EffectSpec { Trigger = "leader_skill", Action = "move_bonus", Target = "target_unit", Amount = 1 }],
+    };
+
+    public static LeaderDatabase Leaders { get; } = new([Valen, Saen]);
+
+    public static Resolver NewResolver() => new(Db, Leaders);
 
     /// <summary>A started game (turn 1, seat 0 active) with the given decks. Deterministic via seed.</summary>
     public static GameState NewGame(ulong seed = 42, IReadOnlyList<string>? deck0 = null, IReadOnlyList<string>? deck1 = null)
@@ -108,6 +196,14 @@ public static class TestKit
             ShieldActive = def.HasKeyword(Keyword.Shield),
             Keywords = def.Keywords.ToList(),
         };
+        // Mirror the engine: a 驻防 unit placed on its home row already carries the +1/+1.
+        if (def.HasKeyword(Keyword.Garrison) && cell.Row == Geometry.BoardGeometry.HomeRow(seat))
+        {
+            unit.Atk += 1;
+            unit.MaxHp += 1;
+            unit.CurrentHp += 1;
+            unit.GarrisonApplied = true;
+        }
         state.Units.Add(unit);
         return unit;
     }

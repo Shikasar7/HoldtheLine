@@ -7,11 +7,17 @@ namespace HoldTheLine.Rules.Engine;
 public static class GameFactory
 {
     /// <summary>Creates the initial state and the opening event batch (shuffle, opening hands, coin, first turn start).</summary>
-    public static (GameState State, IReadOnlyList<GameEvent> Events) CreateGame(MatchConfig config, CardDatabase db)
+    public static (GameState State, IReadOnlyList<GameEvent> Events) CreateGame(MatchConfig config, CardDatabase db, LeaderDatabase? leaders = null)
     {
         foreach (var id in config.Deck0.Concat(config.Deck1).Append(config.CoinCardId))
             if (id.Length > 0)
                 _ = db.Get(id); // throws on unknown ids — fail at creation, not mid-match
+
+        if (leaders is not null)
+        {
+            if (config.Leader0.Length > 0) _ = leaders.Get(config.Leader0);
+            if (config.Leader1.Length > 0) _ = leaders.Get(config.Leader1);
+        }
 
         if (config.ValidateDecks)
         {

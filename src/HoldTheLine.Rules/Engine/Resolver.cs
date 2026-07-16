@@ -17,8 +17,15 @@ namespace HoldTheLine.Rules.Engine;
 public sealed class Resolver
 {
     private readonly CardDatabase _db;
+    private readonly LeaderDatabase _leaders;
 
-    public Resolver(CardDatabase db) => _db = db;
+    public Resolver(CardDatabase db) : this(db, LeaderDatabase.Empty) { }
+
+    public Resolver(CardDatabase db, LeaderDatabase leaders)
+    {
+        _db = db;
+        _leaders = leaders;
+    }
 
     public ExecutionResult Execute(GameState state, Command command)
     {
@@ -37,7 +44,7 @@ public sealed class Resolver
             PlayCardCommand play => ResolvePlayCard(ctx, play),
             MoveUnitCommand move => ResolveMove(ctx, move),
             AttackCommand attack => ResolveAttack(ctx, attack),
-            UseLeaderSkillCommand => new RuleError(RuleErrorCode.NotImplemented, "Leader skills arrive in P2."),
+            UseLeaderSkillCommand skill => ResolveLeaderSkill(ctx, skill),
             EndTurnCommand => ResolveEndTurn(ctx),
             ConcedeCommand concede => ResolveConcede(ctx, concede),
             _ => new RuleError(RuleErrorCode.InvalidCommand, $"Unknown command type {command.GetType().Name}."),
@@ -77,7 +84,7 @@ public sealed class Resolver
             return new RuleError(RuleErrorCode.NotHomeRow, "Units deploy on your home row (GDD §2.3).");
         if (ctx.State.UnitAt(cell) != null)
             return new RuleError(RuleErrorCode.CellOccupied, $"{cell} is occupied.");
-        if (EffectEngine.ValidateExplicitTargets(ctx, def.Effects, "battlecry", cmd.TargetUnitId) is { } targetError)
+        if (EffectEngine.ValidateTargets(ctx, cmd.Seat, def.Effects, "battlecry", cmd.TargetUnitId, cmd.TargetCell) is { } targetError)
             return targetError;
 
         player.Mana -= def.Cost;
@@ -104,15 +111,16 @@ public sealed class Resolver
             Seat = cmd.Seat, UnitEntityId = unit.EntityId, CardId = def.Id,
             Cell = cell, Atk = unit.Atk, Hp = unit.CurrentHp,
         });
+        ctx.RecomputeGarrison(unit); // deploys on the home row → gains 驻防 immediately
 
-        EffectEngine.RunTrigger(ctx, unit, cmd.Seat, def.Effects, "battlecry", cmd.TargetUnitId);
+        EffectEngine.RunTrigger(ctx, unit, cmd.Seat, def.Effects, "battlecry", cmd.TargetUnitId, cmd.TargetCell);
         ctx.CheckGameEnd();
         return null;
     }
 
     private RuleError? ResolveOrder(ResolutionContext ctx, PlayCardCommand cmd, PlayerState player, CardInstance card, CardDefinition def)
     {
-        if (EffectEngine.ValidateExplicitTargets(ctx, def.Effects, "play", cmd.TargetUnitId) is { } targetError)
+        if (EffectEngine.ValidateTargets(ctx, cmd.Seat, def.Effects, "play", cmd.TargetUnitId, cmd.TargetCell) is { } targetError)
             return targetError;
 
         player.Mana -= def.Cost;
@@ -120,7 +128,7 @@ public sealed class Resolver
         player.Graveyard.Add(def.Id);
 
         ctx.Emit(new CardPlayedEvent { Seat = cmd.Seat, CardEntityId = card.EntityId, CardId = def.Id, ManaSpent = def.Cost });
-        EffectEngine.RunTrigger(ctx, source: null, cmd.Seat, def.Effects, "play", cmd.TargetUnitId);
+        EffectEngine.RunTrigger(ctx, source: null, cmd.Seat, def.Effects, "play", cmd.TargetUnitId, cmd.TargetCell);
         ctx.CheckGameEnd();
         return null;
     }
@@ -140,16 +148,24 @@ public sealed class Resolver
             return new RuleError(RuleErrorCode.NoMovementLeft, "No movement left this turn.");
         if (!BoardGeometry.IsInside(cmd.To))
             return new RuleError(RuleErrorCode.CellOutsideBoard, $"{cmd.To} is outside the board.");
-        if (!BoardGeometry.AreAdjacent(unit.Cell, cmd.To))
-            return new RuleError(RuleErrorCode.NotAdjacent, "Movement is one orthogonal step at a time.");
+
+        bool adjacent = BoardGeometry.AreAdjacent(unit.Cell, cmd.To);
+        // 跃障 (Leap): one straight-line jump of 2, crossing whatever sits between (GDD keyword).
+        bool leap = !adjacent
+            && unit.HasKeyword(Keyword.Leap)
+            && BoardGeometry.LineDistance(unit.Cell, cmd.To) == 2;
+        if (!adjacent && !leap)
+            return new RuleError(RuleErrorCode.NotAdjacent, "Movement is one orthogonal step (跃障 excepted).");
         if (ctx.State.UnitAt(cmd.To) != null)
-            return new RuleError(RuleErrorCode.CellOccupied, "Units never pass through or share cells — friend or foe (GDD §2.4).");
+            return new RuleError(RuleErrorCode.CellOccupied, "Units never share cells — friend or foe (GDD §2.4).");
 
         var from = unit.Cell;
         unit.Cell = cmd.To;
         unit.MovementUsed++;
         unit.MovedThisRound = true;
         ctx.Emit(new UnitMovedEvent { UnitEntityId = unit.EntityId, From = from, To = cmd.To });
+        ctx.RecomputeGarrison(unit); // leaving/entering the home row toggles 驻防
+        ctx.ProcessDeaths();         // losing borrowed 驻防 HP can be lethal
         return null;
     }
 
@@ -247,8 +263,32 @@ public sealed class Resolver
             attacker.Cell = vacated;
             attacker.MovedThisRound = true; // occupying counts as movement for 坚守
             ctx.Emit(new UnitMovedEvent { UnitEntityId = attacker.EntityId, From = from, To = vacated });
+            ctx.RecomputeGarrison(attacker); // trampling forward leaves the home row
+            ctx.ProcessDeaths();
         }
 
+        ctx.CheckGameEnd();
+        return null;
+    }
+
+    // ---- leader skill (GDD §2.2) ----
+
+    private RuleError? ResolveLeaderSkill(ResolutionContext ctx, UseLeaderSkillCommand cmd)
+    {
+        var player = ctx.State.Player(cmd.Seat);
+        if (!_leaders.TryGet(player.LeaderId, out var leader))
+            return new RuleError(RuleErrorCode.NotImplemented, $"No leader skill for '{player.LeaderId}'.");
+        if (player.LeaderSkillUsedThisTurn)
+            return new RuleError(RuleErrorCode.InvalidCommand, "Leader skill already used this turn.");
+        if (player.Mana < leader.SkillCost)
+            return new RuleError(RuleErrorCode.NotEnoughMana, $"Leader skill costs {leader.SkillCost}, you have {player.Mana}.");
+        if (EffectEngine.ValidateTargets(ctx, cmd.Seat, leader.SkillEffects, "leader_skill", cmd.TargetUnitId, cmd.TargetCell) is { } targetError)
+            return targetError;
+
+        player.Mana -= leader.SkillCost;
+        player.LeaderSkillUsedThisTurn = true;
+        ctx.Emit(new LeaderSkillUsedEvent { Seat = cmd.Seat, LeaderId = leader.Id, TargetUnitId = cmd.TargetUnitId });
+        EffectEngine.RunTrigger(ctx, source: null, cmd.Seat, leader.SkillEffects, "leader_skill", cmd.TargetUnitId, cmd.TargetCell);
         ctx.CheckGameEnd();
         return null;
     }
@@ -257,6 +297,7 @@ public sealed class Resolver
 
     private static RuleError? ResolveEndTurn(ResolutionContext ctx)
     {
+        ctx.ExpireEndOfTurnGrants(); // pounce, etc. lapse before control passes
         ctx.Emit(new TurnEndedEvent { Seat = ctx.State.ActiveSeat, TurnNumber = ctx.State.TurnNumber });
         TurnFlow.StartTurn(ctx, 1 - ctx.State.ActiveSeat);
         return null;

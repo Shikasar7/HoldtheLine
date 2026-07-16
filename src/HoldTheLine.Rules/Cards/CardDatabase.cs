@@ -20,6 +20,11 @@ public sealed class CardDatabase
                 throw new InvalidDataException($"Duplicate card id '{card.Id}'.");
             Validate(card);
         }
+        // Cross-references (e.g. summon target ids) can only be checked once every card is loaded.
+        foreach (var card in _cards.Values)
+            foreach (var spec in card.Effects)
+                if (spec.Action == "summon" && (spec.SummonCardId is null || !_cards.ContainsKey(spec.SummonCardId)))
+                    throw new InvalidDataException($"Card '{card.Id}': summon references unknown card '{spec.SummonCardId}'.");
     }
 
     public IReadOnlyCollection<CardDefinition> All => _cards.Values;
@@ -58,18 +63,34 @@ public sealed class CardDatabase
 
         foreach (var spec in card.Effects)
         {
+            if (spec.Trigger == "leader_skill")
+                throw new InvalidDataException($"Card '{card.Id}': 'leader_skill' is for leaders, not cards.");
             if (!EffectSpec.KnownTriggers.Contains(spec.Trigger))
                 throw new InvalidDataException($"Card '{card.Id}': unknown trigger '{spec.Trigger}'.");
             if (!EffectSpec.KnownActions.Contains(spec.Action))
                 throw new InvalidDataException($"Card '{card.Id}': unknown action '{spec.Action}'.");
             if (!EffectSpec.KnownTargets.Contains(spec.Target))
                 throw new InvalidDataException($"Card '{card.Id}': unknown target '{spec.Target}'.");
+            if (!EffectSpec.KnownDurations.Contains(spec.Duration))
+                throw new InvalidDataException($"Card '{card.Id}': unknown duration '{spec.Duration}'.");
             if (card.Type == CardType.Order && spec.Target is "self" or "adjacent_allies" or "adjacent_enemies")
                 throw new InvalidDataException($"Order '{card.Id}': target '{spec.Target}' requires a source unit.");
             if (card.Type == CardType.Order && spec.Trigger != "play")
                 throw new InvalidDataException($"Order '{card.Id}': orders only support the 'play' trigger.");
             if (card.Type == CardType.Unit && spec.Trigger == "play")
                 throw new InvalidDataException($"Unit '{card.Id}': units use 'battlecry'/'deathrattle', not 'play'.");
+
+            if (spec.Action == "grant_keyword")
+            {
+                if (spec.GrantKeyword is null)
+                    throw new InvalidDataException($"Card '{card.Id}': grant_keyword needs a 'keyword'.");
+                if (spec.GrantKeyword == Keyword.Hidden)
+                    throw new InvalidDataException($"Card '{card.Id}': granting Hidden (伏兵) is deferred.");
+                if (spec.GrantKeyword is Keyword.Swift or Keyword.Range && spec.GrantKeywordValue < 1)
+                    throw new InvalidDataException($"Card '{card.Id}': granting {spec.GrantKeyword} needs keyword_value >= 1.");
+            }
+            if (spec.Action == "summon" && spec.Amount < 1)
+                throw new InvalidDataException($"Card '{card.Id}': summon needs amount >= 1.");
         }
 
         foreach (var kw in card.Keywords)

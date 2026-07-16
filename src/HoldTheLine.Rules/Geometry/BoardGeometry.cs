@@ -13,6 +13,9 @@ public static class BoardGeometry
 
     public static int EnemyHomeRow(int seat) => HomeRow(1 - seat);
 
+    /// <summary>A seat's own half of the board (its home + front rows). Seat 0 = rows 0–1, seat 1 = rows 2–3.</summary>
+    public static bool InOwnHalf(int seat, Cell c) => seat == 0 ? c.Row < Rows / 2 : c.Row >= Rows / 2;
+
     public static bool AreAdjacent(Cell a, Cell b) =>
         Math.Abs(a.Col - b.Col) + Math.Abs(a.Row - b.Row) == 1;
 

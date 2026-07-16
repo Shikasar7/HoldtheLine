@@ -1,5 +1,6 @@
 using HoldTheLine.Rules.Cards;
 using HoldTheLine.Rules.Events;
+using HoldTheLine.Rules.Geometry;
 using HoldTheLine.Rules.State;
 
 namespace HoldTheLine.Rules.Engine;
@@ -132,6 +133,124 @@ internal sealed class ResolutionContext
         var player = State.Player(seat);
         player.Mana = Math.Min(ManaCap, player.Mana + amount);
         Emit(new ManaGainedEvent { Seat = seat, Amount = amount, NewMana = player.Mana });
+    }
+
+    // ---- P2 effect mutations ----
+
+    public void HealUnit(UnitInstance target, int amount)
+    {
+        int before = target.CurrentHp;
+        target.CurrentHp = Math.Min(target.MaxHp, target.CurrentHp + Math.Max(0, amount));
+        Emit(new UnitHealedEvent { UnitEntityId = target.EntityId, Amount = target.CurrentHp - before, NewHp = target.CurrentHp });
+    }
+
+    public void AddMoveBonus(UnitInstance target, int amount)
+    {
+        target.BonusMovement += amount;
+        Emit(new UnitMoveBonusEvent { UnitEntityId = target.EntityId, Amount = amount, NewBonusMovement = target.BonusMovement });
+    }
+
+    /// <summary>Grants a keyword permanently or for a limited duration. Shield grants (re)arm the shield charge.</summary>
+    public void GrantKeyword(UnitInstance target, Keyword keyword, int value, string duration, int grantedBySeat)
+    {
+        if (duration == "permanent")
+        {
+            if (!target.Keywords.Any(s => s.Keyword == keyword && s.Value == value))
+                target.Keywords.Add(new KeywordSpec(keyword, value));
+        }
+        else
+        {
+            target.TempGrants.Add(new TempKeywordGrant
+            {
+                Spec = new KeywordSpec(keyword, value),
+                Expiry = duration,
+                GrantedBySeat = grantedBySeat,
+            });
+        }
+
+        if (keyword == Keyword.Shield)
+            target.ShieldActive = true;
+
+        Emit(new UnitKeywordGrantedEvent { UnitEntityId = target.EntityId, Keyword = keyword, Value = value, Duration = duration });
+        RecomputeGarrison(target); // in case Garrison itself was granted
+    }
+
+    /// <summary>Summons up to <paramref name="count"/> copies of a card onto the seat's home-row empty cells (west→east).</summary>
+    public void SummonUnits(int seat, string cardId, int count)
+    {
+        var def = Db.Get(cardId);
+        int homeRow = BoardGeometry.HomeRow(seat);
+        int placed = 0;
+        for (int col = 0; col < BoardGeometry.Cols && placed < count; col++)
+        {
+            var cell = new Cell(col, homeRow);
+            if (State.UnitAt(cell) != null)
+                continue;
+
+            var unit = new UnitInstance
+            {
+                EntityId = State.TakeEntityId(),
+                CardId = def.Id,
+                OwnerSeat = seat,
+                Cell = cell,
+                Atk = def.Atk,
+                MaxHp = def.Hp,
+                CurrentHp = def.Hp,
+                DeployedOnTurn = State.TurnNumber,
+                ShieldActive = def.HasKeyword(Keyword.Shield),
+                Keywords = def.Keywords.ToList(),
+            };
+            State.Units.Add(unit);
+            Emit(new UnitDeployedEvent
+            {
+                Seat = seat, UnitEntityId = unit.EntityId, CardId = def.Id,
+                Cell = cell, Atk = unit.Atk, Hp = unit.CurrentHp,
+            });
+            RecomputeGarrison(unit);
+            placed++;
+        }
+    }
+
+    /// <summary>
+    /// 驻防 (Garrison): +1/+1 while on the owner's home row. Toggled symmetrically so damage is
+    /// preserved — a garrisoned unit reduced to 1 borrowed HP that then leaves the line dies
+    /// (the bonus was holding it together). Idempotent via <see cref="UnitInstance.GarrisonApplied"/>.
+    /// </summary>
+    public void RecomputeGarrison(UnitInstance unit)
+    {
+        bool shouldHave = unit.HasKeyword(Keyword.Garrison)
+            && unit.Cell.Row == BoardGeometry.HomeRow(unit.OwnerSeat);
+
+        if (shouldHave == unit.GarrisonApplied)
+            return;
+
+        int delta = shouldHave ? 1 : -1;
+        unit.Atk += delta;
+        unit.MaxHp += delta;
+        unit.CurrentHp += delta;
+        unit.GarrisonApplied = shouldHave;
+
+        Emit(new UnitBuffedEvent
+        {
+            UnitEntityId = unit.EntityId,
+            AtkDelta = delta, HpDelta = delta,
+            NewAtk = unit.Atk, NewHp = unit.CurrentHp,
+            IsGarrison = true,
+        });
+    }
+
+    /// <summary>Drops all end-of-turn temporary grants (called when the active player ends their turn).</summary>
+    public void ExpireEndOfTurnGrants()
+    {
+        foreach (var unit in State.Units)
+            unit.TempGrants.RemoveAll(g => g.Expiry == "end_of_turn");
+    }
+
+    /// <summary>Drops "your next turn" grants owned by <paramref name="seat"/> (called at that seat's turn start).</summary>
+    public void ExpireYourNextTurnGrants(int seat)
+    {
+        foreach (var unit in State.Units)
+            unit.TempGrants.RemoveAll(g => g.Expiry == "your_next_turn" && g.GrantedBySeat == seat);
     }
 
     // ---- game end ----

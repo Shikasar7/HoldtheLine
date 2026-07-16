@@ -14,6 +14,12 @@ config/name="Hold the Line"
 run/main_scene="res://scenes/main/Main.tscn"
 config/features=PackedStringArray("4.6", "C#", "Forward Plus")
 
+[autoload]
+
+MCPScreenshot="*res://addons/godot_mcp/mcp_screenshot_service.gd"
+MCPInputService="*res://addons/godot_mcp/mcp_input_service.gd"
+MCPGameInspector="*res://addons/godot_mcp/mcp_game_inspector_service.gd"
+
 [display]
 
 window/size/viewport_width=1920

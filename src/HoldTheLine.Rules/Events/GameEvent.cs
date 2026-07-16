@@ -22,8 +22,12 @@ namespace HoldTheLine.Rules.Events;
 [JsonDerivedType(typeof(UnitMovedEvent), "unit_moved")]
 [JsonDerivedType(typeof(AttackedEvent), "attacked")]
 [JsonDerivedType(typeof(UnitDamagedEvent), "unit_damaged")]
+[JsonDerivedType(typeof(UnitHealedEvent), "unit_healed")]
 [JsonDerivedType(typeof(UnitBuffedEvent), "unit_buffed")]
+[JsonDerivedType(typeof(UnitKeywordGrantedEvent), "unit_keyword_granted")]
+[JsonDerivedType(typeof(UnitMoveBonusEvent), "unit_move_bonus")]
 [JsonDerivedType(typeof(LeaderDamagedEvent), "leader_damaged")]
+[JsonDerivedType(typeof(LeaderSkillUsedEvent), "leader_skill_used")]
 [JsonDerivedType(typeof(UnitDiedEvent), "unit_died")]
 [JsonDerivedType(typeof(ManaGainedEvent), "mana_gained")]
 [JsonDerivedType(typeof(GameEndedEvent), "game_ended")]
@@ -122,6 +126,14 @@ public sealed record UnitDamagedEvent : GameEvent
     public bool ShieldAbsorbed { get; init; }
 }
 
+public sealed record UnitHealedEvent : GameEvent
+{
+    public required int UnitEntityId { get; init; }
+    /// <summary>Health actually restored (0 if already full).</summary>
+    public required int Amount { get; init; }
+    public required int NewHp { get; init; }
+}
+
 public sealed record UnitBuffedEvent : GameEvent
 {
     public required int UnitEntityId { get; init; }
@@ -129,6 +141,31 @@ public sealed record UnitBuffedEvent : GameEvent
     public required int HpDelta { get; init; }
     public required int NewAtk { get; init; }
     public required int NewHp { get; init; }
+    /// <summary>True when this delta is the 驻防 (Garrison) bonus toggling on/off, not a card buff.</summary>
+    public bool IsGarrison { get; init; }
+}
+
+public sealed record UnitKeywordGrantedEvent : GameEvent
+{
+    public required int UnitEntityId { get; init; }
+    public required Cards.Keyword Keyword { get; init; }
+    public int Value { get; init; }
+    /// <summary>permanent | end_of_turn | your_next_turn.</summary>
+    public required string Duration { get; init; }
+}
+
+public sealed record UnitMoveBonusEvent : GameEvent
+{
+    public required int UnitEntityId { get; init; }
+    public required int Amount { get; init; }
+    public required int NewBonusMovement { get; init; }
+}
+
+public sealed record LeaderSkillUsedEvent : GameEvent
+{
+    public required int Seat { get; init; }
+    public required string LeaderId { get; init; }
+    public int? TargetUnitId { get; init; }
 }
 
 public sealed record LeaderDamagedEvent : GameEvent
