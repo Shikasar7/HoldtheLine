@@ -619,6 +619,7 @@ public partial class BattleScene : Control
     private static Cell? CellOf(Command c) => c switch
     {
         PlayCardCommand p => p.TargetCell,
+        MoveUnitCommand m => m.To,
         UseLeaderSkillCommand s => s.TargetCell,
         _ => null,
     };
