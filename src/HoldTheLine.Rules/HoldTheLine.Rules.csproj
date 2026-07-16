@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>HoldTheLine.Rules</RootNamespace>
+    <Description>Hold the Line — deterministic, engine-agnostic rules engine. No Godot/IO/time dependencies allowed.</Description>
+  </PropertyGroup>
+</Project>

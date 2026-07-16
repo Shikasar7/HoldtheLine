@@ -1,0 +1,20 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+artifacts/
+
+# Godot
+game/.godot/
+game/android/
+*.translation
+export_presets.cfg.secret
+
+# OS
+Thumbs.db
+.DS_Store
+
+# AI art working files (generated candidates before curation)
+art_work/
