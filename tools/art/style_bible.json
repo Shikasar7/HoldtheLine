@@ -1,0 +1,52 @@
+{
+  "version": "v1-draft",
+  "comment": "风格圣经:所有 AI 出图提示词的唯一规范来源。风格探索期迭代此文件;定稿后锁 version 为 v1。每张卡最终 prompt = global_style + composition[卡型] + factions[阵营] + 卡牌 art_prompt。",
+
+  "global_style": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail",
+
+  "negative_prompt": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described",
+
+  "composition": {
+    "unit": "character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left",
+    "order": "dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size",
+    "leader": "waist-up heroic portrait, three-quarter view, commanding presence, centered, plain smoky background, dramatic rim light, face and emblem clearly readable inside a circular crop",
+    "board": "top-down view of a weathered military campaign table, worn canvas and leather map surface with faint terrain stains, low contrast, heavily desaturated, subdued detail so game pieces stand out, evenly lit, no grid lines, no icons, no text"
+  },
+
+  "factions": {
+    "iron_vow": {
+      "name": "铁誓",
+      "block": "Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents"
+    },
+    "wildpack": {
+      "name": "野群",
+      "block": "Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents"
+    },
+    "neutral": {
+      "name": "中立",
+      "block": "unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem"
+    }
+  },
+
+  "extra_assets": [
+    {
+      "id": "board_main",
+      "type": "board",
+      "faction": null,
+      "art_prompt": "a war-room campaign table surface for a 5x4 grid battlefield, subtle scorch marks and old supply-route stains, cool grey field with warm umber edges"
+    }
+  ],
+
+  "exploration_pack": [
+    "board_main",
+    "iv_shieldbearer",
+    "iv_line_sergeant",
+    "wp_dire_wolf",
+    "iv_hold_the_line"
+  ],
+
+  "anchors": {
+    "comment": "风格探索验收后,把选定锚点图的文件路径填进来;批量生产时所有生成挂这些图作 style reference(Flux Redux / IP-Adapter)。",
+    "images": []
+  }
+}

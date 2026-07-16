@@ -28,11 +28,23 @@ public partial class BattleScene : Control
     private readonly List<GameEvent> _pendingEvents = new();
     private bool _busy;
 
+    private SfxBank _sfx = null!;
+
     // Selection / targeting state.
     private enum SelKind { None, Card, Unit, Leader }
     private SelKind _selKind = SelKind.None;
     private List<Command> _candidates = new();
     private Cell? _chosenCell;
+
+    // Card drag-to-play.
+    private static readonly Vector2 GhostSize = new(150, 214);
+    private int? _dragCardId;
+    private bool _dragMoved;
+    private Vector2 _dragStart;
+    private Control? _dragGhost;
+
+    private enum HitKind { Cell, Unit, Leader }
+    private readonly record struct Hit(HitKind Kind, Cell Cell, int UnitId);
 
     // Perspective: the active player always sees their own home row at the bottom (180° flip for seat 1).
     private int _persp;
@@ -76,6 +88,7 @@ public partial class BattleScene : Control
         _host.Subscribe(0, e => _pendingEvents.Add(e)); // seat-0 stream: public events drive animation
 
         BuildStaticUi();
+        _sfx = new SfxBank(this);
         FullRender();
     }
 
@@ -158,14 +171,24 @@ public partial class BattleScene : Control
     {
         var view = _host.GetView(ActiveSeat);
         _persp = view.ActiveSeat;
-        RenderStandees(view);
+
+        // Units the active player can still act with this turn (drives the "ready vs spent/sick" look).
+        var actionable = new HashSet<int>();
+        foreach (var c in _host.LegalCommands(view.ActiveSeat))
+            switch (c)
+            {
+                case MoveUnitCommand m: actionable.Add(m.UnitEntityId); break;
+                case AttackCommand a: actionable.Add(a.AttackerEntityId); break;
+            }
+
+        RenderStandees(view, actionable);
         RenderHand(view);
         RenderHud(view);
         ClearSelection();
         RefreshInteractable(view);
     }
 
-    private void RenderStandees(PlayerView view)
+    private void RenderStandees(PlayerView view, HashSet<int> actionable)
     {
         foreach (var node in _standees.Values)
             node.QueueFree();
@@ -198,8 +221,9 @@ public partial class BattleScene : Control
                 btn.AddChild(kwl);
             }
 
-            if (u.OwnerSeat == view.ActiveSeat && u.MovementUsed == 0 && u.AttacksUsed == 0)
-                btn.Modulate = new Color(1, 1, 1, 1);
+            // Dim the active player's own units that can no longer act (集结中 or already spent).
+            if (u.OwnerSeat == view.ActiveSeat && !actionable.Contains(u.EntityId))
+                btn.Modulate = new Color(0.6f, 0.6f, 0.6f);
             btn.SetMeta("owner", u.OwnerSeat);
             _standeeLayer.AddChild(btn);
             _standees[u.EntityId] = btn;
@@ -228,7 +252,7 @@ public partial class BattleScene : Control
             var pos = new Vector2(startX + i * spacing, y);
             var card = BattleTheme.MakeButton(pos, new Vector2(cardW, cardH), BattleTheme.PanelDark, FactionColor(def.Faction), 3, 10);
             int id = ch.EntityId;
-            card.Pressed += () => OnCardClicked(id);
+            card.ButtonDown += () => BeginCardDrag(id); // tap = select, drag = play (see _Input/EndCardDrag)
 
             card.AddChild(Pip(def.Cost.ToString(), BattleTheme.CostColor, new Vector2(6, 6)));
             if (def.Type == CardType.Unit)
@@ -329,7 +353,9 @@ public partial class BattleScene : Control
     private void HighlightLeader() =>
         BattleTheme.SetButtonBg(_oppLeaderBtn, BattleTheme.PanelDark, BattleTheme.Accent, 5, 10);
 
-    private void OnCardClicked(int cardEntityId)
+    private void OnCardClicked(int cardEntityId) => SelectCard(cardEntityId, autoSubmit: true);
+
+    private void SelectCard(int cardEntityId, bool autoSubmit)
     {
         if (_busy) return;
         int seat = ActiveSeat;
@@ -340,8 +366,8 @@ public partial class BattleScene : Control
         ClearHighlights();
 
         if (_candidates.Count == 0) { Log("这张牌现在打不出。"); ClearSelection(); return; }
-        // No-target card (e.g. 抽牌指令): play immediately.
-        if (_candidates.Count == 1 && CellOf(_candidates[0]) is null && UnitOf(_candidates[0]) is null)
+        // No-target card (e.g. 抽牌指令): a tap plays it immediately; a drag waits for the drop.
+        if (autoSubmit && _candidates.Count == 1 && CellOf(_candidates[0]) is null && UnitOf(_candidates[0]) is null)
         { Submit(_candidates[0]); return; }
 
         HighlightCardCandidates();
@@ -417,7 +443,12 @@ public partial class BattleScene : Control
     private void OnCellClicked(int scol, int srow)
     {
         if (_busy || _selKind == SelKind.None) return;
-        var cell = ScreenToBoard(scol, srow);
+        PickCell(ScreenToBoard(scol, srow));
+    }
+
+    private void PickCell(Cell cell)
+    {
+        if (_selKind == SelKind.None) return;
 
         // Exact cell match, else column fallback (spatial column orders).
         var exact = _candidates.Where(c => CellOf(c) is { } cc && cc.Col == cell.Col && cc.Row == cell.Row).ToList();
@@ -432,7 +463,9 @@ public partial class BattleScene : Control
         HighlightCardCandidates();
     }
 
-    private void OnLeaderClicked(int leaderSeat)
+    private void OnLeaderClicked(int leaderSeat) => PickLeader();
+
+    private void PickLeader()
     {
         if (_busy) return;
         var filtered = _candidates.Where(c => c is AttackCommand { TargetLeader: true }).ToList();
@@ -459,6 +492,95 @@ public partial class BattleScene : Control
     {
         if (_busy) return;
         Submit(new EndTurnCommand { Seat = ActiveSeat });
+    }
+
+    // ---------- card drag-to-play ----------
+
+    public override void _Input(InputEvent @event)
+    {
+        if (_dragCardId is null)
+            return;
+
+        if (@event is InputEventMouseMotion mm)
+        {
+            if (!_dragMoved && mm.Position.DistanceTo(_dragStart) > 6f)
+                _dragMoved = true;
+            if (_dragGhost != null)
+                _dragGhost.Position = mm.Position - GhostSize / 2f;
+        }
+        else if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } mb)
+        {
+            GetViewport().SetInputAsHandled(); // eat the release so the cell/card button underneath doesn't also fire
+            EndCardDrag(mb.Position);
+        }
+    }
+
+    private void BeginCardDrag(int cardEntityId)
+    {
+        if (_busy || _dragCardId != null)
+            return;
+        _dragCardId = cardEntityId;
+        _dragMoved = false;
+        _dragStart = GetGlobalMousePosition();
+        _dragGhost = BuildGhost(cardEntityId);
+        _dragGhost.Position = _dragStart - GhostSize / 2f;
+        _overlayLayer.AddChild(_dragGhost);
+        SelectCard(cardEntityId, autoSubmit: false); // highlight legal targets while dragging
+    }
+
+    private void EndCardDrag(Vector2 pos)
+    {
+        int id = _dragCardId!.Value;
+        _dragCardId = null;
+        _dragGhost?.QueueFree();
+        _dragGhost = null;
+
+        if (!_dragMoved) { OnCardClicked(id); return; }  // a tap, not a drag → select
+        if (_busy) { ClearSelection(); return; }
+
+        var hit = HitTest(pos);
+        if (hit is null) { ClearSelection(); Log("已取消。"); return; }
+        switch (hit.Value.Kind)
+        {
+            case HitKind.Cell: PickCell(hit.Value.Cell); break;
+            case HitKind.Unit: TryPickUnitTarget(hit.Value.UnitId); break;
+            case HitKind.Leader: PickLeader(); break;
+        }
+    }
+
+    private Hit? HitTest(Vector2 pos)
+    {
+        foreach (var (id, node) in _standees)
+            if (node.GetGlobalRect().HasPoint(pos))
+                return new Hit(HitKind.Unit, default, id);
+        if (_oppLeaderBtn.GetGlobalRect().HasPoint(pos))
+            return new Hit(HitKind.Leader, default, 0);
+        for (int scol = 0; scol < BattleTheme.Cols; scol++)
+            for (int srow = 0; srow < BattleTheme.Rows; srow++)
+                if (_cellButtons[scol, srow].GetGlobalRect().HasPoint(pos))
+                    return new Hit(HitKind.Cell, ScreenToBoard(scol, srow), 0);
+        return null;
+    }
+
+    private Control BuildGhost(int cardEntityId)
+    {
+        var ghost = BattleTheme.MakeButton(Vector2.Zero, GhostSize, BattleTheme.PanelDark, BattleTheme.Accent, 3, 10);
+        ghost.Disabled = true;
+        ghost.MouseFilter = MouseFilterEnum.Ignore;
+        ghost.Modulate = new Color(1, 1, 1, 0.85f);
+
+        var ch = _host.GetView(ActiveSeat).Self.Hand.FirstOrDefault(h => h.EntityId == cardEntityId);
+        if (ch != null)
+        {
+            var def = _cards.Get(ch.CardId);
+            ghost.AddChild(Pip(def.Cost.ToString(), BattleTheme.CostColor, new Vector2(6, 6)));
+            var name = BattleTheme.MakeLabel(def.Name, 18, BattleTheme.TextMain, HorizontalAlignment.Center);
+            name.Position = new Vector2(6, 84);
+            name.Size = new Vector2(GhostSize.X - 12, 46);
+            name.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            ghost.AddChild(name);
+        }
+        return ghost;
     }
 
     // ---------- command submission + event animation ----------
@@ -503,10 +625,16 @@ public partial class BattleScene : Control
         {
             switch (e)
             {
+                case UnitDeployedEvent:
+                    _sfx.Play("play");
+                    await Delay(0.05);
+                    break;
                 case UnitMovedEvent m when _standees.TryGetValue(m.UnitEntityId, out var node):
+                    _sfx.Play("move");
                     await TweenTo(node, CellScreenPos(m.To) + new Vector2(7, 7), 0.16);
                     break;
                 case AttackedEvent a when _standees.TryGetValue(a.AttackerEntityId, out var atk):
+                    _sfx.Play("attack");
                     await Thump(atk);
                     break;
                 case UnitDamagedEvent d when _standees.TryGetValue(d.UnitEntityId, out var tgt):
@@ -524,6 +652,7 @@ public partial class BattleScene : Control
                     await Delay(0.08);
                     break;
                 case LeaderDamagedEvent ld:
+                    _sfx.Play("leaderhit");
                     Flash(_oppLeaderBtn, BattleTheme.DangerColor);
                     FloatText(_oppLeaderBtn.Position + new Vector2(160, 40), $"-{ld.Amount}", BattleTheme.DangerColor);
                     await Delay(0.14);

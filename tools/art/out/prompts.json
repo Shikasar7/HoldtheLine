@@ -1,0 +1,366 @@
+{
+  "iv_oath_squire": {
+    "name": "誓火侍从",
+    "type": "unit",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: a young squire kneeling with a small round shield, oath-flame emblem",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "iv_shieldbearer": {
+    "name": "持盾卫",
+    "type": "unit",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: a stoic armored soldier bracing behind a tower shield etched with oaths",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "iv_garrison_guard": {
+    "name": "驻防哨兵",
+    "type": "unit",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: a watchtower sentry in heavy coat standing guard at a fortified back line",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "iv_line_sergeant": {
+    "name": "战列军士",
+    "type": "unit",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: a grizzled sergeant barking orders, pointing his sword, rallying the rank beside him",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "iv_oathguard": {
+    "name": "誓约盾卫",
+    "type": "unit",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: a knight-captain planting a banner-shield, allies rallying beside them",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "iv_bastion_archer": {
+    "name": "壁垒射手",
+    "type": "unit",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: an archer perched atop a fortress rampart, drawing a longbow over the battlements",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "iv_rampart_hammer": {
+    "name": "城垣锤卫",
+    "type": "unit",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: a broad armored warden with a great warhammer, standing like a wall",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "iv_oath_avenger": {
+    "name": "誓约复仇者",
+    "type": "unit",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: a dying knight raising his blade skyward, light passing to comrades around him",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "iv_gate_titan": {
+    "name": "门扉巨像",
+    "type": "unit",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: a colossal iron gate-golem with a portcullis for a face, blocking a breach",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "iv_bulwark": {
+    "name": "壁垒巨像",
+    "type": "unit",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: a colossal stone-and-steel construct shaped like a walking fortress wall",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "iv_aegis_paragon": {
+    "name": "圣盾典范",
+    "type": "unit",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: a radiant paragon knight with an enormous aegis shield emitting a protective halo",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "iv_fortress_lord": {
+    "name": "铁誓执线者·加兰",
+    "type": "unit",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: an ancient warden-lord fused with fortress armor, banner of the iron oath, immovable",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "iv_oath_prayer": {
+    "name": "铁誓祷言",
+    "type": "order",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: a chaplain raising a glowing sigil over a kneeling soldier, warm light",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "iv_shield_wall": {
+    "name": "盾墙号令",
+    "type": "order",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: a line of shields snapping together into an interlocked wall, sparks deflecting",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "iv_hold_the_line": {
+    "name": "死守防线",
+    "type": "order",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: a defiant banner raised over a back-line trench, soldiers bracing shoulder to shoulder",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "iv_overline_execution": {
+    "name": "越线者死",
+    "type": "order",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: an executioner's greatsword slamming down on an intruder who crossed the line",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "neutral_coin": {
+    "name": "军令硬币",
+    "type": "order",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: an ornate military command coin glowing with teal aether light, on a war-map table",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_militia": {
+    "name": "民兵",
+    "type": "unit",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: a farmer militia with a pitchfork and improvised armor, aggressive stance",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_recruit": {
+    "name": "战线新兵",
+    "type": "unit",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: a nervous young soldier in a patched trench coat holding a rifle",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_barrier_squad": {
+    "name": "路障小队",
+    "type": "unit",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: engineers stacking sandbags and steel barricades to form a living wall",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_crossbowman": {
+    "name": "戍墙弩手",
+    "type": "unit",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: a hooded crossbowman aiming from behind a wooden barricade",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_scout": {
+    "name": "荒原斥候",
+    "type": "unit",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: a lean scout sprinting low across cracked wasteland ground",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_pikeman": {
+    "name": "长矛兵",
+    "type": "unit",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: a disciplined pikeman in formation, long spear leveled forward",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_supply_officer": {
+    "name": "补给官",
+    "type": "unit",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: a cheerful quartermaster with an oversized backpack full of supplies",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_field_medic": {
+    "name": "战地医师",
+    "type": "unit",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: a field medic with a satchel of bandages tending a wounded soldier under fire",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_line_breaker": {
+    "name": "破阵锤兵",
+    "type": "unit",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: a heavy infantry soldier swinging a two-handed maul at the camera",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_ballista": {
+    "name": "攻城弩炮",
+    "type": "unit",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: a massive wheeled ballista crewed by soldiers, bolt the size of a spear",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_mercenary_king": {
+    "name": "佣兵王爵·雷诺克",
+    "type": "unit",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: a scarred mercenary warlord in gilded plate, twin blades, coins spilling from his cloak",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_warhulk": {
+    "name": "重装战车",
+    "type": "unit",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: a huge armored steam war-wagon bristling with spikes and a battering ram",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_volley": {
+    "name": "齐射指令",
+    "type": "order",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: a flight of arrows and aether bolts arcing over trench lines",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_requisition": {
+    "name": "紧急征调",
+    "type": "order",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: a staff officer stamping requisition papers as crates arrive by rail",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_entrench": {
+    "name": "筑防指令",
+    "type": "order",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: soldiers hastily digging a foxhole and planting a shield-stake",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "nl_focused_barrage": {
+    "name": "纵列齐射",
+    "type": "order",
+    "faction": "neutral",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: a coordinated artillery barrage hammering one straight lane of the battlefield, dust column",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_pup": {
+    "name": "掠群幼狼",
+    "type": "unit",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a small fast wolf-pup with glowing eyes, dashing across dust",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_fang_rider": {
+    "name": "獠牙骑手",
+    "type": "unit",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: an orc rider on a tusked beast charging with a bone spear",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_flanker": {
+    "name": "侧翼游骑",
+    "type": "unit",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a mounted flanker wheeling around the side, war-paint streaks",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_raider": {
+    "name": "掠袭者",
+    "type": "unit",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a feral orc raider mid-leap swinging a jagged axe",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_stalker": {
+    "name": "潜猎者",
+    "type": "unit",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a beast-rider emerging from dust with twin curved daggers",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_howler": {
+    "name": "唤群嚎叫者",
+    "type": "unit",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a shaman howling with a horn, packmates surging forward around him",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_dire_wolf": {
+    "name": "掠猎巨狼",
+    "type": "unit",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a huge dire wolf with battle harness, muscles coiled to spring",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_ambusher": {
+    "name": "暗爪伏击者",
+    "type": "unit",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a clawed ambusher dropping from above onto an unsuspecting target",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_pack_alpha": {
+    "name": "兽群头领",
+    "type": "unit",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a hulking pack-alpha beast with battle scars charging through a broken palisade",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_rift_leaper": {
+    "name": "裂谷跃兽",
+    "type": "unit",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a long-limbed leaping beast vaulting clean over a soldier, rift-light trailing",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_windrunner": {
+    "name": "风驰战狼",
+    "type": "unit",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a storm-grey wolf beast wreathed in motion-blur wind, rider low on its back",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_packlord": {
+    "name": "游群之王·卡鲁姆",
+    "type": "unit",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a towering warlord beast-king with a crown of tusks, pack surging at his heels",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_hunt_signal": {
+    "name": "疾风令",
+    "type": "order",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a gust of green wind sweeping a beast forward, speed lines",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_pounce": {
+    "name": "猛扑",
+    "type": "order",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a predator coiling then pouncing, claws first, no time to counter",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_blood_scent": {
+    "name": "血腥气息",
+    "type": "order",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a pack scenting blood on the wind, eyes flaring red, whole line surging",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "wp_pack_call": {
+    "name": "唤群",
+    "type": "order",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a horn-call summoning two wolf pups bounding out of the dust to the back line",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "leader_iv_valen": {
+    "name": "瓦伦丁·铁誓",
+    "type": "leader",
+    "faction": "iron_vow",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. waist-up heroic portrait, three-quarter view, commanding presence, centered, plain smoky background, dramatic rim light, face and emblem clearly readable inside a circular crop. Iron Vow faction: disciplined human soldiery in steel-grey plate armor, tower shields and banners etched with oaths, ember-gold oath-flame emblems, fortress and rampart motifs, cool steel blue-grey palette with ember gold accents. Subject: a veteran commander of the iron oath, greatshield planted, stern and grey",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "leader_wp_saen": {
+    "name": "风语者·萨恩",
+    "type": "leader",
+    "faction": "wildpack",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. waist-up heroic portrait, three-quarter view, commanding presence, centered, plain smoky background, dramatic rim light, face and emblem clearly readable inside a circular crop. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a wind-speaker warchief with a great curved horn, feathers and beast-bone",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "board_main": {
+    "name": "board_main",
+    "type": "board",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. top-down view of a weathered military campaign table, worn canvas and leather map surface with faint terrain stains, low contrast, heavily desaturated, subdued detail so game pieces stand out, evenly lit, no grid lines, no icons, no text. Subject: a war-room campaign table surface for a 5x4 grid battlefield, subtle scorch marks and old supply-route stains, cool grey field with warm umber edges",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  }
+}

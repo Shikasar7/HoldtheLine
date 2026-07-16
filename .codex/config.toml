@@ -1,0 +1,3 @@
+[mcp_servers.godot-mcp-pro]
+command = "node"
+args = ["D:/tools/godot-mcp-pro/server/build/index.js"]
