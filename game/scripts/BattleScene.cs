@@ -30,6 +30,11 @@ public partial class BattleScene : Control
 
     private SfxBank _sfx = null!;
 
+    // Mode.
+    private bool _vsAi;
+    private int _humanSeat;
+    private int _aiSeat;
+
     // Selection / targeting state.
     private enum SelKind { None, Card, Unit, Leader }
     private SelKind _selKind = SelKind.None;
@@ -70,19 +75,25 @@ public partial class BattleScene : Control
     public override void _Ready()
     {
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        if (!GameConfig.Configured)
+            GameConfig.SetHotseat(); // launched directly (e.g. from the editor) → default to hotseat
+        _vsAi = GameConfig.VsAi;
+        _humanSeat = GameConfig.HumanSeat;
+        _aiSeat = 1 - _humanSeat;
+
         _cards = GameData.LoadCards();
         _leaders = GameData.LoadLeaders();
 
         var decks = GameData.LoadDecks();
-        var iron = decks.First(d => d.Id == "iron_wall");
-        var wild = decks.First(d => d.Id == "wildpack_hunt");
+        var d0 = decks.First(d => d.Id == GameConfig.Deck0);
+        var d1 = decks.First(d => d.Id == GameConfig.Deck1);
 
         var config = new MatchConfig
         {
             Seed = ((ulong)GD.Randi() << 32) | GD.Randi(),
             FirstSeat = (int)(GD.Randi() % 2),
-            Deck0 = iron.Expand(), Leader0 = iron.Leader,
-            Deck1 = wild.Expand(), Leader1 = wild.Leader,
+            Deck0 = d0.Expand(), Leader0 = d0.Leader,
+            Deck1 = d1.Expand(), Leader1 = d1.Leader,
         };
         _host = new LocalGameHost(_cards, _leaders, config);
         _host.Subscribe(0, e => _pendingEvents.Add(e)); // seat-0 stream: public events drive animation
@@ -90,6 +101,9 @@ public partial class BattleScene : Control
         BuildStaticUi();
         _sfx = new SfxBank(this);
         FullRender();
+
+        if (_vsAi && ActiveSeat == _aiSeat)
+            _ = RunAiTurn(); // AI won the coin toss — it opens
     }
 
     // ---------- static scaffold ----------
@@ -152,6 +166,12 @@ public partial class BattleScene : Control
         _logLabel.Position = new Vector2(360, 1050);
         _logLabel.Size = new Vector2(1200, 26);
         _hudLayer.AddChild(_logLabel);
+
+        var menuBtn = BattleTheme.MakeButton(new Vector2(20, 20), new Vector2(120, 44), BattleTheme.PanelDark, BattleTheme.TextDim, 1, 8);
+        menuBtn.Text = "菜单 (Esc)";
+        menuBtn.AddThemeFontSizeOverride("font_size", 18);
+        menuBtn.Pressed += () => GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn");
+        _hudLayer.AddChild(menuBtn);
     }
 
     private Control NewLayer()
@@ -167,14 +187,17 @@ public partial class BattleScene : Control
 
     private int ActiveSeat => _host.GetView(0).ActiveSeat;
 
+    // Whose eyes we render through: the human in vs-AI (fixed), the active seat in hotseat (flips).
+    private int ViewSeat => _vsAi ? _humanSeat : ActiveSeat;
+
     private void FullRender()
     {
-        var view = _host.GetView(ActiveSeat);
-        _persp = view.ActiveSeat;
+        var view = _host.GetView(ViewSeat);
+        _persp = ViewSeat;
 
-        // Units the active player can still act with this turn (drives the "ready vs spent/sick" look).
+        // Units the viewer can still act with this turn (drives the "ready vs spent/sick" look).
         var actionable = new HashSet<int>();
-        foreach (var c in _host.LegalCommands(view.ActiveSeat))
+        foreach (var c in _host.LegalCommands(ViewSeat))
             switch (c)
             {
                 case MoveUnitCommand m: actionable.Add(m.UnitEntityId); break;
@@ -286,9 +309,11 @@ public partial class BattleScene : Control
 
     private void RenderHud(PlayerView view)
     {
-        int active = view.ActiveSeat;
-        _turnLabel.Text = active == 0 ? "▼ 玩家1(铁誓)的回合" : "▲ 玩家2(游群)的回合";
-        _turnLabel.AddThemeColorOverride("font_color", BattleTheme.SeatColor(active));
+        bool viewerActive = view.ActiveSeat == ViewSeat;
+        _turnLabel.Text = _vsAi
+            ? (viewerActive ? "▼ 你的回合" : "▲ 对手思考中…")
+            : $"▼ {LeaderName(view.Self.LeaderId)} 的回合";
+        _turnLabel.AddThemeColorOverride("font_color", viewerActive ? BattleTheme.Accent : BattleTheme.TextDim);
 
         var self = view.Self;
         var opp = view.Opponent;
@@ -306,12 +331,13 @@ public partial class BattleScene : Control
 
     private void RefreshInteractable(PlayerView? view = null)
     {
-        view ??= _host.GetView(ActiveSeat);
+        view ??= _host.GetView(ViewSeat);
         bool over = view.Result != null;
-        _endTurnBtn.Disabled = _busy || over;
-        var legal = _host.LegalCommands(view.ActiveSeat);
-        _leaderPowerBtn.Disabled = _busy || over || !legal.Any(c => c is UseLeaderSkillCommand);
-        _leaderPowerBtn.Visible = legal.Any(c => c is UseLeaderSkillCommand) || _selKind == SelKind.Leader || LeaderSkillText(view.Self.LeaderId).Length > 0;
+        bool canAct = !_busy && !over && (!_vsAi || ActiveSeat == _humanSeat);
+        _endTurnBtn.Disabled = !canAct;
+        IReadOnlyList<Command> legal = canAct ? _host.LegalCommands(ActiveSeat) : [];
+        _leaderPowerBtn.Disabled = !canAct || !legal.Any(c => c is UseLeaderSkillCommand);
+        _leaderPowerBtn.Visible = LeaderSkillText(view.Self.LeaderId).Length > 0;
     }
 
     // ---------- selection ----------
@@ -498,6 +524,11 @@ public partial class BattleScene : Control
 
     public override void _Input(InputEvent @event)
     {
+        if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
+        {
+            GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn");
+            return;
+        }
         if (_dragCardId is null)
             return;
 
@@ -589,34 +620,50 @@ public partial class BattleScene : Control
     {
         if (_busy) return;
         _busy = true;
-        ClearSelection();
         RefreshInteractable();
 
         int seatBefore = ActiveSeat;
+        if (!await Apply(cmd)) { _busy = false; return; } // rejected, or ended (overlay shown)
+
+        int seatAfter = ActiveSeat;
+        if (_vsAi && seatAfter == _aiSeat) { await RunAiTurn(); return; }        // RunAiTurn owns _busy
+        if (!_vsAi && seatAfter != seatBefore) { _busy = false; ShowPassOverlay(seatAfter); return; }
+        _busy = false;
+        RefreshInteractable();
+    }
+
+    /// <summary>Submit one command, animate its events, re-render. Returns false if rejected or the game ended.</summary>
+    private async Task<bool> Apply(Command cmd)
+    {
+        ClearSelection();
         var result = await _host.SubmitCommandAsync(cmd.Seat, cmd);
-        if (!result.Accepted)
-        {
-            Log($"非法操作:{result.Error?.Code}");
-            _busy = false;
-            RefreshInteractable();
-            return;
-        }
+        if (!result.Accepted) { Log($"非法操作:{result.Error?.Code}"); return false; }
 
         var events = _pendingEvents.ToList();
         _pendingEvents.Clear();
         await AnimateEvents(events);
+        FullRender();
 
         var ended = events.OfType<GameEndedEvent>().FirstOrDefault();
-        FullRender();
+        if (ended != null) { ShowWinOverlay(ended); return false; }
+        return true;
+    }
+
+    /// <summary>Drives the AI seat: pick → apply → repeat until it ends its turn or the game ends.</summary>
+    private async Task RunAiTurn()
+    {
+        _busy = true;
+        RefreshInteractable();
+        while (_vsAi && ActiveSeat == _aiSeat && _host.GetView(0).Result == null)
+        {
+            await Delay(0.5);
+            var cmd = _host.SuggestCommand(_aiSeat);
+            if (cmd is null) break;
+            if (!await Apply(cmd)) return; // game ended (overlay shown), keep input locked
+            if (cmd is EndTurnCommand) break;
+        }
         _busy = false;
-
-        if (ended != null) { ShowWinOverlay(ended); return; }
-
-        int seatAfter = ActiveSeat;
-        if (seatAfter != seatBefore)
-            ShowPassOverlay(seatAfter);
-        else
-            RefreshInteractable();
+        RefreshInteractable();
     }
 
     private async Task AnimateEvents(IReadOnlyList<GameEvent> events)
@@ -682,18 +729,32 @@ public partial class BattleScene : Control
 
     private void ShowWinOverlay(GameEndedEvent ended)
     {
-        var panel = BattleTheme.MakeButton(Vector2.Zero, new Vector2(BattleTheme.ScreenW, BattleTheme.ScreenH), new Color(0.02f, 0.02f, 0.02f, 0.9f), radius: 0);
-        string who = ended.WinnerSeat switch { 0 => "玩家1(铁誓)获胜", 1 => "玩家2(游群)获胜", _ => "平局" };
-        var msg = BattleTheme.MakeLabel(who, 56, BattleTheme.Accent, HorizontalAlignment.Center);
-        msg.Position = new Vector2(0, 380);
+        var panel = new ColorRect { Color = new Color(0.02f, 0.02f, 0.02f, 0.9f) };
+        panel.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        _overlayLayer.AddChild(panel);
+
+        string who;
+        Color tint;
+        if (ended.WinnerSeat < 0) { who = "平局"; tint = BattleTheme.TextMain; }
+        else if (_vsAi) { bool win = ended.WinnerSeat == _humanSeat; who = win ? "胜 利" : "败 北"; tint = win ? BattleTheme.Accent : BattleTheme.DangerColor; }
+        else { who = $"{LeaderName(_host.GetView(ended.WinnerSeat).Self.LeaderId)} 获胜"; tint = BattleTheme.Accent; }
+
+        var msg = BattleTheme.MakeLabel(who, 64, tint, HorizontalAlignment.Center);
+        msg.Position = new Vector2(0, 360);
         msg.Size = new Vector2(BattleTheme.ScreenW, 100);
         panel.AddChild(msg);
-        var again = BattleTheme.MakeLabel("点击再来一局", 30, BattleTheme.TextDim, HorizontalAlignment.Center);
-        again.Position = new Vector2(0, 520);
-        again.Size = new Vector2(BattleTheme.ScreenW, 60);
+
+        var again = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2 - 320, 520), new Vector2(280, 80), BattleTheme.AccentSoft, BattleTheme.Accent, 2, 12);
+        again.Text = "再来一局";
+        again.AddThemeFontSizeOverride("font_size", 26);
+        again.Pressed += () => GetTree().ReloadCurrentScene();
         panel.AddChild(again);
-        panel.Pressed += () => GetTree().ReloadCurrentScene();
-        _overlayLayer.AddChild(panel);
+
+        var menu = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2 + 40, 520), new Vector2(280, 80), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12);
+        menu.Text = "返回菜单";
+        menu.AddThemeFontSizeOverride("font_size", 26);
+        menu.Pressed += () => GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn");
+        panel.AddChild(menu);
     }
 
     // ---------- tiny animation helpers ----------

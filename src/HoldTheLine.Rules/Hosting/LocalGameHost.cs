@@ -56,6 +56,17 @@ public sealed class LocalGameHost : IGameHost
         }
     }
 
+    /// <summary>The heuristic AI's chosen command for a seat (null unless it's that seat's turn). GameState stays inside the host.</summary>
+    public Command? SuggestCommand(int seat)
+    {
+        lock (_gate)
+        {
+            if (_state.Result != null || seat != _state.ActiveSeat)
+                return null;
+            return Ai.GreedyAi.Pick(_state, _db, _leaders);
+        }
+    }
+
     public IReadOnlyList<Command> CommandLog
     {
         get { lock (_gate) return _commandLog.ToList(); }
