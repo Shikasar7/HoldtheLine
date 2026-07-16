@@ -16,6 +16,8 @@ namespace HoldTheLine.Rules.Hosting;
 public sealed class LocalGameHost : IGameHost
 {
     private readonly object _gate = new();
+    private readonly CardDatabase _db;
+    private readonly LeaderDatabase _leaders;
     private readonly Resolver _resolver;
     private readonly List<(int Seat, Action<GameEvent> Handler)> _subscribers = new();
     private readonly List<Command> _commandLog = new();
@@ -32,10 +34,26 @@ public sealed class LocalGameHost : IGameHost
     {
         Config = config;
         LoopbackSerialization = loopbackSerialization;
+        _db = db;
+        _leaders = leaders;
         _resolver = new Resolver(db, leaders);
         var (state, events) = GameFactory.CreateGame(config, db, leaders);
         _state = state;
         _eventLog.AddRange(events);
+    }
+
+    /// <summary>
+    /// Legal commands for a seat (empty unless it's that seat's turn). Keeps move enumeration —
+    /// which needs authoritative state — inside the host so the UI/AI never touch GameState.
+    /// </summary>
+    public IReadOnlyList<Command> LegalCommands(int seat)
+    {
+        lock (_gate)
+        {
+            if (_state.Result != null || seat != _state.ActiveSeat)
+                return [];
+            return CommandEnumerator.LegalCommands(_state, _db, _leaders);
+        }
     }
 
     public IReadOnlyList<Command> CommandLog
