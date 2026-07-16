@@ -5,7 +5,7 @@
     "faction": "wildpack",
     "leader": "leader_wp_saen",
     "cards": [
-      { "id": "wp_pup", "count": 3 },
+      { "id": "wp_pup", "count": 2 },
       { "id": "wp_fang_rider", "count": 2 },
       { "id": "wp_flanker", "count": 2 },
       { "id": "wp_raider", "count": 4 },
@@ -18,8 +18,9 @@
       { "id": "wp_rift_leaper", "count": 1 },
       { "id": "wp_packlord", "count": 1 },
       { "id": "wp_hunt_signal", "count": 2 },
-      { "id": "wp_pounce", "count": 2 },
-      { "id": "wp_blood_scent", "count": 1 }
+      { "id": "wp_pounce", "count": 1 },
+      { "id": "wp_blood_scent", "count": 1 },
+      { "id": "wp_pack_call", "count": 2 }
     ]
   }
 ]

@@ -59,7 +59,7 @@
     "rarity": "rare",
     "cost": 3,
     "atk": 2,
-    "hp": 5,
+    "hp": 4,
     "keywords": [{ "keyword": "guard" }, { "keyword": "hold_fast" }],
     "effects": [{ "trigger": "battlecry", "action": "buff", "target": "adjacent_allies", "hp": 1 }],
     "text": "守护,坚守。战吼:相邻友方随从 +0/+1。",
@@ -111,7 +111,7 @@
     "type": "unit",
     "rarity": "epic",
     "cost": 5,
-    "atk": 4,
+    "atk": 3,
     "hp": 6,
     "keywords": [{ "keyword": "guard" }],
     "text": "守护。",
@@ -196,8 +196,8 @@
     "type": "order",
     "rarity": "rare",
     "cost": 4,
-    "effects": [{ "trigger": "play", "action": "damage", "target": "target_unit_own_half", "amount": 4 }],
-    "text": "对你半场内的一个敌方随从造成 4 点伤害。",
+    "effects": [{ "trigger": "play", "action": "damage", "target": "target_unit_own_half", "amount": 3 }],
+    "text": "对你半场内的一个敌方随从造成 3 点伤害。",
     "art_prompt": "an executioner's greatsword slamming down on an intruder who crossed the line"
   }
 ]

@@ -136,6 +136,14 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "damage", Target = "target_unit_own_half", Amount = 4 }],
     };
 
+    // ---- balance-pass fixtures (围猎) ----
+
+    public static readonly CardDefinition PackHunter = new()
+    { Id = "t_pack", Name = "Pack Hunter 2/2", Cost = 2, Atk = 2, Hp = 2, Keywords = [new(Keyword.PackTactics)] };
+
+    public static readonly CardDefinition PackArcher = new()
+    { Id = "t_pack_archer", Name = "Pack Archer 2/2", Cost = 3, Atk = 2, Hp = 2, Keywords = [new(Keyword.Range, 2), new(Keyword.PackTactics)] };
+
     public static readonly CardDefinition AllAlliesBuff = new()
     {
         Id = "t_allbuff", Name = "Blood Scent", Type = CardType.Order, Cost = 3,
@@ -147,6 +155,7 @@ public static class TestKit
         Trampler, Sneak, Shielded, BattlecryBuffer, Bomber, Coin, ZapOrder, DrawOrder,
         Garrison, Leaper, PupToken, Medic, GrantGuardOrder, PounceOrder, GrantShieldOrder,
         SpeedOrder, SummonOrder, ColumnOrder, HomeRowBuffOrder, OwnHalfSnipe, AllAlliesBuff,
+        PackHunter, PackArcher,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.

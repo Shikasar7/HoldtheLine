@@ -17,10 +17,11 @@
     "faction": "wildpack",
     "skill_cost": 2,
     "skill_name": "狩猎号角",
-    "text": "狩猎号角(2费):使一个友方随从本回合移动力 +1。",
+    "text": "狩猎号角(2费):使一个友方随从本回合移动力 +1,并获得偷袭直到回合结束。",
     "art_prompt": "a wind-speaker warchief with a great curved horn, feathers and beast-bone",
     "skill_effects": [
-      { "trigger": "leader_skill", "action": "move_bonus", "target": "target_unit", "amount": 1 }
+      { "trigger": "leader_skill", "action": "move_bonus", "target": "target_unit", "amount": 1 },
+      { "trigger": "leader_skill", "action": "grant_keyword", "target": "target_unit", "keyword": "cheap_shot", "duration": "end_of_turn" }
     ]
   }
 ]

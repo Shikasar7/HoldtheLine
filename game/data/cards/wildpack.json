@@ -20,7 +20,7 @@
     "rarity": "common",
     "cost": 2,
     "atk": 2,
-    "hp": 1,
+    "hp": 2,
     "keywords": [{ "keyword": "charge" }],
     "text": "冲锋。",
     "art_prompt": "an orc rider on a tusked beast charging with a bone spear"
@@ -34,8 +34,8 @@
     "cost": 2,
     "atk": 2,
     "hp": 2,
-    "keywords": [{ "keyword": "swift", "value": 2 }],
-    "text": "疾行 2。",
+    "keywords": [{ "keyword": "swift", "value": 2 }, { "keyword": "pack_tactics" }],
+    "text": "疾行 2,围猎(攻击一个与你另一友方相邻的敌方随从时,伤害 +1)。",
     "art_prompt": "a mounted flanker wheeling around the side, war-paint streaks"
   },
   {
@@ -47,8 +47,8 @@
     "cost": 3,
     "atk": 3,
     "hp": 2,
-    "keywords": [{ "keyword": "charge" }],
-    "text": "冲锋。",
+    "keywords": [{ "keyword": "charge" }, { "keyword": "pack_tactics" }],
+    "text": "冲锋,围猎(攻击一个与你另一友方相邻的敌方随从时,伤害 +1)。",
     "art_prompt": "a feral orc raider mid-leap swinging a jagged axe"
   },
   {
@@ -59,7 +59,7 @@
     "rarity": "rare",
     "cost": 3,
     "atk": 3,
-    "hp": 2,
+    "hp": 3,
     "keywords": [{ "keyword": "cheap_shot" }],
     "text": "偷袭。",
     "art_prompt": "a beast-rider emerging from dust with twin curved daggers"
@@ -72,7 +72,7 @@
     "rarity": "rare",
     "cost": 3,
     "atk": 2,
-    "hp": 3,
+    "hp": 4,
     "effects": [{ "trigger": "battlecry", "action": "move_bonus", "target": "adjacent_allies", "amount": 1 }],
     "text": "战吼:相邻友方随从本回合移动力 +1。",
     "art_prompt": "a shaman howling with a horn, packmates surging forward around him"
@@ -84,7 +84,7 @@
     "type": "unit",
     "rarity": "common",
     "cost": 4,
-    "atk": 3,
+    "atk": 4,
     "hp": 4,
     "keywords": [{ "keyword": "swift", "value": 2 }],
     "text": "疾行 2。",
@@ -98,7 +98,7 @@
     "rarity": "rare",
     "cost": 4,
     "atk": 4,
-    "hp": 3,
+    "hp": 4,
     "keywords": [{ "keyword": "cheap_shot" }],
     "text": "偷袭。",
     "art_prompt": "a clawed ambusher dropping from above onto an unsuspecting target"
@@ -111,9 +111,9 @@
     "rarity": "epic",
     "cost": 5,
     "atk": 4,
-    "hp": 4,
-    "keywords": [{ "keyword": "trample" }],
-    "text": "践踏。",
+    "hp": 5,
+    "keywords": [{ "keyword": "trample" }, { "keyword": "pack_tactics" }],
+    "text": "践踏,围猎。",
     "art_prompt": "a hulking pack-alpha beast with battle scars charging through a broken palisade"
   },
   {
@@ -124,7 +124,7 @@
     "rarity": "epic",
     "cost": 5,
     "atk": 4,
-    "hp": 4,
+    "hp": 5,
     "keywords": [{ "keyword": "swift", "value": 2 }, { "keyword": "leap" }],
     "text": "疾行 2,跃障(可跨过随从跳跃 2 格)。",
     "art_prompt": "a long-limbed leaping beast vaulting clean over a soldier, rift-light trailing"
@@ -138,8 +138,8 @@
     "cost": 6,
     "atk": 5,
     "hp": 5,
-    "keywords": [{ "keyword": "charge" }],
-    "text": "冲锋。",
+    "keywords": [{ "keyword": "charge" }, { "keyword": "swift", "value": 2 }],
+    "text": "冲锋,疾行 2。",
     "art_prompt": "a storm-grey wolf beast wreathed in motion-blur wind, rider low on its back"
   },
   {
@@ -150,9 +150,9 @@
     "rarity": "legendary",
     "cost": 7,
     "atk": 6,
-    "hp": 5,
-    "keywords": [{ "keyword": "charge" }, { "keyword": "trample" }],
-    "text": "冲锋,践踏。落地,冲锋,踏穿,占位。",
+    "hp": 6,
+    "keywords": [{ "keyword": "charge" }, { "keyword": "trample" }, { "keyword": "pack_tactics" }],
+    "text": "冲锋,践踏,围猎。落地,冲锋,踏穿,占位。",
     "art_prompt": "a towering warlord beast-king with a crown of tusks, pack surging at his heels"
   },
   {

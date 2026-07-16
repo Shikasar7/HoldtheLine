@@ -171,6 +171,78 @@ public class KeywordTests
         Assert.Equal(new Cell(2, 1), result.State!.FindUnit(trampler.EntityId)!.Cell);
     }
 
+    // ---- 围猎 PackTactics ----
+
+    [Fact]
+    public void PackTactics_adds_one_damage_when_target_is_flanked()
+    {
+        var state = TestKit.NewGame();
+        var hunter = TestKit.Place(state, 0, "t_pack", new Cell(2, 1));   // 2/2 围猎
+        TestKit.Place(state, 0, "t_vanilla", new Cell(3, 2));             // friendly flanker beside the prey
+        var prey = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 2));  // 2/3
+
+        var result = TestKit.NewResolver().Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = hunter.EntityId, TargetUnitId = prey.EntityId });
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Null(result.State!.FindUnit(prey.EntityId)); // 2 + 1 flank = 3 → dead
+    }
+
+    [Fact]
+    public void PackTactics_deals_normal_damage_when_alone()
+    {
+        var state = TestKit.NewGame();
+        var hunter = TestKit.Place(state, 0, "t_pack", new Cell(2, 1));
+        var prey = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 2)); // 2/3
+
+        var result = TestKit.NewResolver().Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = hunter.EntityId, TargetUnitId = prey.EntityId });
+
+        Assert.Equal(1, result.State!.FindUnit(prey.EntityId)!.CurrentHp); // just 2 damage
+    }
+
+    [Fact]
+    public void PackTactics_ignores_the_attacker_itself_as_flanker()
+    {
+        var state = TestKit.NewGame();
+        var hunter = TestKit.Place(state, 0, "t_pack", new Cell(2, 1)); // adjacent to prey, but it's the attacker
+        var prey = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 2));
+
+        var result = TestKit.NewResolver().Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = hunter.EntityId, TargetUnitId = prey.EntityId });
+
+        Assert.Equal(1, result.State!.FindUnit(prey.EntityId)!.CurrentHp);
+    }
+
+    [Fact]
+    public void PackTactics_does_not_boost_ranged_attacks()
+    {
+        var state = TestKit.NewGame();
+        var archer = TestKit.Place(state, 0, "t_pack_archer", new Cell(2, 0)); // Range 2 + 围猎
+        TestKit.Place(state, 0, "t_vanilla", new Cell(3, 2));                  // friendly beside the prey
+        var prey = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 2));       // 2/3
+
+        var result = TestKit.NewResolver().Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = archer.EntityId, TargetUnitId = prey.EntityId });
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, result.State!.FindUnit(prey.EntityId)!.CurrentHp); // 2 damage — no flank bonus at range
+    }
+
+    [Fact]
+    public void PackTactics_bonus_is_reduced_by_HoldFast()
+    {
+        var state = TestKit.NewGame();
+        var hunter = TestKit.Place(state, 0, "t_pack", new Cell(2, 1));  // 2 atk + 1 flank
+        TestKit.Place(state, 0, "t_vanilla", new Cell(3, 2));
+        var holder = TestKit.Place(state, 1, "t_holder", new Cell(2, 2)); // 2/4 坚守 (stationary)
+
+        var result = TestKit.NewResolver().Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = hunter.EntityId, TargetUnitId = holder.EntityId });
+
+        Assert.Equal(2, result.State!.FindUnit(holder.EntityId)!.CurrentHp); // 4 - (2+1-1)
+    }
+
     // ---- 战吼 / 亡语 / 指令 ----
 
     [Fact]

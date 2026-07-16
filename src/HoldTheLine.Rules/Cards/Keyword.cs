@@ -39,6 +39,9 @@ public enum Keyword
     /// <summary>跃障 — may move to a straight-line distance-2 empty cell in one step, crossing an intervening unit.</summary>
     Leap,
 
+    /// <summary>围猎 — its melee attacks deal +1 damage when another friendly unit is adjacent to the target.</summary>
+    PackTactics,
+
     /// <summary>伏兵 — untargetable until it deals damage; revealed by adjacent enemies. (Deferred; not implemented in P1.)</summary>
     Hidden,
 }

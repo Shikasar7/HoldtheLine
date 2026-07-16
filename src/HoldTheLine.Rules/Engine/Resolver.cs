@@ -242,7 +242,14 @@ public sealed class Resolver
         // Simultaneous strike (GDD §2.5): compute both sides before applying either.
         // Retaliation happens only against melee attacks, and never against 偷袭 (CheapShot).
         bool retaliates = range == 0 && !attacker.HasKeyword(Keyword.CheapShot) && target.Atk > 0;
-        ctx.DamageUnit(target, attacker.Atk);
+        // 围猎 (PackTactics): melee attacks on flanked prey — another friendly unit adjacent to the
+        // target — deal +1 damage. Speed buys the surround; the surround buys the kill.
+        bool packFlank = range == 0
+            && attacker.HasKeyword(Keyword.PackTactics)
+            && BoardGeometry.AdjacentCells(target.Cell)
+                .Select(ctx.State.UnitAt)
+                .Any(u => u != null && u.OwnerSeat == cmd.Seat && u.EntityId != attacker.EntityId);
+        ctx.DamageUnit(target, attacker.Atk + (packFlank ? 1 : 0));
         if (retaliates)
             ctx.DamageUnit(attacker, target.Atk);
 

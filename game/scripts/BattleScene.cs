@@ -682,6 +682,7 @@ public partial class BattleScene : Control
                 Keyword.Shield => "盾",
                 Keyword.Garrison => "防",
                 Keyword.Leap => "跃",
+                Keyword.PackTactics => "围",
                 _ => "",
             });
         return string.Join(" ", parts.Where(p => p.Length > 0));
