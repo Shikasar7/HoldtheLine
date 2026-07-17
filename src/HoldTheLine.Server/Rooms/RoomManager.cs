@@ -116,4 +116,7 @@ public sealed class RoomManager(ServerOptions opts, GameContent content, DeckSou
     public Room? FindRoom(string code) => _rooms.TryGetValue(code, out var room) ? room : null;
 
     public int RoomCount => _rooms.Count;
+
+    /// <summary>Rooms whose match is underway (for /healthz).</summary>
+    public int ActiveMatchCount => _rooms.Values.Count(r => r.Started && r.Session is { IsOver: false });
 }

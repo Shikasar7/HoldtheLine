@@ -25,11 +25,24 @@ public static class ServerApp
         builder.Services.AddSingleton<DeckSource>();
         builder.Services.AddSingleton<RoomManager>();
         builder.Services.AddSingleton<QueueManager>();
+        builder.Services.AddSingleton<ServerStats>();
 
         var app = builder.Build();
         app.UseWebSockets();
 
-        app.MapGet("/healthz", () => Results.Text("ok"));
+        // /healthz is JSON (M3 B4): a glance tells you the Beta's live load.
+        app.MapGet("/healthz", (RoomManager rooms, QueueManager queue, LadderStore ladder, ServerStats stats) =>
+        {
+            long since = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero).ToUnixTimeSeconds();
+            return Results.Json(new
+            {
+                status = "ok",
+                connections = stats.Connections,
+                matches = rooms.ActiveMatchCount,
+                queue = queue.Count,
+                rankedToday = ladder.MatchesSince(since),
+            });
+        });
         app.Map("/ws", HandleWebSocketAsync);
         return app;
     }
@@ -50,10 +63,19 @@ public static class ServerApp
         var collection = ctx.RequestServices.GetRequiredService<CollectionStore>();
         var ladder = ctx.RequestServices.GetRequiredService<LadderStore>();
         var queue = ctx.RequestServices.GetRequiredService<QueueManager>();
+        var stats = ctx.RequestServices.GetRequiredService<ServerStats>();
         var loggerFactory = ctx.RequestServices.GetRequiredService<ILoggerFactory>();
 
         using var socket = await ctx.WebSockets.AcceptWebSocketAsync();
         var conn = new ClientConnection(socket, loggerFactory.CreateLogger<ClientConnection>());
-        await conn.RunAsync(rooms, content, opts, accounts, decks, collection, ladder, queue, ctx.RequestAborted);
+        stats.Connected();
+        try
+        {
+            await conn.RunAsync(rooms, content, opts, accounts, decks, collection, ladder, queue, ctx.RequestAborted);
+        }
+        finally
+        {
+            stats.Disconnected();
+        }
     }
 }

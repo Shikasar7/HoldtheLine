@@ -56,6 +56,12 @@ public sealed class QueueManager : IDisposable
             return _waiting.Any(w => w.Conn == conn);
     }
 
+    /// <summary>Number of players currently waiting (for /healthz).</summary>
+    public int Count
+    {
+        get { lock (_gate) return _waiting.Count; }
+    }
+
     /// <summary>Pull the closest-rated matchable pair, if any, and start a ranked match for them.</summary>
     private void TryPair()
     {

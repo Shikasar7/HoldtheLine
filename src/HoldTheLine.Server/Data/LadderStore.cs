@@ -106,6 +106,15 @@ public sealed class LadderStore
         return (IReadOnlyList<LadderRow>)list;
     });
 
+    /// <summary>Count of ranked matches recorded at or after a unix time (for /healthz "today").</summary>
+    public int MatchesSince(long unixSeconds) => _db.Run(c =>
+    {
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM match_history WHERE ended_at >= $t";
+        cmd.Parameters.AddWithValue("$t", unixSeconds);
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    });
+
     // ---- helpers ----
 
     private static double Expected(int a, int b) => 1.0 / (1.0 + Math.Pow(10, (b - a) / 400.0));

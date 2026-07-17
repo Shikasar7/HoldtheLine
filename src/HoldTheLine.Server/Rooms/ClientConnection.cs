@@ -222,6 +222,10 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
                 _queue.Leave(this);
                 break;
 
+            case GetLadder gl:
+                await SendAsync(BuildLadder(gl.Season ?? LadderStore.DefaultSeason, gl.Seq)).ConfigureAwait(false);
+                break;
+
             case Hello:
                 throw new ProtocolError("already_hello", "Duplicate hello on an established connection.");
         }
@@ -268,6 +272,21 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
         await SendAsync(new DeckSaved { DeckId = id, Seq = sd.Seq }).ConfigureAwait(false);
         await SendAsync(BuildProfile()).ConfigureAwait(false);
     }
+
+    /// <summary>Top-50 ladder + this player's own rank (M3 B4), names resolved from the account store.</summary>
+    private Ladder BuildLadder(int season, int seq) => new()
+    {
+        Entries = _ladder.Top(50, season).Select(r => new LadderEntry
+        {
+            Rank = r.Rank,
+            Name = _accounts.Find(r.GuestId)?.Name ?? r.GuestId,
+            Rating = r.Rating,
+            Wins = r.Wins,
+            Losses = r.Losses,
+        }).ToList(),
+        MyRank = _ladder.Rank(GuestId, season),
+        Seq = seq,
+    };
 
     /// <summary>The deck's faction is its single non-neutral faction (DeckValidator guarantees at most one),
     /// or neutral if it's an all-neutral pile.</summary>
