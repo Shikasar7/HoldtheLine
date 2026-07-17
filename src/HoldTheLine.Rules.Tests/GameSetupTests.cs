@@ -14,13 +14,13 @@ public class GameSetupTests
     ];
 
     [Fact]
-    public void Opening_hands_are_4_and_5_plus_coin()
+    public void Opening_hands_are_4_and_6_plus_coin()
     {
         var state = TestKit.NewGame();
         // First player: 4 opening + 1 turn-start draw.
         Assert.Equal(5, state.Player(0).Hand.Count);
-        // Second player: 5 opening + the coin.
-        Assert.Equal(6, state.Player(1).Hand.Count);
+        // Second player: 6 opening + the coin (balance v1.2 second-player compensation).
+        Assert.Equal(7, state.Player(1).Hand.Count);
         Assert.Contains(state.Player(1).Hand, c => c.CardId == "neutral_coin");
         Assert.Equal(1, state.TurnNumber);
         Assert.Equal(0, state.ActiveSeat);

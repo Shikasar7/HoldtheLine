@@ -31,6 +31,11 @@ public partial class BattleScene : Control
 
     private SfxBank _sfx = null!;
 
+    // AI art (null → geometric placeholder fallback everywhere).
+    private Texture2D? _boardTex, _cardBackTex, _gemCost, _gemAtk, _gemHp;
+    private readonly Dictionary<string, Texture2D?> _frameTex = new();
+    private TextureRect? _oppAvatar, _selfAvatar;
+
     // Mode.
     private bool _vsAi;
     private int _humanSeat;
@@ -41,6 +46,14 @@ public partial class BattleScene : Control
     private SelKind _selKind = SelKind.None;
     private List<Command> _candidates = new();
     private Cell? _chosenCell;
+
+    // Hand layout: cards nearly fill the hand strip; the leader panel stacks vertically on the left.
+    private static readonly Vector2 HandCardSize = new(196, 280);
+    private const float HandY = 792f, HandLeft = 372f, HandRight = 1584f;
+
+    // Hover preview (enlarged card, full rules text).
+    private static readonly Vector2 PreviewSize = new(320, 458);
+    private Control? _cardPreview;
 
     // Card drag-to-play.
     private static readonly Vector2 GhostSize = new(150, 214);
@@ -116,6 +129,30 @@ public partial class BattleScene : Control
         bg.MouseFilter = MouseFilterEnum.Ignore;
         AddChild(bg);
 
+        _boardTex = BattleTheme.Tex("board/board_main.png");
+        _cardBackTex = BattleTheme.Tex("ui/card_back.png");
+        _gemCost = BattleTheme.Tex("ui/gem_cost.png");
+        _gemAtk = BattleTheme.Tex("ui/gem_atk.png");
+        _gemHp = BattleTheme.Tex("ui/gem_hp.png");
+        foreach (var f in new[] { "iron_vow", "wildpack", "neutral" })
+            _frameTex[f] = BattleTheme.Tex($"ui/frame_{f}.png");
+
+        if (_boardTex != null)
+        {
+            var table = BattleTheme.Art(_boardTex, Vector2.Zero, new Vector2(BattleTheme.ScreenW, BattleTheme.ScreenH));
+            table.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+            AddChild(table);
+
+            // Dark strips behind the HUD rows so text reads on the light table art.
+            var shade = new Color(0.06f, 0.05f, 0.04f, 0.42f);
+            foreach (var (sy, sh) in new[] { (0f, 148f), (784f, BattleTheme.ScreenH - 784f) })
+            {
+                var strip = new ColorRect { Color = shade, Position = new Vector2(0, sy), Size = new Vector2(BattleTheme.ScreenW, sh) };
+                strip.MouseFilter = MouseFilterEnum.Ignore;
+                AddChild(strip);
+            }
+        }
+
         _boardLayer = NewLayer();
         _standeeLayer = NewLayer();
         _handLayer = NewLayer();
@@ -127,45 +164,77 @@ public partial class BattleScene : Control
             for (int srow = 0; srow < BattleTheme.Rows; srow++)
             {
                 int sc = scol, sr = srow;
-                var btn = BattleTheme.MakeButton(BattleTheme.CellPos(scol, srow), new Vector2(BattleTheme.CellW, BattleTheme.CellH), CellBaseColor(srow));
+                var btn = BattleTheme.MakeButton(BattleTheme.CellPos(scol, srow), new Vector2(BattleTheme.CellW, BattleTheme.CellH), CellBase(srow));
                 btn.Pressed += () => OnCellClicked(sc, sr);
                 _boardLayer.AddChild(btn);
                 _cellButtons[scol, srow] = btn;
             }
 
         // HUD.
-        _turnLabel = BattleTheme.MakeLabel("", 34, BattleTheme.TextMain, HorizontalAlignment.Center);
+        _turnLabel = BattleTheme.MakeOutlinedLabel("", 34, BattleTheme.TextMain, HorizontalAlignment.Center);
         _turnLabel.Position = new Vector2(660, 20);
         _turnLabel.Size = new Vector2(600, 44);
         _hudLayer.AddChild(_turnLabel);
 
-        _oppInfo = BattleTheme.MakeLabel("", 24, BattleTheme.TextDim);
-        _oppInfo.Position = new Vector2(60, 70);
+        // Opponent strip: card-back chip + info + leader plate (avatar filled per-render, hotseat flips it).
+        if (_cardBackTex != null)
+            _hudLayer.AddChild(BattleTheme.Art(_cardBackTex, new Vector2(60, 52), new Vector2(52, 78)));
+        _oppInfo = BattleTheme.MakeOutlinedLabel("", 24, BattleTheme.TextMain);
+        _oppInfo.Position = new Vector2(_cardBackTex != null ? 128 : 60, 70);
         _oppInfo.Size = new Vector2(700, 40);
         _hudLayer.AddChild(_oppInfo);
 
         _oppLeaderBtn = BattleTheme.MakeButton(new Vector2(1500, 40), new Vector2(360, 96), BattleTheme.PanelDark, BattleTheme.SeatColor1, 3, 10);
         _oppLeaderBtn.Pressed += () => OnLeaderClicked(1);
+        _oppAvatar = new TextureRect
+        {
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+            MouseFilter = MouseFilterEnum.Ignore,
+            Position = new Vector2(8, 8), Size = new Vector2(80, 80),
+        };
+        _oppLeaderBtn.AddChild(_oppAvatar);
         _hudLayer.AddChild(_oppLeaderBtn);
 
-        _selfInfo = BattleTheme.MakeLabel("", 24, BattleTheme.TextDim);
-        _selfInfo.Position = new Vector2(60, 800);
-        _selfInfo.Size = new Vector2(900, 40);
+        // Self leader block: stacked vertically at the far left so the hand strip gets the width.
+        _selfAvatar = new TextureRect
+        {
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+            MouseFilter = MouseFilterEnum.Ignore,
+            Position = new Vector2(24, 796), Size = new Vector2(100, 100),
+        };
+        _hudLayer.AddChild(_selfAvatar);
+
+        _selfInfo = BattleTheme.MakeOutlinedLabel("", 17, BattleTheme.TextMain);
+        _selfInfo.Position = new Vector2(134, 800);
+        _selfInfo.Size = new Vector2(226, 92);
         _hudLayer.AddChild(_selfInfo);
 
-        _leaderPowerBtn = BattleTheme.MakeButton(new Vector2(60, 844), new Vector2(300, 64), BattleTheme.PanelDark, BattleTheme.SeatColor0, 2, 10);
+        _leaderPowerBtn = BattleTheme.MakeButton(new Vector2(24, 916), new Vector2(336, 68), BattleTheme.PanelDark, BattleTheme.SeatColor0, 2, 10);
         _leaderPowerBtn.Pressed += OnLeaderPower;
         _hudLayer.AddChild(_leaderPowerBtn);
 
         _endTurnBtn = BattleTheme.MakeButton(new Vector2(1600, 844), new Vector2(260, 90), BattleTheme.AccentSoft, BattleTheme.Accent, 2, 12);
-        _endTurnBtn.Text = "结束回合";
-        _endTurnBtn.AddThemeFontSizeOverride("font_size", 28);
+        if (BattleTheme.Tex("ui/button_plate.png") is { } plate)
+        {
+            _endTurnBtn.AddChild(BattleTheme.Art(plate, Vector2.Zero, new Vector2(260, 90)));
+            var etLabel = BattleTheme.MakeOutlinedLabel("结束回合", 28, BattleTheme.TextMain, HorizontalAlignment.Center);
+            etLabel.Size = new Vector2(260, 90);
+            _endTurnBtn.AddChild(etLabel);
+        }
+        else
+        {
+            _endTurnBtn.Text = "结束回合";
+            _endTurnBtn.AddThemeFontSizeOverride("font_size", 28);
+        }
         _endTurnBtn.Pressed += OnEndTurn;
         _hudLayer.AddChild(_endTurnBtn);
 
-        _logLabel = BattleTheme.MakeLabel("", 20, BattleTheme.TextDim, HorizontalAlignment.Center);
-        _logLabel.Position = new Vector2(360, 1050);
-        _logLabel.Size = new Vector2(1200, 26);
+        // Log sits between board and hand (bigger hand cards now cover the old bottom slot).
+        _logLabel = BattleTheme.MakeOutlinedLabel("", 20, BattleTheme.TextDim, HorizontalAlignment.Center);
+        _logLabel.Position = new Vector2(360, 752);
+        _logLabel.Size = new Vector2(1200, 28);
         _hudLayer.AddChild(_logLabel);
 
         var menuBtn = BattleTheme.MakeButton(new Vector2(20, 20), new Vector2(120, 44), BattleTheme.PanelDark, BattleTheme.TextDim, 1, 8);
@@ -226,25 +295,37 @@ public partial class BattleScene : Control
         {
             var pos = CellScreenPos(u.Cell) + new Vector2(7, 7);
             var size = new Vector2(BattleTheme.CellW - 14, BattleTheme.CellH - 14);
-            var btn = BattleTheme.MakeButton(pos, size, BattleTheme.SeatColor(u.OwnerSeat).Darkened(0.15f), BattleTheme.SeatColor(u.OwnerSeat), 3, 8);
+            var seatColor = BattleTheme.SeatColor(u.OwnerSeat);
+            var art = BattleTheme.Tex($"standees/{u.CardId}.png");
+
+            // With art the panel goes translucent (seat-tinted) so the board shows through; border keeps ownership readable.
+            var bg = art != null
+                ? new Color(seatColor.R, seatColor.G, seatColor.B, 0.22f)
+                : seatColor.Darkened(0.15f);
+            var btn = BattleTheme.MakeButton(pos, size, bg, seatColor, 3, 8);
             int id = u.EntityId;
             btn.Pressed += () => OnUnitClicked(id);
 
-            btn.AddChild(Pip(u.Atk.ToString(), BattleTheme.AtkColor, new Vector2(6, 4)));
-            var hpColor = u.CurrentHp < u.MaxHp ? BattleTheme.DangerColor : BattleTheme.HpColor;
-            btn.AddChild(Pip(u.CurrentHp.ToString(), hpColor, new Vector2(size.X - 40, 4)));
+            if (art != null)
+                btn.AddChild(BattleTheme.Art(art, new Vector2(2, 2), size - new Vector2(4, 4),
+                    TextureRect.StretchModeEnum.KeepAspectCentered));
 
-            var name = BattleTheme.MakeLabel(ShortName(u.CardId), 17, BattleTheme.TextMain, HorizontalAlignment.Center);
-            name.Position = new Vector2(6, 44);
-            name.Size = new Vector2(size.X - 12, 40);
-            name.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            btn.AddChild(Pip(u.Atk.ToString(), BattleTheme.AtkColor, new Vector2(6, 4), _gemAtk));
+            var hpColor = u.CurrentHp < u.MaxHp ? BattleTheme.DangerColor : BattleTheme.HpColor;
+            btn.AddChild(Pip(u.CurrentHp.ToString(), hpColor, new Vector2(size.X - 40, 4), _gemHp));
+
+            var name = BattleTheme.MakeOutlinedLabel(ShortName(u.CardId), art != null ? 15 : 17, BattleTheme.TextMain, HorizontalAlignment.Center);
+            name.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+            name.ClipContents = true;
+            if (art != null) { name.Position = new Vector2(4, size.Y - 24); name.Size = new Vector2(size.X - 8, 22); }
+            else { name.Position = new Vector2(6, 44); name.Size = new Vector2(size.X - 12, 40); }
             btn.AddChild(name);
 
             string kw = KeywordLine(u.Keywords);
             if (kw.Length > 0)
             {
-                var kwl = BattleTheme.MakeLabel(kw, 15, BattleTheme.Accent, HorizontalAlignment.Center);
-                kwl.Position = new Vector2(4, size.Y - 26);
+                var kwl = BattleTheme.MakeOutlinedLabel(kw, 14, BattleTheme.Accent, HorizontalAlignment.Center);
+                kwl.Position = new Vector2(4, art != null ? size.Y - 46 : size.Y - 26);
                 kwl.Size = new Vector2(size.X - 8, 22);
                 btn.AddChild(kwl);
             }
@@ -253,6 +334,7 @@ public partial class BattleScene : Control
             if (u.OwnerSeat == view.ActiveSeat && !actionable.Contains(u.EntityId))
                 btn.Modulate = new Color(0.6f, 0.6f, 0.6f);
             btn.SetMeta("owner", u.OwnerSeat);
+            btn.SetMeta("bg", bg);
             _standeeLayer.AddChild(btn);
             _standees[u.EntityId] = btn;
         }
@@ -260,6 +342,7 @@ public partial class BattleScene : Control
 
     private void RenderHand(PlayerView view)
     {
+        HideCardPreview();
         foreach (Node c in _handLayer.GetChildren())
             c.QueueFree();
 
@@ -268,48 +351,163 @@ public partial class BattleScene : Control
         if (n == 0)
             return;
 
-        const float cardW = 150f, cardH = 214f;
-        float spacing = n <= 1 ? 0 : Mathf.Min(165f, (1500f - cardW) / (n - 1));
-        float startX = 960f - ((n - 1) * spacing) / 2f - cardW / 2f;
-        float y = 838f;
+        float spacing = n <= 1 ? 0 : Mathf.Min(HandCardSize.X + 14f, (HandRight - HandLeft - HandCardSize.X) / (n - 1));
+        float startX = (HandLeft + HandRight) / 2f - ((n - 1) * spacing) / 2f - HandCardSize.X / 2f;
 
         for (int i = 0; i < n; i++)
         {
             var ch = hand[i];
             var def = _cards.Get(ch.CardId);
-            var pos = new Vector2(startX + i * spacing, y);
-            var card = BattleTheme.MakeButton(pos, new Vector2(cardW, cardH), BattleTheme.PanelDark, FactionColor(def.Faction), 3, 10);
+            bool isOrder = def.Type != CardType.Unit;
+            var pos = new Vector2(startX + i * spacing, HandY);
+            // Border color doubles as the card-type cue: faction color = unit, 辉尘 teal = order.
+            var card = BattleTheme.MakeButton(pos, HandCardSize, BattleTheme.PanelDark,
+                isOrder ? BattleTheme.Accent : FactionColor(def.Faction), 3, 10);
             int id = ch.EntityId;
+            float cardX = pos.X;
             card.ButtonDown += () => BeginCardDrag(id); // tap = select, drag = play (see _Input/EndCardDrag)
-
-            card.AddChild(Pip(def.Cost.ToString(), BattleTheme.CostColor, new Vector2(6, 6)));
-            if (def.Type == CardType.Unit)
-            {
-                card.AddChild(Pip(def.Atk.ToString(), BattleTheme.AtkColor, new Vector2(6, cardH - 38)));
-                card.AddChild(Pip(def.Hp.ToString(), BattleTheme.HpColor, new Vector2(cardW - 40, cardH - 38)));
-            }
-            else
-            {
-                var tag = BattleTheme.MakeLabel("指令", 15, BattleTheme.TextDim, HorizontalAlignment.Center);
-                tag.Position = new Vector2(0, cardH - 34);
-                tag.Size = new Vector2(cardW, 24);
-                card.AddChild(tag);
-            }
-
-            var name = BattleTheme.MakeLabel(def.Name, 18, BattleTheme.TextMain, HorizontalAlignment.Center);
-            name.Position = new Vector2(6, 44);
-            name.Size = new Vector2(cardW - 12, 44);
-            name.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            card.AddChild(name);
-
-            var body = BattleTheme.MakeLabel(def.Text, 13, BattleTheme.TextDim, HorizontalAlignment.Center);
-            body.Position = new Vector2(8, 96);
-            body.Size = new Vector2(cardW - 16, 96);
-            body.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            card.AddChild(body);
-
+            card.MouseEntered += () => ShowCardPreview(def, cardX);
+            card.MouseExited += HideCardPreview;
+            card.AddChild(BuildCardVisual(def, HandCardSize, compact: true));
             _handLayer.AddChild(card);
         }
+    }
+
+    // ---------- card visuals (shared by hand cards and the hover preview) ----------
+
+    /// <summary>Full card face: art, faction frame, gems, type badge, name, rules text.</summary>
+    private Control BuildCardVisual(CardDefinition def, Vector2 size, bool compact, bool backing = false)
+    {
+        float w = size.X, h = size.Y;
+        bool isOrder = def.Type != CardType.Unit;
+        var root = new Control { Size = size, MouseFilter = MouseFilterEnum.Ignore };
+
+        if (backing)
+        {
+            var bg = new Panel { Size = size, MouseFilter = MouseFilterEnum.Ignore };
+            bg.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.PanelDark,
+                isOrder ? BattleTheme.Accent : FactionColor(def.Faction), 3, 12));
+            root.AddChild(bg);
+        }
+
+        int gem = Mathf.RoundToInt(h * 0.155f);
+        int nameSize = Mathf.RoundToInt(h * 0.062f);
+        int bodySize = Mathf.RoundToInt(h * (compact ? 0.048f : 0.042f)); // 预览字号略缩,换取放下全文
+        var ink = new Color(0.14f, 0.11f, 0.07f);
+
+        var art = BattleTheme.Tex($"cards/{def.Id}.png");
+        var frame = _frameTex.GetValueOrDefault(def.Faction) ?? _frameTex.GetValueOrDefault("neutral");
+        if (art != null && frame != null)
+        {
+            // Frame art window measured on the generated frames: x 16.5%~84%, y 15.2%~68.8%.
+            root.AddChild(BattleTheme.Art(art, new Vector2(w * 0.165f, h * 0.152f), new Vector2(w * 0.675f, h * 0.536f)));
+            root.AddChild(BattleTheme.Art(frame, Vector2.Zero, size, TextureRect.StretchModeEnum.Scale));
+
+            var name = BattleTheme.MakeOutlinedLabel(def.Name, nameSize,
+                isOrder ? BattleTheme.Accent : BattleTheme.TextMain, HorizontalAlignment.Center);
+            name.ClipContents = true;
+            name.Position = new Vector2(8, h * 0.652f);
+            name.Size = new Vector2(w - 16, nameSize + 10);
+            root.AddChild(name);
+
+            // Rules text on the frame's leather panel → dark bold ink.
+            // AutowrapMode BEFORE Size (wrap off → min width = full text width, Size gets clamped up).
+            var body = BattleTheme.MakeLabel(BattleTheme.BodyText(def.Text), bodySize, ink, HorizontalAlignment.Center);
+            body.AddThemeFontOverride("font", BattleTheme.UiFontBold);
+            body.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+            body.VerticalAlignment = VerticalAlignment.Center;
+            body.ClipContents = true;
+            if (compact)
+                body.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; // 悬停放大看全文
+            body.Position = new Vector2(w * 0.16f, h * (compact ? 0.735f : 0.715f));
+            body.Size = new Vector2(w * 0.68f, h * (compact ? 0.13f : 0.215f));
+            root.AddChild(body);
+        }
+        else
+        {
+            var name = BattleTheme.MakeOutlinedLabel(def.Name, nameSize + 2, BattleTheme.TextMain, HorizontalAlignment.Center);
+            name.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+            name.ClipContents = true;
+            name.Position = new Vector2(8, h * 0.18f);
+            name.Size = new Vector2(w - 16, nameSize * 2.6f);
+            root.AddChild(name);
+
+            var body = BattleTheme.MakeLabel(BattleTheme.BodyText(def.Text), bodySize + 2, BattleTheme.TextDim, HorizontalAlignment.Center);
+            body.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+            body.ClipContents = true;
+            body.Position = new Vector2(10, h * 0.42f);
+            body.Size = new Vector2(w - 20, h * 0.42f);
+            root.AddChild(body);
+        }
+
+        root.AddChild(Pip(def.Cost.ToString(), BattleTheme.CostColor, new Vector2(2, 2), _gemCost, gem));
+        if (!isOrder)
+        {
+            root.AddChild(Pip(def.Atk.ToString(), BattleTheme.AtkColor, new Vector2(2, h - gem - 2), _gemAtk, gem));
+            root.AddChild(Pip(def.Hp.ToString(), BattleTheme.HpColor, new Vector2(w - gem - 2, h - gem - 2), _gemHp, gem));
+        }
+        else
+        {
+            // Order badge (top-right 辉尘 roundel): units carry atk/hp gems, orders carry this — 一眼可辨.
+            var badge = new Panel { Position = new Vector2(w - gem - 2, 2), Size = new Vector2(gem, gem), MouseFilter = MouseFilterEnum.Ignore };
+            badge.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.AccentSoft, BattleTheme.Accent, 2, gem / 2));
+            var glyph = BattleTheme.MakeOutlinedLabel("令", Mathf.RoundToInt(gem * 0.5f), Colors.White, HorizontalAlignment.Center);
+            glyph.Size = new Vector2(gem, gem);
+            badge.AddChild(glyph);
+            root.AddChild(badge);
+        }
+        return root;
+    }
+
+    private void ShowCardPreview(CardDefinition def, float cardX)
+    {
+        if (_dragCardId != null)
+            return;
+        HideCardPreview();
+
+        // Enlarged card + a full-rules plate below it (the frames' own text panels are too small for long texts).
+        string fullText = BattleTheme.BodyText(def.Text);
+        float plateH = fullText.Length > 0 ? 76f + 24f * Mathf.Ceil(fullText.Length / 15f) : 0f;
+        float totalH = PreviewSize.Y + (plateH > 0 ? plateH + 8f : 0f);
+        float x = Mathf.Clamp(cardX + HandCardSize.X / 2 - PreviewSize.X / 2, 10, BattleTheme.ScreenW - PreviewSize.X - 10);
+        var root = new Control
+        {
+            Position = new Vector2(x, HandY - totalH - 12),
+            Size = new Vector2(PreviewSize.X, totalH),
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        root.AddChild(BuildCardVisual(def, PreviewSize, compact: true, backing: true));
+
+        if (plateH > 0)
+        {
+            bool isOrder = def.Type != CardType.Unit;
+            var plate = new Panel { Position = new Vector2(0, PreviewSize.Y + 8f), Size = new Vector2(PreviewSize.X, plateH), MouseFilter = MouseFilterEnum.Ignore };
+            plate.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.PanelDark,
+                isOrder ? BattleTheme.Accent : FactionColor(def.Faction), 2, 10));
+
+            var tag = BattleTheme.MakeOutlinedLabel(isOrder ? "指令" : "随从", 16,
+                isOrder ? BattleTheme.Accent : BattleTheme.TextDim, HorizontalAlignment.Center);
+            tag.Position = new Vector2(12, 8);
+            tag.Size = new Vector2(PreviewSize.X - 24, 22);
+            plate.AddChild(tag);
+
+            var text = BattleTheme.MakeLabel(fullText, 19, BattleTheme.TextMain, HorizontalAlignment.Center);
+            text.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+            text.VerticalAlignment = VerticalAlignment.Top;
+            text.Position = new Vector2(14, 36);
+            text.Size = new Vector2(PreviewSize.X - 28, plateH - 44);
+            plate.AddChild(text);
+            root.AddChild(plate);
+        }
+
+        _overlayLayer.AddChild(root);
+        _cardPreview = root;
+    }
+
+    private void HideCardPreview()
+    {
+        _cardPreview?.QueueFree();
+        _cardPreview = null;
     }
 
     private void RenderHud(PlayerView view)
@@ -325,11 +523,15 @@ public partial class BattleScene : Control
         _oppInfo.Text = $"手牌 {opp.HandCount}   牌库 {opp.DeckCount}   辉尘 {opp.Mana}/{opp.ManaMax}";
         _oppLeaderBtn.Text = $"{LeaderName(opp.LeaderId)}\n♥ {opp.LeaderHp}";
         _oppLeaderBtn.AddThemeFontSizeOverride("font_size", 24);
-        _selfInfo.Text = $"{LeaderName(self.LeaderId)}   ♥ {self.LeaderHp}   辉尘 {self.Mana}/{self.ManaMax}   牌库 {self.DeckCount}";
+        // Stacked next to the avatar: name / vitals on separate lines to keep the block narrow.
+        _selfInfo.Text = $"{LeaderName(self.LeaderId)}\n♥ {self.LeaderHp}   辉尘 {self.Mana}/{self.ManaMax}\n牌库 {self.DeckCount}";
 
         string skill = LeaderSkillText(self.LeaderId);
         _leaderPowerBtn.Text = skill;
         _leaderPowerBtn.AddThemeFontSizeOverride("font_size", 18);
+
+        if (_oppAvatar != null) _oppAvatar.Texture = BattleTheme.Tex($"leaders/{opp.LeaderId}.png");
+        if (_selfAvatar != null) _selfAvatar.Texture = BattleTheme.Tex($"leaders/{self.LeaderId}.png");
     }
 
     // ---------- interaction gating ----------
@@ -359,12 +561,12 @@ public partial class BattleScene : Control
     {
         for (int scol = 0; scol < BattleTheme.Cols; scol++)
             for (int srow = 0; srow < BattleTheme.Rows; srow++)
-                BattleTheme.SetButtonBg(_cellButtons[scol, srow], CellBaseColor(srow));
+                BattleTheme.SetButtonBg(_cellButtons[scol, srow], CellBase(srow));
 
         foreach (var (id, node) in _standees)
         {
             int owner = (int)node.GetMeta("owner");
-            BattleTheme.SetButtonBg(node, BattleTheme.SeatColor(owner).Darkened(0.15f), BattleTheme.SeatColor(owner), 3);
+            BattleTheme.SetButtonBg(node, (Color)node.GetMeta("bg"), BattleTheme.SeatColor(owner), 3);
         }
         BattleTheme.SetButtonBg(_oppLeaderBtn, BattleTheme.PanelDark, BattleTheme.SeatColor1, 3, 10);
     }
@@ -556,6 +758,7 @@ public partial class BattleScene : Control
     {
         if (_busy || _dragCardId != null)
             return;
+        HideCardPreview();
         _dragCardId = cardEntityId;
         _dragMoved = false;
         _dragStart = GetGlobalMousePosition();
@@ -610,7 +813,7 @@ public partial class BattleScene : Control
         if (ch != null)
         {
             var def = _cards.Get(ch.CardId);
-            ghost.AddChild(Pip(def.Cost.ToString(), BattleTheme.CostColor, new Vector2(6, 6)));
+            ghost.AddChild(Pip(def.Cost.ToString(), BattleTheme.CostColor, new Vector2(6, 6), _gemCost));
             var name = BattleTheme.MakeLabel(def.Name, 18, BattleTheme.TextMain, HorizontalAlignment.Center);
             name.Position = new Vector2(6, 84);
             name.Size = new Vector2(GhostSize.X - 12, 46);
@@ -704,6 +907,12 @@ public partial class BattleScene : Control
                     Flash(bn, BattleTheme.Accent);
                     await Delay(0.08);
                     break;
+                case PressureTideEvent tide:
+                    // 压力潮汐: the bleeding is explained here; the follow-up LeaderDamagedEvent animates the HP hit.
+                    FloatText(new Vector2(BattleTheme.ScreenW / 2f - 220, 430),
+                        $"压力潮汐!{(tide.Seat == 0 ? "玩家1" : "玩家2")}未攻入敌方半场 -{tide.Amount}", BattleTheme.DangerColor);
+                    await Delay(0.5);
+                    break;
                 case LeaderDamagedEvent ld:
                     _sfx.Play("leaderhit");
                     Flash(_oppLeaderBtn, BattleTheme.DangerColor);
@@ -745,6 +954,17 @@ public partial class BattleScene : Control
         else if (_vsAi) { bool win = ended.WinnerSeat == _humanSeat; who = win ? "胜 利" : "败 北"; tint = win ? BattleTheme.Accent : BattleTheme.DangerColor; }
         else { who = $"{LeaderName(_host.GetView(ended.WinnerSeat).Self.LeaderId)} 获胜"; tint = BattleTheme.Accent; }
 
+        // Result illustration behind the text (dimmed); a draw keeps the plain panel.
+        bool defeat = _vsAi && ended.WinnerSeat >= 0 && ended.WinnerSeat != _humanSeat;
+        if (ended.WinnerSeat >= 0 &&
+            BattleTheme.Tex(defeat ? "screens/result_defeat.png" : "screens/result_victory.png") is { } resultTex)
+        {
+            var illus = BattleTheme.Art(resultTex, Vector2.Zero, new Vector2(BattleTheme.ScreenW, BattleTheme.ScreenH));
+            illus.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+            illus.Modulate = new Color(0.62f, 0.62f, 0.62f);
+            panel.AddChild(illus);
+        }
+
         var msg = BattleTheme.MakeLabel(who, 64, tint, HorizontalAlignment.Center);
         msg.Position = new Vector2(0, 360);
         msg.Size = new Vector2(BattleTheme.ScreenW, 100);
@@ -782,7 +1002,7 @@ public partial class BattleScene : Control
 
         // Card art: the real image once the AI-art pipeline ships it, else a faction-tinted placeholder.
         const float artH = 196f;
-        var artPath = $"res://assets/cards/{def.Id}.png";
+        var artPath = $"{BattleTheme.ArtRoot}/cards/{def.Id}.png";
         if (ResourceLoader.Exists(artPath))
         {
             _detailPanel.AddChild(new TextureRect
@@ -824,10 +1044,10 @@ public partial class BattleScene : Control
         Add($"{RarityName(def.Rarity)} · {FactionName(def.Faction)} · 随从", 16, BattleTheme.TextDim, 22);
         Add($"辉尘 {def.Cost}      攻击 {u.Atk}      生命 {u.CurrentHp}/{u.MaxHp}", 20, BattleTheme.TextMain, 28);
         if (def.Text.Length > 0)
-            Add(def.Text, 16, BattleTheme.TextMain, 58, wrap: true);
+            Add(BattleTheme.BodyText(def.Text), 16, BattleTheme.TextMain, 58, wrap: true);
 
         foreach (var k in u.Keywords)
-            Add($"【{KeywordDisplayName(k)}】{KeywordDesc(k.Keyword)}", 15, BattleTheme.Accent, 46, wrap: true);
+            Add($"【{KeywordDisplayName(k)}】{BattleTheme.BodyText(KeywordDesc(k.Keyword))}", 15, BattleTheme.Accent, 46, wrap: true);
 
         var lore = BattleTheme.MakeLabel(FactionLore(def.Faction), 14, BattleTheme.TextDim);
         lore.Position = new Vector2(pad, DetailH - 58);
@@ -976,12 +1196,22 @@ public partial class BattleScene : Control
 
     // ---------- small view helpers ----------
 
-    private static Label Pip(string text, Color color, Vector2 pos)
+    /// <summary>Stat pip: number over a gem texture when available, else the flat colored number.</summary>
+    private static Control Pip(string text, Color color, Vector2 pos, Texture2D? gem = null, int px = 38)
     {
-        var label = BattleTheme.MakeLabel(text, 24, color, HorizontalAlignment.Center);
-        label.Position = pos;
-        label.Size = new Vector2(34, 34);
-        return label;
+        if (gem == null)
+        {
+            var label = BattleTheme.MakeLabel(text, 24, color, HorizontalAlignment.Center);
+            label.Position = pos;
+            label.Size = new Vector2(34, 34);
+            return label;
+        }
+        var holder = new Control { Position = pos, Size = new Vector2(px, px), MouseFilter = MouseFilterEnum.Ignore };
+        holder.AddChild(BattleTheme.Art(gem, Vector2.Zero, holder.Size, TextureRect.StretchModeEnum.KeepAspectCentered));
+        var num = BattleTheme.MakeOutlinedLabel(text, Mathf.RoundToInt(px * 0.53f), Colors.White, HorizontalAlignment.Center);
+        num.Size = holder.Size;
+        holder.AddChild(num);
+        return holder;
     }
 
     private string ShortName(string cardId)
@@ -1006,6 +1236,13 @@ public partial class BattleScene : Control
     // By SCREEN row: the viewer's deploy zone is always the bottom row, the enemy's the top.
     private static Color CellBaseColor(int screenRow) =>
         screenRow == 0 ? BattleTheme.HomeRowP0 : screenRow == BattleTheme.Rows - 1 ? BattleTheme.HomeRowP1 : BattleTheme.CellEmpty;
+
+    // Over the painted table the cells go translucent so the board art shows through.
+    private Color CellBase(int screenRow)
+    {
+        var c = CellBaseColor(screenRow);
+        return _boardTex != null ? new Color(c.R, c.G, c.B, screenRow == 0 || screenRow == BattleTheme.Rows - 1 ? 0.6f : 0.42f) : c;
+    }
 
     private static string KeywordLine(IReadOnlyList<KeywordSpec> keywords)
     {

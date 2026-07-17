@@ -15,7 +15,15 @@ public partial class MenuScene : Control
         bg.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         AddChild(bg);
 
-        var title = BattleTheme.MakeLabel("守 线", 96, BattleTheme.TextMain, HorizontalAlignment.Center);
+        if (BattleTheme.Tex("screens/key_art_main.png") is { } keyArt)
+        {
+            var art = BattleTheme.Art(keyArt, Vector2.Zero, new Vector2(BattleTheme.ScreenW, BattleTheme.ScreenH));
+            art.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+            art.Modulate = new Color(0.58f, 0.58f, 0.58f); // dim under menu text
+            AddChild(art);
+        }
+
+        var title = BattleTheme.MakeOutlinedLabel("守 线", 96, BattleTheme.TextMain, HorizontalAlignment.Center);
         title.Position = new Vector2(0, 130);
         title.Size = new Vector2(BattleTheme.ScreenW, 120);
         AddChild(title);
@@ -34,6 +42,10 @@ public partial class MenuScene : Control
             () => StartVsAi("iron_wall", "wildpack_hunt"));
         AddButton("以【狂猎】出战  (荒野游群 · 快攻)", new Vector2(660, 542), BattleTheme.SeatColor1,
             () => StartVsAi("wildpack_hunt", "iron_wall"));
+        if (BattleTheme.Tex("ui/emblem_iron_vow.png") is { } ivEmblem)
+            AddChild(BattleTheme.Art(ivEmblem, new Vector2(572, 456), new Vector2(72, 72), TextureRect.StretchModeEnum.KeepAspectCentered));
+        if (BattleTheme.Tex("ui/emblem_wildpack.png") is { } wpEmblem)
+            AddChild(BattleTheme.Art(wpEmblem, new Vector2(572, 542), new Vector2(72, 72), TextureRect.StretchModeEnum.KeepAspectCentered));
 
         AddButton("双人热座对战", new Vector2(660, 672), BattleTheme.AccentSoft, StartHotseat);
         AddButton("退出", new Vector2(660, 792), BattleTheme.PanelDark, () => GetTree().Quit());

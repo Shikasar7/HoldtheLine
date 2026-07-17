@@ -1,16 +1,23 @@
 {
-  "version": "v1-draft",
-  "comment": "风格圣经:所有 AI 出图提示词的唯一规范来源。风格探索期迭代此文件;定稿后锁 version 为 v1。每张卡最终 prompt = global_style + composition[卡型] + factions[阵营] + 卡牌 art_prompt。",
+  "version": "v1",
+  "comment": "风格圣经:所有 AI 出图提示词的唯一规范来源。v1 已通过风格探索并锁定;之后所有风格调整只改此文件并升级版本。每张卡最终 prompt = global_style + composition[卡型] + factions[阵营] + 卡牌 art_prompt。正式生成必须同时引用 anchors.images 中的三张锚点图以保持跨卡牌一致性。",
 
   "global_style": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail",
 
   "negative_prompt": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described",
 
   "composition": {
-    "unit": "character art: single full-body figure, three-quarter view, centered, entire figure visible including feet, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left",
-    "order": "dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size",
+    "unit": "character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette",
+    "order": "wide landscape 3:2 composition, dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size",
     "leader": "waist-up heroic portrait, three-quarter view, commanding presence, centered, plain smoky background, dramatic rim light, face and emblem clearly readable inside a circular crop",
-    "board": "top-down view of a weathered military campaign table, worn canvas and leather map surface with faint terrain stains, low contrast, heavily desaturated, subdued detail so game pieces stand out, evenly lit, no grid lines, no icons, no text"
+    "board": "wide landscape 3:2 composition, top-down view of a completely empty weathered military campaign table, worn canvas and leather map surface with faint terrain stains, low contrast, heavily desaturated, subdued detail so game pieces stand out, evenly lit, no miniatures, no standees, no tokens, no dice, no cards, no weapons, no tools, no loose props anywhere on the playing surface or around its edges, no grid lines, no icons, no text",
+    "key_art": "wide cinematic key art composition, two opposing focal figures facing off, dramatic backlight through dust and embers, upper center area kept clear and simple for logo placement",
+    "card_back": "game UI asset: portrait trading card back design, perfectly symmetrical, flat front view, single centered crest, ornamental border, isolated, no text",
+    "ui_frame": "game UI asset: flat front view, perfectly symmetrical ornamental design, isolated on plain neutral dark background, crisp clean edges suitable for nine-slice scaling, no text, the inner window area left plain and empty",
+    "ui_button": "game UI asset: wide landscape button plate, flat front view, perfectly symmetrical, isolated on plain neutral dark background, crisp clean edges suitable for nine-slice scaling, plain uninterrupted center surface for programmatic text, simple uniform side rails and corners, restrained decoration only at the four corners, no crest, no wings, no protruding side ornaments, no text",
+    "ui_icon": "game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text",
+    "ui_texture": "seamless flat surface texture filling the whole frame, even lighting, subtle low-contrast detail, no objects, no figures, no text",
+    "prop": "square canvas game asset, single game prop object, centered, slight top-down angle, isolated on plain neutral dark background, generous even padding on all sides, even soft lighting, no text"
   },
 
   "factions": {
@@ -34,6 +41,96 @@
       "type": "board",
       "faction": null,
       "art_prompt": "a war-room campaign table surface for a 5x4 grid battlefield, subtle scorch marks and old supply-route stains, cool grey field with warm umber edges"
+    },
+    {
+      "id": "key_art_main",
+      "type": "key_art",
+      "faction": null,
+      "art_prompt": "an iron-clad commander with a planted greatshield on the left confronting a wildpack warchief raising a great curved horn on the right, torn banners and drifting battle-dust between them across a trench line"
+    },
+    {
+      "id": "card_back",
+      "type": "card_back",
+      "faction": null,
+      "art_prompt": "weathered leather and steel plate card back, a crossed tower-shield and bone horn crest at center, thin old-gold filigree border, cool grey and warm umber"
+    },
+    {
+      "id": "frame_iron_vow",
+      "type": "ui_frame",
+      "faction": null,
+      "art_prompt": "portrait trading card frame of weathered steel with ember-gold oath-flame filigree, rectangular empty artwork window in the upper two thirds, plain text panel in the lower third, cool steel blue-grey with ember gold accents"
+    },
+    {
+      "id": "frame_wildpack",
+      "type": "ui_frame",
+      "faction": null,
+      "art_prompt": "portrait trading card frame of lashed bone, hide leather and feather totems, rectangular empty artwork window in the upper two thirds, plain text panel in the lower third, warm hide-brown with feral green and bone-white accents"
+    },
+    {
+      "id": "frame_neutral",
+      "type": "ui_frame",
+      "faction": null,
+      "art_prompt": "portrait trading card frame of plain weathered bronze and patched leather straps, rectangular empty artwork window in the upper two thirds, plain text panel in the lower third, muted bronze and faded ochre"
+    },
+    {
+      "id": "gem_cost",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "a round faceted supply-gem of deep faded teal set in a worn old-gold ring"
+    },
+    {
+      "id": "gem_atk",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "a crossed-swords emblem stamped on a warm umber metal boss"
+    },
+    {
+      "id": "gem_hp",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "a deep blood-red teardrop gem set in a weathered steel ring"
+    },
+    {
+      "id": "emblem_iron_vow",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "faction crest: an ember-gold oath-flame rising over a steel-grey tower shield"
+    },
+    {
+      "id": "emblem_wildpack",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "faction crest: a bone-white wolf skull with trailing feathers on a hide-brown field"
+    },
+    {
+      "id": "texture_parchment",
+      "type": "ui_texture",
+      "faction": null,
+      "art_prompt": "aged field-journal parchment, faint stains, creases and worn edges, warm pale umber"
+    },
+    {
+      "id": "button_plate",
+      "type": "ui_button",
+      "faction": null,
+      "art_prompt": "a wide rectangular metal button plate with riveted edges, weathered steel with a subtle ember-gold trim line"
+    },
+    {
+      "id": "standee_base",
+      "type": "prop",
+      "faction": null,
+      "art_prompt": "a simple oval wooden miniature standee base, weathered dark wood with a thin old-gold rim"
+    },
+    {
+      "id": "result_victory",
+      "type": "order",
+      "faction": null,
+      "art_prompt": "a torn but defiant banner raised high over a held trench line at dawn, warm gold light breaking through smoke"
+    },
+    {
+      "id": "result_defeat",
+      "type": "order",
+      "faction": null,
+      "art_prompt": "a shattered shield half-buried in mud beside a fallen banner, cold grey dusk, embers dying out"
     }
   ],
 
@@ -46,7 +143,11 @@
   ],
 
   "anchors": {
-    "comment": "风格探索验收后,把选定锚点图的文件路径填进来;批量生产时所有生成挂这些图作 style reference(Flux Redux / IP-Adapter)。",
-    "images": []
+    "comment": "v1 风格锚点:铁誓单体、野群单体、铁誓指令场景。正式批量生产时所有生成均引用这三张图作为 style reference。",
+    "images": [
+      "tools/art/anchors/v1_iv_shieldbearer.png",
+      "tools/art/anchors/v1_wp_dire_wolf.png",
+      "tools/art/anchors/v1_iv_hold_the_line.png"
+    ]
   }
 }

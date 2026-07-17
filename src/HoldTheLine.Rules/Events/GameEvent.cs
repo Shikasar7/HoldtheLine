@@ -27,6 +27,7 @@ namespace HoldTheLine.Rules.Events;
 [JsonDerivedType(typeof(UnitKeywordGrantedEvent), "unit_keyword_granted")]
 [JsonDerivedType(typeof(UnitMoveBonusEvent), "unit_move_bonus")]
 [JsonDerivedType(typeof(LeaderDamagedEvent), "leader_damaged")]
+[JsonDerivedType(typeof(PressureTideEvent), "pressure_tide")]
 [JsonDerivedType(typeof(LeaderSkillUsedEvent), "leader_skill_used")]
 [JsonDerivedType(typeof(UnitDiedEvent), "unit_died")]
 [JsonDerivedType(typeof(ManaGainedEvent), "mana_gained")]
@@ -173,6 +174,18 @@ public sealed record LeaderDamagedEvent : GameEvent
     public required int Seat { get; init; }
     public required int Amount { get; init; }
     public required int NewHp { get; init; }
+}
+
+/// <summary>
+/// 压力潮汐 (GDD §2.7, anti-turtle revision): from round 8, a seat that starts its turn with no
+/// unit in the ENEMY half takes escalating leader damage. The follow-up LeaderDamagedEvent
+/// carries the HP change; this event exists so clients can present the tide distinctly.
+/// </summary>
+public sealed record PressureTideEvent : GameEvent
+{
+    public required int Seat { get; init; }
+    public required int Round { get; init; }
+    public required int Amount { get; init; }
 }
 
 public sealed record UnitDiedEvent : GameEvent

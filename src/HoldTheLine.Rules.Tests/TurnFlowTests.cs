@@ -1,6 +1,7 @@
 using HoldTheLine.Rules.Commands;
 using HoldTheLine.Rules.Engine;
 using HoldTheLine.Rules.Events;
+using HoldTheLine.Rules.Geometry;
 using HoldTheLine.Rules.State;
 using Xunit;
 
@@ -42,6 +43,74 @@ public class TurnFlowTests
         state = EndTurns(state, 24);
         Assert.Equal(10, state.Player(0).ManaMax);
         Assert.Equal(10, state.Player(1).ManaMax);
+    }
+
+    // ---- 压力潮汐 PressureTide (GDD §2.7, anti-turtle revision) ----
+
+    [Fact]
+    public void PressureTide_is_silent_before_round_8()
+    {
+        var state = TestKit.NewGame(deck0: Enumerable.Repeat("t_vanilla", 30).ToList(),
+                                    deck1: Enumerable.Repeat("t_vanilla", 30).ToList());
+        state.TurnNumber = 12; // seat 1's next turn = turn 13 → round 7
+        var result = TestKit.NewResolver().Execute(state, new EndTurnCommand { Seat = 0 });
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(25, result.State!.Player(1).LeaderHp);
+        Assert.DoesNotContain(result.Events, e => e is PressureTideEvent);
+    }
+
+    [Fact]
+    public void PressureTide_bleeds_a_seat_with_no_presence_in_the_enemy_half()
+    {
+        var state = TestKit.NewGame(deck0: Enumerable.Repeat("t_vanilla", 30).ToList(),
+                                    deck1: Enumerable.Repeat("t_vanilla", 30).ToList());
+        state.TurnNumber = 14; // seat 1's next turn = turn 15 → round 8
+        TestKit.Place(state, 1, "t_vanilla", new Cell(2, 2)); // own half only
+        var result = TestKit.NewResolver().Execute(state, new EndTurnCommand { Seat = 0 });
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(24, result.State!.Player(1).LeaderHp); // round 8 → 1 damage
+        Assert.Contains(result.Events, e => e is PressureTideEvent { Seat: 1, Round: 8, Amount: 1 });
+    }
+
+    [Fact]
+    public void PressureTide_spares_a_seat_pressing_the_enemy_half()
+    {
+        var state = TestKit.NewGame(deck0: Enumerable.Repeat("t_vanilla", 30).ToList(),
+                                    deck1: Enumerable.Repeat("t_vanilla", 30).ToList());
+        state.TurnNumber = 14;
+        TestKit.Place(state, 1, "t_vanilla", new Cell(2, 1)); // enemy half (seat 1's enemy = rows 0–1)
+        var result = TestKit.NewResolver().Execute(state, new EndTurnCommand { Seat = 0 });
+
+        Assert.Equal(25, result.State!.Player(1).LeaderHp);
+        Assert.DoesNotContain(result.Events, e => e is PressureTideEvent);
+    }
+
+    [Fact]
+    public void PressureTide_damage_escalates_with_the_round()
+    {
+        var state = TestKit.NewGame(deck0: Enumerable.Repeat("t_vanilla", 30).ToList(),
+                                    deck1: Enumerable.Repeat("t_vanilla", 30).ToList());
+        state.TurnNumber = 22; // seat 1's next turn = turn 23 → round 12 → 5 damage
+        var result = TestKit.NewResolver().Execute(state, new EndTurnCommand { Seat = 0 });
+
+        Assert.Equal(20, result.State!.Player(1).LeaderHp);
+        Assert.Contains(result.Events, e => e is PressureTideEvent { Round: 12, Amount: 5 });
+    }
+
+    [Fact]
+    public void PressureTide_can_end_the_game()
+    {
+        var state = TestKit.NewGame(deck0: Enumerable.Repeat("t_vanilla", 30).ToList(),
+                                    deck1: Enumerable.Repeat("t_vanilla", 30).ToList());
+        state.TurnNumber = 14;
+        state.Player(1).LeaderHp = 1;
+        var result = TestKit.NewResolver().Execute(state, new EndTurnCommand { Seat = 0 });
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.NotNull(result.State!.Result);
+        Assert.Equal(0, result.State.Result!.WinnerSeat);
     }
 
     [Fact]

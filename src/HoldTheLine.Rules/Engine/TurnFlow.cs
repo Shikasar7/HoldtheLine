@@ -1,4 +1,5 @@
 using HoldTheLine.Rules.Events;
+using HoldTheLine.Rules.Geometry;
 
 namespace HoldTheLine.Rules.Engine;
 
@@ -6,6 +7,9 @@ namespace HoldTheLine.Rules.Engine;
 internal static class TurnFlow
 {
     public const int ManaMaxCap = 10;
+
+    /// <summary>压力潮汐 begins this round (a round = both players' turns). Tuning knob, see GDD §2.7.</summary>
+    public const int PressureTideStartRound = 8;
 
     /// <summary>Advances to the given seat's turn: TurnNumber++, mana ramp+refill, unit action reset, draw 1.</summary>
     public static void StartTurn(ResolutionContext ctx, int seat)
@@ -40,6 +44,26 @@ internal static class TurnFlow
             ManaMax = player.ManaMax,
         });
 
+        ApplyPressureTide(ctx, seat);
         ctx.DrawCards(seat, 1);
+    }
+
+    /// <summary>
+    /// 压力潮汐 (GDD §2.7, anti-turtle revision): from round <see cref="PressureTideStartRound"/>,
+    /// starting your turn with no unit in the ENEMY half bleeds your leader for
+    /// (round - start + 1). Turtling stays legal — it just stops being free.
+    /// </summary>
+    private static void ApplyPressureTide(ResolutionContext ctx, int seat)
+    {
+        int round = (ctx.State.TurnNumber + 1) / 2;
+        if (round < PressureTideStartRound)
+            return;
+        bool pressing = ctx.State.Units.Any(u => u.OwnerSeat == seat && !BoardGeometry.InOwnHalf(seat, u.Cell));
+        if (pressing)
+            return;
+
+        int amount = round - PressureTideStartRound + 1;
+        ctx.Emit(new PressureTideEvent { Seat = seat, Round = round, Amount = amount });
+        ctx.DamageLeader(seat, amount);
     }
 }

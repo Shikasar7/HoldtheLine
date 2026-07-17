@@ -18,3 +18,6 @@ Thumbs.db
 
 # AI art working files (generated candidates before curation)
 art_work/
+
+# Raw AI-generated art (regenerable; the game uses the processed game/assets output)
+tools/art/generated/

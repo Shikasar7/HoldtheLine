@@ -40,6 +40,56 @@ public static class BattleTheme
     public static readonly Color DangerColor = Color.FromHtml("d05a4a");
     public static readonly Color PanelDark = Color.FromHtml("2c2822");
 
+    // ---------- fonts (bundled Source Han Sans SC, OFL; falls back to system YaHei if missing) ----------
+
+    public static readonly Font UiFont = LoadUiFont("res://assets/fonts/SourceHanSansSC-Regular.otf", 400);
+    public static readonly Font UiFontBold = LoadUiFont("res://assets/fonts/SourceHanSansSC-Bold.otf", 700);
+
+    private static Font LoadUiFont(string path, int weight) =>
+        ResourceLoader.Exists(path)
+            ? GD.Load<Font>(path)
+            : new SystemFont { FontNames = ["Microsoft YaHei UI", "Microsoft YaHei"], FontWeight = weight };
+
+    /// <summary>Strip the trailing 。 when the text is a single sentence (ability one-liners read cleaner bare).</summary>
+    public static string BodyText(string text) =>
+        text.EndsWith('。') && text.IndexOf('。') == text.Length - 1 ? text[..^1] : text;
+
+    // ---------- AI art loading (missing file → null → caller falls back to flat placeholder) ----------
+
+    public const string ArtRoot = "res://assets/art";
+
+    public static Texture2D? Tex(string relPath)
+    {
+        string path = $"{ArtRoot}/{relPath}";
+        return ResourceLoader.Exists(path) ? GD.Load<Texture2D>(path) : null;
+    }
+
+    public static TextureRect Art(Texture2D tex, Vector2 pos, Vector2 size,
+        TextureRect.StretchModeEnum stretch = TextureRect.StretchModeEnum.KeepAspectCovered)
+    {
+        // ExpandMode must be set BEFORE Size: while the default (KeepSize) is active,
+        // the texture dictates the minimum size and a smaller Size assignment gets clamped.
+        return new TextureRect
+        {
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = stretch,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Texture = tex,
+            Position = pos,
+            Size = size,
+        };
+    }
+
+    /// <summary>Bold label readable on top of artwork (dark outline).</summary>
+    public static Label MakeOutlinedLabel(string text, int size, Color color, HorizontalAlignment align = HorizontalAlignment.Left)
+    {
+        var label = MakeLabel(text, size, color, align);
+        label.AddThemeFontOverride("font", UiFontBold);
+        label.AddThemeColorOverride("font_outline_color", new Color(0.08f, 0.07f, 0.05f, 0.92f));
+        label.AddThemeConstantOverride("outline_size", 6);
+        return label;
+    }
+
     public static Vector2 CellPos(int col, int row) =>
         new(BoardLeft + col * (CellW + Gap), BoardTop + (Rows - 1 - row) * (CellH + Gap));
 
@@ -48,6 +98,7 @@ public static class BattleTheme
     public static Label MakeLabel(string text, int size, Color color, HorizontalAlignment align = HorizontalAlignment.Left)
     {
         var label = new Label { Text = text };
+        label.AddThemeFontOverride("font", UiFont);
         label.AddThemeFontSizeOverride("font_size", size);
         label.AddThemeColorOverride("font_color", color);
         label.HorizontalAlignment = align;
@@ -89,7 +140,12 @@ public static class BattleTheme
         btn.AddThemeStyleboxOverride("hover", Box(bg.Lightened(0.06f), border, borderWidth, radius));
         btn.AddThemeStyleboxOverride("pressed", Box(bg.Darkened(0.06f), border, borderWidth, radius));
         btn.AddThemeStyleboxOverride("focus", Box(bg, border, borderWidth, radius));
+        btn.AddThemeStyleboxOverride("disabled", Box(bg.Darkened(0.35f), (border ?? bg).Darkened(0.35f), borderWidth, radius));
+        btn.AddThemeFontOverride("font", UiFontBold);
         btn.AddThemeColorOverride("font_color", TextMain);
+        btn.AddThemeColorOverride("font_disabled_color", TextDim);
+        btn.AddThemeColorOverride("font_outline_color", new Color(0.08f, 0.07f, 0.05f, 0.85f));
+        btn.AddThemeConstantOverride("outline_size", 4);
         return btn;
     }
 
@@ -99,5 +155,6 @@ public static class BattleTheme
         btn.AddThemeStyleboxOverride("hover", Box(bg.Lightened(0.06f), border, borderWidth, radius));
         btn.AddThemeStyleboxOverride("pressed", Box(bg.Darkened(0.06f), border, borderWidth, radius));
         btn.AddThemeStyleboxOverride("focus", Box(bg, border, borderWidth, radius));
+        btn.AddThemeStyleboxOverride("disabled", Box(bg.Darkened(0.35f), (border ?? bg).Darkened(0.35f), borderWidth, radius));
     }
 }

@@ -63,7 +63,7 @@ public class HostTests
     {
         var host = new LocalGameHost(TestKit.Db, Config());
         var view = host.GetView(0);
-        Assert.Equal(6, view.Opponent.HandCount); // 5 + coin — count only, no list exists on the type
+        Assert.Equal(7, view.Opponent.HandCount); // 6 + coin — count only, no list exists on the type
         Assert.All(view.Self.Hand, c => Assert.False(string.IsNullOrEmpty(c.CardId)));
     }
 
