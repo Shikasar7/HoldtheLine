@@ -129,6 +129,7 @@ public sealed class Resolver
 
         ctx.Emit(new CardPlayedEvent { Seat = cmd.Seat, CardEntityId = card.EntityId, CardId = def.Id, ManaSpent = def.Cost });
         EffectEngine.RunTrigger(ctx, source: null, cmd.Seat, def.Effects, "play", cmd.TargetUnitId, cmd.TargetCell);
+        ctx.FireAllyOrderPlayed(cmd.Seat); // 教团: each of your units reacts once the order has fully resolved.
         ctx.CheckGameEnd();
         return null;
     }
@@ -142,6 +143,8 @@ public sealed class Resolver
             return new RuleError(RuleErrorCode.UnknownEntity, $"Unit {cmd.UnitEntityId} does not exist.");
         if (unit.OwnerSeat != cmd.Seat)
             return new RuleError(RuleErrorCode.NotYourUnit, "That unit is not yours.");
+        if (unit.HasKeyword(Keyword.Emplacement))
+            return new RuleError(RuleErrorCode.Emplaced, "架设单位不能移动。"); // Leap / move_bonus can't help — there is no movement to spend.
         if (IsSummoningSick(ctx.State, unit) && !unit.HasKeyword(Keyword.Charge))
             return new RuleError(RuleErrorCode.SummoningSickness, "This unit is still mustering (集结中).");
         if (unit.MovementUsed >= unit.MovementPerTurn)
@@ -213,22 +216,20 @@ public sealed class Resolver
             return new RuleError(RuleErrorCode.InvalidTarget, "Cannot attack a friendly unit.");
 
         int range = attacker.HasKeyword(Keyword.Range) ? attacker.KeywordValue(Keyword.Range) : 0;
-        bool adjacentToTarget = BoardGeometry.AreAdjacent(attacker.Cell, target.Cell);
 
         if (range == 0)
         {
-            if (!adjacentToTarget)
+            if (!BoardGeometry.AreAdjacent(attacker.Cell, target.Cell))
                 return new RuleError(RuleErrorCode.NotAdjacent, "Melee units attack adjacent enemies only.");
         }
         else
         {
-            int distance = BoardGeometry.LineDistance(attacker.Cell, target.Cell);
-            if (distance < 1)
-                return new RuleError(RuleErrorCode.OutOfRange, "Ranged attacks travel along a row or column.");
+            // 射程 N is measured in orthogonal steps (Manhattan): any cell within N steps is a legal
+            // target — diagonals included — and shots pass over every body, friend or foe (no line
+            // blocking). See GDD §2.5 (2026-07-17 revision).
+            int distance = BoardGeometry.StepDistance(attacker.Cell, target.Cell);
             if (distance > range)
-                return new RuleError(RuleErrorCode.OutOfRange, $"Target is {distance} cells away; range is {range}.");
-            if (BoardGeometry.CellsBetween(attacker.Cell, target.Cell).Any(c => ctx.State.UnitAt(c) != null))
-                return new RuleError(RuleErrorCode.LineBlocked, "Line of fire is blocked.");
+                return new RuleError(RuleErrorCode.OutOfRange, $"Target is {distance} steps away; range is {range}.");
         }
 
         // 守护: an attacker adjacent to any enemy Guard must pick one of those Guards.
@@ -239,9 +240,13 @@ public sealed class Resolver
         attacker.AttacksUsed++;
         ctx.Emit(new AttackedEvent { AttackerEntityId = attacker.EntityId, TargetUnitId = target.EntityId });
 
-        // Simultaneous strike (GDD §2.5): compute both sides before applying either.
-        // Retaliation happens only against melee attacks, and never against 偷袭 (CheapShot).
-        bool retaliates = range == 0 && !attacker.HasKeyword(Keyword.CheapShot) && target.Atk > 0;
+        // Simultaneous strike (GDD §2.5): compute both sides before applying either. Retaliation lands
+        // whenever the target can strike back at the attacker's cell — always true for melee (the attacker
+        // is adjacent), and true for a ranged shot only when the attacker is inside the target's own reach
+        // (射程/adjacency). A shot from safe distance is unanswered; 偷袭 (CheapShot) is never retaliated.
+        bool retaliates = target.Atk > 0
+            && !attacker.HasKeyword(Keyword.CheapShot)
+            && ReachesCell(target, attacker.Cell);
         // 围猎 (PackTactics): melee attacks on flanked prey — another friendly unit adjacent to the
         // target — deal +1 damage. Speed buys the surround; the surround buys the kill.
         bool packFlank = range == 0
@@ -252,6 +257,17 @@ public sealed class Resolver
         ctx.DamageUnit(target, attacker.Atk + (packFlank ? 1 : 0));
         if (retaliates)
             ctx.DamageUnit(attacker, target.Atk);
+
+        // 贯穿 (Pierce): a ranged shot along a straight line (attacker and target share a row/column)
+        // also strikes the cell one step directly behind the target — friend or foe, equal damage, no
+        // retaliation, one cell only. Diagonal shots have no defined "behind" cell, so they don't pierce.
+        if (range > 0 && attacker.HasKeyword(Keyword.Pierce)
+            && BoardGeometry.StepBeyond(attacker.Cell, target.Cell) is { } behindCell
+            && BoardGeometry.IsInside(behindCell)
+            && ctx.State.UnitAt(behindCell) is { } behindUnit)
+        {
+            ctx.DamageUnit(behindUnit, attacker.Atk);
+        }
 
         bool targetDied = target.CurrentHp <= 0;
         var vacated = target.Cell;
@@ -321,6 +337,16 @@ public sealed class Resolver
 
     private static bool IsSummoningSick(GameState state, UnitInstance unit) =>
         unit.DeployedOnTurn == state.TurnNumber && unit.OwnerSeat == state.ActiveSeat;
+
+    /// <summary>Whether <paramref name="unit"/> could attack the given cell from where it stands — adjacent
+    /// for a melee unit, within 射程 steps (Manhattan) for a ranged one. Used to decide retaliation.</summary>
+    private static bool ReachesCell(UnitInstance unit, Cell cell)
+    {
+        int range = unit.HasKeyword(Keyword.Range) ? unit.KeywordValue(Keyword.Range) : 0;
+        return range == 0
+            ? BoardGeometry.AreAdjacent(unit.Cell, cell)
+            : BoardGeometry.StepDistance(unit.Cell, cell) <= range;
+    }
 
     private static HashSet<int> AdjacentEnemyGuards(GameState state, UnitInstance attacker) =>
         BoardGeometry.AdjacentCells(attacker.Cell)

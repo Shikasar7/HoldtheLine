@@ -42,21 +42,27 @@ public sealed record EffectSpec
     public string? SummonCardId { get; init; }
 
     public static readonly IReadOnlySet<string> KnownTriggers = new HashSet<string>
-        { "battlecry", "deathrattle", "play", "leader_skill" };
+        { "battlecry", "deathrattle", "play", "leader_skill", "ally_order_played" };
 
     public static readonly IReadOnlySet<string> KnownActions = new HashSet<string>
-        { "damage", "buff", "draw", "gain_mana", "heal", "grant_keyword", "summon", "move_bonus" };
+        { "damage", "buff", "draw", "gain_mana", "heal", "grant_keyword", "summon", "move_bonus", "destroy", "recall_order" };
 
     public static readonly IReadOnlySet<string> KnownTargets = new HashSet<string>
-        { "none", "self", "target_unit", "target_unit_own_half", "adjacent_allies", "adjacent_enemies",
-          "column_enemies", "allies_home_row", "all_allies" };
+        { "none", "self", "target_unit", "target_unit_own_half", "target_unit_ally",
+          "adjacent_allies", "adjacent_enemies",
+          "column_enemies", "row_enemies", "column_allies", "cell_cross_all", "unit_cross_all",
+          "allies_home_row", "all_allies" };
 
     public static readonly IReadOnlySet<string> KnownDurations = new HashSet<string>
         { "permanent", "end_of_turn", "your_next_turn" };
 
+    /// <summary>Targets the ally_order_played trigger may use — no secondary target prompt (docs/06 §3.1).</summary>
+    public static readonly IReadOnlySet<string> OnCastTargets = new HashSet<string>
+        { "self", "adjacent_allies", "adjacent_enemies" };
+
     /// <summary>Targets the caller must supply an explicit unit for.</summary>
-    public bool NeedsUnitTarget => Target is "target_unit" or "target_unit_own_half";
+    public bool NeedsUnitTarget => Target is "target_unit" or "target_unit_own_half" or "target_unit_ally" or "unit_cross_all";
 
     /// <summary>Targets that read the command's target cell (spatial selectors).</summary>
-    public bool NeedsCellTarget => Target is "column_enemies";
+    public bool NeedsCellTarget => Target is "column_enemies" or "row_enemies" or "column_allies" or "cell_cross_all";
 }

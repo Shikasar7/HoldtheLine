@@ -13,6 +13,7 @@ public enum RuleErrorCode
     NotHomeRow,
     SummoningSickness,
     NoMovementLeft,
+    Emplaced,
     NotAdjacent,
     NoAttacksLeft,
     OutOfRange,

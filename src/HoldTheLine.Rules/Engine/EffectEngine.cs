@@ -59,6 +59,8 @@ internal static class EffectEngine
                     if (!BoardGeometry.InOwnHalf(ownerSeat, target.Cell))
                         return new RuleError(RuleErrorCode.InvalidTarget, "Target must be in your half of the board.");
                 }
+                if (spec.Target == "target_unit_ally" && target.OwnerSeat != ownerSeat)
+                    return new RuleError(RuleErrorCode.InvalidTarget, "This targets a friendly unit.");
             }
 
             if (spec.NeedsCellTarget && targetCell is null)
@@ -74,8 +76,18 @@ internal static class EffectEngine
         switch (spec.Action)
         {
             case "damage":
+                // 架设 second clause: bolted-down units cannot dodge incoming barrages — they take
+                // +1 from EFFECT damage (orders, skills, battlecries; never from attacks). This is
+                // the 焰克械 counter interface (docs/06 §4): spell factions crack static formations.
                 foreach (var t in targets)
-                    ctx.DamageUnit(t, spec.Amount);
+                    ctx.DamageUnit(t, spec.Amount + (t.HasKeyword(Keyword.Emplacement) ? 1 : 0));
+                break;
+
+            case "destroy":
+                // 献祭/消灭: straight to the death sweep — bypasses DamageUnit, so 持盾/坚守 don't save it;
+                // 亡语 still fires (via ProcessDeaths). No new event — the sweep emits UnitDiedEvent.
+                foreach (var t in targets)
+                    ctx.DestroyUnit(t);
                 break;
 
             case "heal":
@@ -118,6 +130,10 @@ internal static class EffectEngine
                 ctx.DrawCards(ownerSeat, spec.Amount);
                 break;
 
+            case "recall_order":
+                ctx.RecallOrders(ownerSeat, spec.Amount);
+                break;
+
             case "gain_mana":
                 ctx.GainMana(ownerSeat, spec.Amount);
                 break;
@@ -141,6 +157,7 @@ internal static class EffectEngine
 
             case "target_unit":
             case "target_unit_own_half":
+            case "target_unit_ally":
                 var explicitTarget = targetUnitId is null ? null : ctx.State.FindUnit(targetUnitId.Value);
                 return explicitTarget is null ? [] : [explicitTarget];
 
@@ -161,6 +178,37 @@ internal static class EffectEngine
                 return ctx.State.Units
                     .Where(u => u.OwnerSeat != ownerSeat && u.Cell.Col == targetCell.Value.Col)
                     .ToList();
+
+            case "row_enemies":
+                if (targetCell is null)
+                    return [];
+                return ctx.State.Units
+                    .Where(u => u.OwnerSeat != ownerSeat && u.Cell.Row == targetCell.Value.Row)
+                    .ToList();
+
+            case "column_allies":
+                if (targetCell is null)
+                    return [];
+                return ctx.State.Units
+                    .Where(u => u.OwnerSeat == ownerSeat && u.Cell.Col == targetCell.Value.Col)
+                    .ToList();
+
+            case "cell_cross_all":
+                if (targetCell is null)
+                    return [];
+                // 十字模板: the target cell plus its four orthogonal neighbours, BOTH sides (含友方).
+                // Edge/corner cells self-clip because AdjacentCells only yields in-board neighbours.
+                var cross = new HashSet<Cell>(BoardGeometry.AdjacentCells(targetCell.Value)) { targetCell.Value };
+                return ctx.State.Units.Where(u => cross.Contains(u.Cell)).ToList(); // Units order → deterministic
+
+            case "unit_cross_all":
+                // Same 十字 template, but centred on a chosen unit's cell — the deploy command already carries
+                // a unit target, so a unit's battlecry can aim without a second cell field (docs/07 pyroclast).
+                var centre = targetUnitId is null ? null : ctx.State.FindUnit(targetUnitId.Value);
+                if (centre is null)
+                    return [];
+                var unitCross = new HashSet<Cell>(BoardGeometry.AdjacentCells(centre.Cell)) { centre.Cell };
+                return ctx.State.Units.Where(u => unitCross.Contains(u.Cell)).ToList();
 
             case "allies_home_row":
                 int homeRow = BoardGeometry.HomeRow(ownerSeat);

@@ -1,0 +1,70 @@
+[
+  {
+    "id": "duskweaver_vesper",
+    "name": "晚祷",
+    "faction": "duskweaver",
+    "leader": "leader_dw_vela",
+    "cards": [
+      {
+        "id": "dw_ash_acolyte",
+        "count": 3
+      },
+      {
+        "id": "dw_cinder_moth",
+        "count": 2
+      },
+      {
+        "id": "dw_pyre_channeler",
+        "count": 3
+      },
+      {
+        "id": "dw_dusk_warden",
+        "count": 2
+      },
+      {
+        "id": "dw_ember_seer",
+        "count": 2
+      },
+      {
+        "id": "dw_flame_caster",
+        "count": 2
+      },
+      {
+        "id": "dw_flare_dancer",
+        "count": 2
+      },
+      {
+        "id": "dw_pyroclast",
+        "count": 2
+      },
+      {
+        "id": "dw_ash_phoenix",
+        "count": 1
+      },
+      {
+        "id": "dw_first_ritualist",
+        "count": 1
+      },
+      {
+        "id": "dw_spark",
+        "count": 3
+      },
+      {
+        "id": "dw_flame_lash",
+        "count": 3
+      },
+      {
+        "id": "dw_immolate",
+        "count": 2
+      },
+      {
+        "id": "dw_vesper_blast",
+        "count": 1
+      },
+      {
+        "id": "dw_fire_curtain",
+        "count": 1
+      }
+    ]
+  }
+]

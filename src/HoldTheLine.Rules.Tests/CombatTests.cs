@@ -55,11 +55,11 @@ public class CombatTests
     }
 
     [Fact]
-    public void Ranged_attack_takes_no_retaliation()
+    public void Ranged_attack_from_safe_distance_takes_no_retaliation()
     {
         var state = TestKit.NewGame();
         var archer = TestKit.Place(state, 0, "t_archer", new Cell(2, 0)); // 2/2, Range 2
-        var target = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 2)); // 2/3
+        var target = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 2)); // 2/3 melee, 2 cells away → can't reach back
 
         var result = TestKit.NewResolver().Execute(state, new AttackCommand
         { Seat = 0, AttackerEntityId = archer.EntityId, TargetUnitId = target.EntityId });
@@ -70,32 +70,96 @@ public class CombatTests
     }
 
     [Fact]
-    public void Ranged_line_of_fire_is_blocked_by_any_body()
+    public void Ranged_attacker_is_retaliated_when_inside_the_targets_reach()
+    {
+        // A ranged unit shelling an adjacent melee enemy is itself in that enemy's reach → takes the counter.
+        var state = TestKit.NewGame();
+        var archer = TestKit.Place(state, 0, "t_archer", new Cell(2, 1)); // 2/2, Range 2
+        var target = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 2)); // 2/3 melee, adjacent
+
+        var result = TestKit.NewResolver().Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = archer.EntityId, TargetUnitId = target.EntityId });
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Null(result.State!.FindUnit(archer.EntityId));               // 2 hp - 2 retaliation → dead
+        Assert.Equal(1, result.State.FindUnit(target.EntityId)!.CurrentHp); // 3 - 2
+    }
+
+    [Fact]
+    public void Two_ranged_units_in_range_of_each_other_both_take_damage()
     {
         var state = TestKit.NewGame();
+        var attacker = TestKit.Place(state, 0, "t_archer", new Cell(2, 0)); // Range 2
+        var target = TestKit.Place(state, 1, "t_archer", new Cell(2, 2));   // Range 2, 2 steps away — reaches back
+
+        var result = TestKit.NewResolver().Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = attacker.EntityId, TargetUnitId = target.EntityId });
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Null(result.State!.FindUnit(attacker.EntityId)); // 2/2 - 2 retaliation → dead
+        Assert.Null(result.State.FindUnit(target.EntityId));    // 2/2 - 2 → dead (simultaneous)
+    }
+
+    [Fact]
+    public void CheapShot_ranged_attacker_still_avoids_retaliation_in_range()
+    {
+        var state = TestKit.NewGame();
+        var archer = TestKit.Place(state, 0, "t_archer", new Cell(2, 1)); // Range 2, adjacent to target
+        state.FindUnit(archer.EntityId)!.Keywords.Add(new HoldTheLine.Rules.Cards.KeywordSpec(HoldTheLine.Rules.Cards.Keyword.CheapShot));
+        var target = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 2)); // adjacent melee
+
+        var result = TestKit.NewResolver().Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = archer.EntityId, TargetUnitId = target.EntityId });
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, result.State!.FindUnit(archer.EntityId)!.CurrentHp); // 偷袭 → no counter even point-blank
+    }
+
+    [Fact]
+    public void Ranged_fire_passes_over_bodies()
+    {
+        // GDD §2.5 (2026-07-17): ranged shots ignore line blocking — friend or foe.
+        var state = TestKit.NewGame();
         var archer = TestKit.Place(state, 0, "t_archer", new Cell(2, 0));
-        TestKit.Place(state, 0, "t_vanilla", new Cell(2, 1)); // friendly blocker blocks too
+        TestKit.Place(state, 0, "t_vanilla", new Cell(2, 1)); // friendly body in the lane
         var target = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 2));
 
         var result = TestKit.NewResolver().Execute(state, new AttackCommand
         { Seat = 0, AttackerEntityId = archer.EntityId, TargetUnitId = target.EntityId });
-        Assert.Equal(RuleErrorCode.LineBlocked, result.Error!.Code);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, result.State!.FindUnit(target.EntityId)!.CurrentHp); // 3 - 2
     }
 
     [Fact]
-    public void Ranged_attack_respects_max_range_and_alignment()
+    public void Ranged_attack_reaches_diagonals_within_step_range()
+    {
+        // 射程 is Manhattan distance: a diagonal-1 cell is 2 steps away, so Range 2 reaches it.
+        var state = TestKit.NewGame();
+        var archer = TestKit.Place(state, 0, "t_archer", new Cell(2, 0)); // Range 2
+        var diagonal = TestKit.Place(state, 1, "t_vanilla", new Cell(3, 1)); // |1|+|1| = 2 steps
+        var resolver = TestKit.NewResolver();
+
+        var hit = resolver.Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = archer.EntityId, TargetUnitId = diagonal.EntityId });
+        Assert.True(hit.Success, hit.Error?.Message);
+        Assert.Equal(1, hit.State!.FindUnit(diagonal.EntityId)!.CurrentHp); // 3 - 2
+    }
+
+    [Fact]
+    public void Ranged_attack_respects_max_range()
     {
         var state = TestKit.NewGame();
         var archer = TestKit.Place(state, 0, "t_archer", new Cell(2, 0)); // Range 2
-        var tooFar = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 3));
-        var diagonal = TestKit.Place(state, 1, "t_vanilla", new Cell(3, 1));
+        var tooFar = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 3)); // 3 steps
+        var farDiagonal = TestKit.Place(state, 1, "t_vanilla", new Cell(4, 1)); // |2|+|1| = 3 steps
         var resolver = TestKit.NewResolver();
 
         Assert.Equal(RuleErrorCode.OutOfRange, resolver.Execute(state, new AttackCommand
         { Seat = 0, AttackerEntityId = archer.EntityId, TargetUnitId = tooFar.EntityId }).Error!.Code);
 
         Assert.Equal(RuleErrorCode.OutOfRange, resolver.Execute(state, new AttackCommand
-        { Seat = 0, AttackerEntityId = archer.EntityId, TargetUnitId = diagonal.EntityId }).Error!.Code);
+        { Seat = 0, AttackerEntityId = archer.EntityId, TargetUnitId = farDiagonal.EntityId }).Error!.Code);
     }
 
     [Fact]

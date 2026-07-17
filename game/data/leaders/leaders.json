@@ -8,7 +8,13 @@
     "text": "筑垒(2费):使一个友方随从获得守护,直到你的下个回合。",
     "art_prompt": "a veteran commander of the iron oath, greatshield planted, stern and grey",
     "skill_effects": [
-      { "trigger": "leader_skill", "action": "grant_keyword", "target": "target_unit", "keyword": "guard", "duration": "your_next_turn" }
+      {
+        "trigger": "leader_skill",
+        "action": "grant_keyword",
+        "target": "target_unit",
+        "keyword": "guard",
+        "duration": "your_next_turn"
+      }
     ]
   },
   {
@@ -20,8 +26,55 @@
     "text": "狩猎号角(2费):使一个友方随从本回合移动力 +1,并获得偷袭直到回合结束。",
     "art_prompt": "a wind-speaker warchief with a great curved horn, feathers and beast-bone",
     "skill_effects": [
-      { "trigger": "leader_skill", "action": "move_bonus", "target": "target_unit", "amount": 1 },
-      { "trigger": "leader_skill", "action": "grant_keyword", "target": "target_unit", "keyword": "cheap_shot", "duration": "end_of_turn" }
+      {
+        "trigger": "leader_skill",
+        "action": "move_bonus",
+        "target": "target_unit",
+        "amount": 1
+      },
+      {
+        "trigger": "leader_skill",
+        "action": "grant_keyword",
+        "target": "target_unit",
+        "keyword": "cheap_shot",
+        "duration": "end_of_turn"
+      }
+    ]
+  },
+  {
+    "id": "leader_dw_vela",
+    "name": "烬语者·薇拉",
+    "faction": "duskweaver",
+    "skill_cost": 3,
+    "skill_name": "灼痕",
+    "text": "灼痕(3费):对一个格子及其相邻格的所有随从造成 1 点伤害(含友方)。",
+    "art_prompt": "a pale sorceress with ash-streaked hair and faint ember-glow tattoos, dusk-purple robes, calm and burning",
+    "skill_effects": [
+      {
+        "trigger": "leader_skill",
+        "action": "damage",
+        "target": "cell_cross_all",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "id": "leader_uv_brom",
+    "name": "总工·布罗姆·铆歌",
+    "faction": "undervault",
+    "skill_cost": 2,
+    "skill_name": "加农校准",
+    "text": "加农校准(2费):一个友方随从获得射程 1,直到回合结束。",
+    "art_prompt": "a grizzled dwarf chief engineer with a brass monocle, soot-streaked beard, blueprints under one arm",
+    "skill_effects": [
+      {
+        "trigger": "leader_skill",
+        "action": "grant_keyword",
+        "target": "target_unit_ally",
+        "keyword": "range",
+        "keyword_value": 1,
+        "duration": "end_of_turn"
+      }
     ]
   }
 ]

@@ -18,24 +18,45 @@ public class ContentTests
     public void All_shipped_cards_load_and_validate()
     {
         var db = Cards();
-        // 16 neutral + coin + 16 iron_vow + 16 wildpack.
-        Assert.Equal(49, db.All.Count);
+        // 16 neutral + coin + 16 iron_vow + 16 wildpack + (16+token) duskweaver + (16+token) undervault.
+        Assert.Equal(83, db.All.Count);
         Assert.Equal(16, db.All.Count(c => c.Faction == "iron_vow"));
         Assert.Equal(16, db.All.Count(c => c.Faction == "wildpack"));
+        Assert.Equal(17, db.All.Count(c => c.Faction == "duskweaver"));  // 16 + phoenix chick token
+        Assert.Equal(17, db.All.Count(c => c.Faction == "undervault"));  // 16 + sentry token
     }
 
     [Fact]
     public void Leaders_load_and_validate()
     {
         var leaders = Leaders();
-        Assert.Equal(2, leaders.All.Count);
+        Assert.Equal(4, leaders.All.Count);
         Assert.True(leaders.TryGet("leader_iv_valen", out var valen));
         Assert.True(valen.SkillNeedsUnitTarget);
+        Assert.True(leaders.TryGet("leader_dw_vela", out var vela));
+        Assert.True(vela.SkillNeedsCellTarget); // 灼痕 targets a cell (cell_cross_all)
+    }
+
+    [Fact]
+    public void Mixed_faction_decks_are_rejected()
+    {
+        var db = Cards();
+        // Start from a legal single-faction deck and swap ONE card for another faction — within all caps,
+        // so only the purity rule can trip.
+        var deck = DeckLibrary.LoadFromDirectory(DecksDir).Single(d => d.Id == "iron_wall").Expand().ToList();
+        deck[0] = db.All.First(c => c.Faction == "wildpack" && c.Rarity == Rarity.Common).Id;
+
+        var error = DeckValidator.Validate(deck, db);
+        Assert.NotNull(error);
+        Assert.Equal(RuleErrorCode.InvalidDeck, error!.Code);
+        Assert.Contains("faction", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
     [InlineData("iron_wall")]
     [InlineData("wildpack_hunt")]
+    [InlineData("duskweaver_vesper")]
+    [InlineData("undervault_sunline")]
     public void Precon_decks_are_legal_and_playable(string deckId)
     {
         var db = Cards();

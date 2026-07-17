@@ -42,14 +42,19 @@ public partial class MenuScene : Control
             () => StartVsAi("iron_wall", "wildpack_hunt"));
         AddButton("以【狂猎】出战  (荒野游群 · 快攻)", new Vector2(660, 542), BattleTheme.SeatColor1,
             () => StartVsAi("wildpack_hunt", "iron_wall"));
-        if (BattleTheme.Tex("ui/emblem_iron_vow.png") is { } ivEmblem)
-            AddChild(BattleTheme.Art(ivEmblem, new Vector2(572, 456), new Vector2(72, 72), TextureRect.StretchModeEnum.KeepAspectCentered));
-        if (BattleTheme.Tex("ui/emblem_wildpack.png") is { } wpEmblem)
-            AddChild(BattleTheme.Art(wpEmblem, new Vector2(572, 542), new Vector2(72, 72), TextureRect.StretchModeEnum.KeepAspectCentered));
+        AddButton("以【晚祷】出战  (黄昏教团 · 法术连锁)", new Vector2(660, 628), BattleTheme.SeatColor1,
+            () => StartVsAi("duskweaver_vesper", "undervault_sunline"));
+        AddButton("以【贯日阵列】出战  (掘世匠会 · 后排火力)", new Vector2(660, 714), BattleTheme.SeatColor0,
+            () => StartVsAi("undervault_sunline", "iron_wall"));
+        // Faction emblems (art lands in X4; Tex() returns null until then, so these are no-ops meanwhile).
+        Emblem("ui/emblem_iron_vow.png", 456);
+        Emblem("ui/emblem_wildpack.png", 542);
+        Emblem("ui/emblem_duskweaver.png", 628);
+        Emblem("ui/emblem_undervault.png", 714);
 
-        AddButton("双人热座对战", new Vector2(660, 646), BattleTheme.AccentSoft, StartHotseat);
-        AddButton("联机对战", new Vector2(660, 728), BattleTheme.SeatColor0, ShowOnlinePanel);
-        AddButton("退出", new Vector2(660, 828), BattleTheme.PanelDark, () => GetTree().Quit());
+        AddButton("双人热座对战", new Vector2(660, 806), BattleTheme.AccentSoft, StartHotseat);
+        AddButton("联机对战", new Vector2(660, 888), BattleTheme.SeatColor0, ShowOnlinePanel);
+        AddButton("退出", new Vector2(660, 970), BattleTheme.PanelDark, () => GetTree().Quit());
     }
 
     // ---------- online connect panel (M2 N2) ----------
@@ -77,30 +82,42 @@ public partial class MenuScene : Control
         var url = Field(GameConfig.ServerUrl, "ws://主机IP:5210/ws", new Vector2(cx, 460), fieldW);
         dim.AddChild(url);
 
-        // Deck pick.
-        Label("卡组", 540, 22, BattleTheme.Accent);
-        Button ironBtn = null!, wildBtn = null!;
+        // Deck pick (2x2 grid over all four factions).
+        Label("卡组", 524, 22, BattleTheme.Accent);
+        (string id, string label, Color color)[] deckOptions =
+        [
+            ("iron_wall", "铁壁 · 铁誓", BattleTheme.SeatColor0),
+            ("wildpack_hunt", "狂猎 · 游群", BattleTheme.SeatColor1),
+            ("duskweaver_vesper", "晚祷 · 教团", Color.FromHtml("8b5fa6")),
+            ("undervault_sunline", "贯日 · 匠会", Color.FromHtml("b5883f")),
+        ];
+        var deckBtns = new Button[deckOptions.Length];
         void Repaint()
         {
-            BattleTheme.SetButtonBg(ironBtn, _onlineDeck == "iron_wall" ? BattleTheme.SeatColor0 : BattleTheme.PanelDark);
-            BattleTheme.SetButtonBg(wildBtn, _onlineDeck == "wildpack_hunt" ? BattleTheme.SeatColor1 : BattleTheme.PanelDark);
+            for (int i = 0; i < deckOptions.Length; i++)
+                BattleTheme.SetButtonBg(deckBtns[i], _onlineDeck == deckOptions[i].id ? deckOptions[i].color : BattleTheme.PanelDark);
         }
-        ironBtn = Btn("铁壁 · 防守", new Vector2(cx, 576), new Vector2(290, 64), () => { _onlineDeck = "iron_wall"; Repaint(); });
-        wildBtn = Btn("狂猎 · 快攻", new Vector2(cx + 310, 576), new Vector2(290, 64), () => { _onlineDeck = "wildpack_hunt"; Repaint(); });
-        dim.AddChild(ironBtn); dim.AddChild(wildBtn); Repaint();
+        for (int i = 0; i < deckOptions.Length; i++)
+        {
+            var opt = deckOptions[i];
+            var pos = new Vector2(cx + (i % 2) * 310, 556 + (i / 2) * 72);
+            deckBtns[i] = Btn(opt.label, pos, new Vector2(290, 64), () => { _onlineDeck = opt.id; Repaint(); });
+            dim.AddChild(deckBtns[i]);
+        }
+        Repaint();
 
         // Create.
-        dim.AddChild(Btn("创建房间", new Vector2(cx, 672), new Vector2(290, 76), () =>
+        dim.AddChild(Btn("创建房间", new Vector2(cx, 716), new Vector2(290, 76), () =>
             StartOnline(url.Text, nick.Text, createRoom: true, "")));
 
         // Join with a room code.
-        var code = Field("", "房间号", new Vector2(cx + 310, 672), 180);
+        var code = Field("", "房间号", new Vector2(cx + 310, 716), 180);
         code.AddThemeFontSizeOverride("font_size", 26);
         dim.AddChild(code);
-        dim.AddChild(Btn("加入", new Vector2(cx + 500, 672), new Vector2(100, 76), () =>
+        dim.AddChild(Btn("加入", new Vector2(cx + 500, 716), new Vector2(100, 76), () =>
             StartOnline(url.Text, nick.Text, createRoom: false, code.Text)));
 
-        dim.AddChild(Btn("返回", new Vector2(cx, 800), new Vector2(600, 64), () => dim.QueueFree()));
+        dim.AddChild(Btn("返回", new Vector2(cx, 838), new Vector2(600, 64), () => dim.QueueFree()));
     }
 
     private LineEdit Field(string text, string placeholder, Vector2 pos, float width)
@@ -139,6 +156,12 @@ public partial class MenuScene : Control
         GameConfig.SetOnline(string.IsNullOrWhiteSpace(url) ? GameConfig.ServerUrl : url.Trim(),
             nick, createRoom, code, _onlineDeck);
         GetTree().ChangeSceneToFile(BattlePath);
+    }
+
+    private void Emblem(string texPath, float y)
+    {
+        if (BattleTheme.Tex(texPath) is { } tex)
+            AddChild(BattleTheme.Art(tex, new Vector2(572, y), new Vector2(72, 72), TextureRect.StretchModeEnum.KeepAspectCentered));
     }
 
     private void AddButton(string text, Vector2 pos, Color color, System.Action onPressed)

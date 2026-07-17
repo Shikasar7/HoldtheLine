@@ -11,6 +11,10 @@ namespace HoldTheLine.Rules.Ai;
 /// legal command by its immediate value — kill &gt; trade up &gt; push toward the enemy home row — and
 /// takes the best. Crude but symmetric: it punishes obvious blunders and beats a careless human,
 /// which is all the prototype needs. Deterministic given the state (tie-breaks seed off the state).
+///
+/// X2.1 taught it the new-faction primitives (docs/06 §5.2): battlecry damage aims at enemies, 贯穿
+/// counts the line hit, cell/cross AOEs subtract friendly-fire, 消灭 only sacrifices cheap/dying bodies,
+/// and any order is worth more while on-cast engines (ally_order_played) sit in play.
 /// </summary>
 public static class GreedyAi
 {
@@ -18,10 +22,14 @@ public static class GreedyAi
     public static Command Pick(GameState state, CardDatabase db, LeaderDatabase leaders)
     {
         var legal = CommandEnumerator.LegalCommands(state, db, leaders);
-        return Pick(state, db, legal);
+        return Pick(state, db, leaders, legal);
     }
 
+    /// <summary>Back-compat overload without leader data — leader skills fall back to a flat score.</summary>
     public static Command Pick(GameState state, CardDatabase db, IReadOnlyList<Command> legal)
+        => Pick(state, db, LeaderDatabase.Empty, legal);
+
+    public static Command Pick(GameState state, CardDatabase db, LeaderDatabase leaders, IReadOnlyList<Command> legal)
     {
         if (legal.Count == 0)
             return new EndTurnCommand { Seat = state.ActiveSeat };
@@ -34,13 +42,13 @@ public static class GreedyAi
         double bestScore = double.NegativeInfinity;
         foreach (var c in legal)
         {
-            double score = Score(state, db, c) + rng.NextInt(100) * 0.001;
+            double score = Score(state, db, leaders, c) + rng.NextInt(100) * 0.001;
             if (score > bestScore) { bestScore = score; best = c; }
         }
         return best;
     }
 
-    private static double Score(GameState s, CardDatabase db, Command c)
+    private static double Score(GameState s, CardDatabase db, LeaderDatabase leaders, Command c)
     {
         switch (c)
         {
@@ -48,26 +56,7 @@ public static class GreedyAi
                 return 0.05;
 
             case AttackCommand a:
-            {
-                var attacker = s.FindUnit(a.AttackerEntityId)!;
-                if (a.TargetLeader)
-                    return 1000 + attacker.Atk * 10;
-
-                var target = s.FindUnit(a.TargetUnitId!.Value)!;
-                bool melee = !attacker.HasKeyword(Keyword.Range) || attacker.KeywordValue(Keyword.Range) == 0;
-
-                int myDmg = EstimateDamage(s, attacker, target, melee);
-                bool kills = myDmg >= target.CurrentHp;
-                int retDmg = melee && !attacker.HasKeyword(Keyword.CheapShot) && target.Atk > 0
-                    ? EstimateDamage(s, target, attacker, melee: true)
-                    : 0;
-                bool iDie = retDmg >= attacker.CurrentHp;
-
-                return myDmg * 2
-                    + (kills ? UnitValue(target) * 3 : 0)
-                    - retDmg * 1.5
-                    - (iDie ? UnitValue(attacker) * 3 : 0);
-            }
+                return ScoreAttack(s, a);
 
             case MoveUnitCommand m:
             {
@@ -77,21 +66,34 @@ public static class GreedyAi
                 double score = progress * 1.5 + 0.2;
                 if (unit.HasKeyword(Keyword.Garrison) && unit.Cell.Row == BoardGeometry.HomeRow(m.Seat) && m.To.Row != unit.Cell.Row)
                     score -= 4; // leaving the home row drops the garrison bonus
+
+                // 压力潮汐 awareness: once the tide is live (or one round out), being our ONLY unit in
+                // the enemy half is worth real leader HP — crossing in stops the bleed, retreating
+                // restarts it. Without this the bots race the tide instead of fighting (X2.1 gap).
+                int round = (s.TurnNumber + 1) / 2;
+                if (round >= TurnFlow.PressureTideStartRound - 1)
+                {
+                    bool othersPress = s.Units.Any(u =>
+                        u.OwnerSeat == m.Seat && u.EntityId != unit.EntityId && !BoardGeometry.InOwnHalf(m.Seat, u.Cell));
+                    if (!othersPress)
+                    {
+                        double tideWorth = Math.Min(10, 4 + (round - TurnFlow.PressureTideStartRound) * 2);
+                        bool inEnemyHalfNow = !BoardGeometry.InOwnHalf(m.Seat, unit.Cell);
+                        bool inEnemyHalfAfter = !BoardGeometry.InOwnHalf(m.Seat, m.To);
+                        if (!inEnemyHalfNow && inEnemyHalfAfter) score += tideWorth;
+                        else if (inEnemyHalfNow && !inEnemyHalfAfter) score -= tideWorth;
+                    }
+                }
                 return score;
             }
 
             case UseLeaderSkillCommand ls:
-            {
-                var target = ls.TargetUnitId is { } id ? s.FindUnit(id) : null;
-                if (target != null && target.OwnerSeat != ls.Seat)
-                    return -100; // never aim a friendly skill at the enemy
-                return 0.8;
-            }
+                return ScoreLeaderSkill(s, db, leaders, ls);
 
             case PlayCardCommand p:
             {
                 var def = db.Get(s.Player(p.Seat).Hand.First(h => h.EntityId == p.CardEntityId).CardId);
-                return def.Type == CardType.Unit ? ScoreDeploy(s, p, def) : ScoreOrder(s, p, def);
+                return def.Type == CardType.Unit ? ScoreDeploy(s, db, p, def) : ScoreOrder(s, db, p, def);
             }
 
             default:
@@ -99,61 +101,227 @@ public static class GreedyAi
         }
     }
 
-    private static double ScoreDeploy(GameState s, PlayCardCommand p, CardDefinition def)
+    private static double ScoreAttack(GameState s, AttackCommand a)
     {
-        // Battlecries that take a unit target (buffs) must aim at a friendly unit.
-        if (p.TargetUnitId is { } id && s.FindUnit(id) is { } t && t.OwnerSeat != p.Seat)
-            return -100;
-        return 4 + def.Cost * 2;
+        var attacker = s.FindUnit(a.AttackerEntityId)!;
+        if (a.TargetLeader)
+            return 1000 + attacker.Atk * 10;
+
+        var target = s.FindUnit(a.TargetUnitId!.Value)!;
+        bool melee = !attacker.HasKeyword(Keyword.Range) || attacker.KeywordValue(Keyword.Range) == 0;
+
+        int myDmg = EstimateDamage(s, attacker, target, melee);
+        bool kills = myDmg >= target.CurrentHp;
+
+        // Retaliation lands whenever the target can reach the attacker's cell (matches Resolver.ReachesCell):
+        // melee attackers are always in reach; ranged ones only when inside the target's range/adjacency.
+        bool retaliated = !attacker.HasKeyword(Keyword.CheapShot) && target.Atk > 0 && Reaches(target, attacker.Cell);
+        int retDmg = retaliated ? EstimateDamage(s, target, attacker, melee: true) : 0;
+        bool iDie = retDmg >= attacker.CurrentHp;
+
+        double score = myDmg * 2
+            + (kills ? UnitValue(target) * 3 : 0)
+            - retDmg * 1.5
+            - (iDie ? UnitValue(attacker) * 3 : 0);
+
+        // 贯穿: a straight-line ranged shot also strikes the cell directly behind the target (friend or foe).
+        if (attacker.HasKeyword(Keyword.Pierce) && !melee
+            && BoardGeometry.StepBeyond(attacker.Cell, target.Cell) is { } behind
+            && BoardGeometry.IsInside(behind) && s.UnitAt(behind) is { } bu)
+        {
+            score += DamageValue(s, a.Seat, bu, attacker.Atk);
+        }
+        return score;
     }
 
-    private static double ScoreOrder(GameState s, PlayCardCommand p, CardDefinition def)
+    private static double ScoreDeploy(GameState s, CardDatabase db, PlayCardCommand p, CardDefinition def)
+    {
+        double score = 4 + def.Cost * 2; // board presence
+        if (def.HasKeyword(Keyword.Emplacement))
+            score -= 0.5; // slight discount: can't reposition/dodge the tide — but the supermodel body is the point
+
+        foreach (var e in def.Effects.Where(e => e.Trigger == "battlecry"))
+            score += ScoreEffect(s, db, p.Seat, e, p.TargetUnitId, p.TargetCell, def.Cost);
+        return score;
+    }
+
+    private static double ScoreOrder(GameState s, CardDatabase db, PlayCardCommand p, CardDefinition def)
     {
         double score = 0;
         foreach (var e in def.Effects.Where(e => e.Trigger == "play"))
-        {
-            var target = p.TargetUnitId is { } id ? s.FindUnit(id) : null;
-            bool targetIsEnemy = target != null && target.OwnerSeat != p.Seat;
+            score += ScoreEffect(s, db, p.Seat, e, p.TargetUnitId, p.TargetCell, def.Cost);
 
-            switch (e.Action)
-            {
-                case "damage" when e.Target is "target_unit" or "target_unit_own_half":
-                    if (!targetIsEnemy) return -100;
-                    score += e.Amount * 2 + (e.Amount >= target!.CurrentHp ? UnitValue(target) * 3 : 0);
-                    break;
-                case "damage" when e.Target == "column_enemies":
-                {
-                    var hit = s.Units.Where(u => u.OwnerSeat != p.Seat && p.TargetCell is { } cell && u.Cell.Col == cell.Col).ToList();
-                    score += hit.Sum(u => e.Amount * 2 + (e.Amount >= u.CurrentHp ? UnitValue(u) * 3 : 0));
-                    break;
-                }
-                case "buff" or "heal" or "grant_keyword" or "move_bonus" when e.Target is "target_unit":
-                    if (targetIsEnemy) return -100;
-                    score += 2 + def.Cost;
-                    break;
-                case "buff" when e.Target is "allies_home_row" or "all_allies":
-                {
-                    int count = e.Target == "all_allies"
-                        ? s.Units.Count(u => u.OwnerSeat == p.Seat)
-                        : s.Units.Count(u => u.OwnerSeat == p.Seat && u.Cell.Row == BoardGeometry.HomeRow(p.Seat));
-                    score += count * (e.Atk + e.Hp) * 1.5;
-                    break;
-                }
-                case "summon":
-                    score += 3 + def.Cost;
-                    break;
-                case "draw":
-                    score += e.Amount * 2;
-                    break;
-                case "gain_mana":
-                    score += 0.5;
-                    break;
-                default:
-                    score += 1;
-                    break;
-            }
-        }
+        // 教团: any order also fires every friendly on-cast engine, so it is worth more while they are out.
+        score += OnCastEngineBonus(s, db, p.Seat);
         return score;
+    }
+
+    private static double ScoreLeaderSkill(GameState s, CardDatabase db, LeaderDatabase leaders, UseLeaderSkillCommand ls)
+    {
+        if (!leaders.TryGet(s.Player(ls.Seat).LeaderId, out var leader))
+        {
+            var t0 = ls.TargetUnitId is { } id0 ? s.FindUnit(id0) : null;
+            return t0 != null && t0.OwnerSeat != ls.Seat ? -100 : 0.8; // no leader data (sim back-compat)
+        }
+
+        double score = 0.3; // small base — spending mana on the skill
+        foreach (var e in leader.SkillEffects.Where(e => e.Trigger == "leader_skill"))
+            score += ScoreEffect(s, db, ls.Seat, e, ls.TargetUnitId, ls.TargetCell, cost: 2);
+        return score;
+    }
+
+    /// <summary>Value of one effect resolved with the given targets, from the acting seat's perspective.</summary>
+    private static double ScoreEffect(GameState s, CardDatabase db, int seat, EffectSpec e, int? targetUnitId, Cell? targetCell, int cost)
+    {
+        var target = targetUnitId is { } id ? s.FindUnit(id) : null;
+        bool targetIsEnemy = target != null && target.OwnerSeat != seat;
+        bool targetIsAlly = target != null && target.OwnerSeat == seat;
+
+        switch (e.Action)
+        {
+            case "damage":
+                switch (e.Target)
+                {
+                    case "target_unit":
+                    case "target_unit_own_half":
+                        if (target == null) return 0;
+                        return targetIsEnemy ? DamageValue(s, seat, target, e.Amount) : -100;
+                    case "column_enemies":
+                        return SumDamage(s, seat, s.Units.Where(u => u.OwnerSeat != seat && InCol(u, targetCell)), e.Amount);
+                    case "row_enemies":
+                        return SumDamage(s, seat, s.Units.Where(u => u.OwnerSeat != seat && InRow(u, targetCell)), e.Amount);
+                    case "cell_cross_all":
+                        return targetCell is { } cc ? SumDamage(s, seat, CrossUnits(s, cc), e.Amount) : 0;
+                    case "unit_cross_all":
+                        return target == null ? 0 : SumDamage(s, seat, CrossUnits(s, target.Cell), e.Amount);
+                    case "adjacent_enemies":
+                        return 1.5; // source-relative on-cast/deathrattle — small flat credit
+                    default:
+                        return 1;
+                }
+
+            case "destroy":
+                if (target == null || !targetIsAlly) return -100;
+                return SacrificeValue(db, target); // 献祭: only cheap/dying/deathrattle bodies score positive
+
+            case "buff":
+                switch (e.Target)
+                {
+                    case "target_unit":
+                    case "target_unit_ally":
+                        if (target == null) return 0;
+                        return targetIsAlly ? 2 + cost : -100;
+                    case "adjacent_allies":
+                        return 2;
+                    case "allies_home_row":
+                    case "all_allies":
+                    {
+                        int n = e.Target == "all_allies"
+                            ? s.Units.Count(u => u.OwnerSeat == seat)
+                            : s.Units.Count(u => u.OwnerSeat == seat && u.Cell.Row == BoardGeometry.HomeRow(seat));
+                        return n * (e.Atk + e.Hp) * 1.5;
+                    }
+                    case "column_allies":
+                        return s.Units.Count(u => u.OwnerSeat == seat && InCol(u, targetCell)) * (e.Atk + e.Hp) * 1.5;
+                    default:
+                        return 1;
+                }
+
+            case "heal":
+                if (e.Target is "target_unit" or "target_unit_ally")
+                {
+                    if (target == null) return 0;
+                    if (!targetIsAlly) return -50;
+                    return Math.Min(target.MaxHp - target.CurrentHp, e.Amount) * 1.2;
+                }
+                return 1;
+
+            case "grant_keyword":
+            case "move_bonus":
+                if (e.Target is "target_unit" or "target_unit_ally")
+                {
+                    if (target == null) return 0;
+                    return targetIsAlly ? 2 + cost : -100;
+                }
+                return 1;
+
+            case "summon":
+                return 3 + cost;
+            case "draw":
+                return e.Amount * 2;
+            case "recall_order":
+            {
+                // Worth a draw per order actually available in our graveyard; nothing to recall = dead text.
+                int available = s.Player(seat).Graveyard.Count(id => db.Get(id).Type == CardType.Order);
+                return Math.Min(e.Amount, available) * 2;
+            }
+            case "gain_mana":
+                return 0.5;
+            default:
+                return 1;
+        }
+    }
+
+    private static double OnCastEngineBonus(GameState s, CardDatabase db, int seat)
+    {
+        double bonus = 0;
+        foreach (var u in s.Units.Where(u => u.OwnerSeat == seat))
+            foreach (var e in db.Get(u.CardId).Effects.Where(e => e.Trigger == "ally_order_played"))
+                bonus += e.Action switch
+                {
+                    "buff" => (e.Atk + e.Hp) * 1.2,
+                    "damage" when e.Target == "adjacent_enemies" =>
+                        BoardGeometry.AdjacentCells(u.Cell).Select(s.UnitAt)
+                            .Count(x => x != null && x.OwnerSeat != seat) * e.Amount * 1.5,
+                    _ => 1.0,
+                };
+        return bonus;
+    }
+
+    // ---- helpers ----
+
+    private static double SacrificeValue(CardDatabase db, UnitInstance ally)
+    {
+        // Losing the body is a cost; a deathrattle payoff (cinder moth ping, avenger buff, phoenix) offsets it.
+        double v = -UnitValue(ally);
+        if (ally.CurrentHp <= 1) v += 2; // already almost dead — cheap to spend
+        if (db.Get(ally.CardId).Effects.Any(e => e.Trigger == "deathrattle")) v += 3; // deathrattle payoff
+        return v;
+    }
+
+    private static double SumDamage(GameState s, int seat, IEnumerable<UnitInstance> victims, int amount) =>
+        victims.Sum(u => DamageValue(s, seat, u, amount));
+
+    /// <summary>Signed value of dealing <paramref name="amount"/> to <paramref name="victim"/>: enemies good, friendly fire bad.</summary>
+    private static double DamageValue(GameState s, int seat, UnitInstance victim, int amount)
+    {
+        int dmg = EffectDamage(victim, amount);
+        double v = dmg * 2 + (dmg >= victim.CurrentHp ? UnitValue(victim) * 3 : 0);
+        return victim.OwnerSeat == seat ? -v : v;
+    }
+
+    private static int EffectDamage(UnitInstance victim, int amount)
+    {
+        if (victim.ShieldActive) return 0;
+        int dmg = amount;
+        if (victim.HasKeyword(Keyword.Emplacement)) dmg += 1; // bolted down — effect damage +1
+        if (victim.HasKeyword(Keyword.HoldFast) && !victim.MovedThisRound) dmg -= 1;
+        return Math.Max(0, dmg);
+    }
+
+    private static IEnumerable<UnitInstance> CrossUnits(GameState s, Cell center)
+    {
+        var cells = new HashSet<Cell>(BoardGeometry.AdjacentCells(center)) { center };
+        return s.Units.Where(u => cells.Contains(u.Cell));
+    }
+
+    private static bool InCol(UnitInstance u, Cell? cell) => cell is { } c && u.Cell.Col == c.Col;
+    private static bool InRow(UnitInstance u, Cell? cell) => cell is { } c && u.Cell.Row == c.Row;
+
+    private static bool Reaches(UnitInstance u, Cell cell)
+    {
+        int r = u.HasKeyword(Keyword.Range) ? u.KeywordValue(Keyword.Range) : 0;
+        return r == 0 ? BoardGeometry.AreAdjacent(u.Cell, cell) : BoardGeometry.StepDistance(u.Cell, cell) <= r;
     }
 
     // Mirrors the resolver's damage pipeline closely enough for one-ply scoring:

@@ -15,7 +15,8 @@ public enum Keyword
     /// <summary>疾行 N — movement per turn is N (Value) instead of 1.</summary>
     Swift,
 
-    /// <summary>射程 N — attacks along its row/column up to N (Value) cells, no line blockers, no retaliation taken.</summary>
+    /// <summary>射程 N — attacks any cell within N (Value) orthogonal steps, over any body; takes retaliation
+    /// only when the target can reach back (i.e. the attacker is inside the target's own range/adjacency).</summary>
     Range,
 
     /// <summary>守护 — adjacent enemy units that attack must target an adjacent Guard.</summary>
@@ -44,6 +45,15 @@ public enum Keyword
 
     /// <summary>伏兵 — untargetable until it deals damage; revealed by adjacent enemies. (Deferred; not implemented in P1.)</summary>
     Hidden,
+
+    /// <summary>架设 — cannot move (movement is rejected outright; Leap/move_bonus are silent no-ops); takes +1
+    /// from EFFECT damage (orders/skills/battlecries — never attacks), because bolted-down guns cannot dodge
+    /// a barrage. Deploys/summons normally.</summary>
+    Emplacement,
+
+    /// <summary>贯穿 — on a ranged attack aligned with the target (same row/col), the cell one step directly
+    /// behind the target (away from the attacker) takes equal damage — friend or foe, no retaliation.</summary>
+    Pierce,
 }
 
 /// <summary>A keyword plus its numeric parameter (used by Swift/Range; 0 for the rest).</summary>

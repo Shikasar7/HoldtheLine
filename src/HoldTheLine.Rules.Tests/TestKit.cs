@@ -136,6 +136,61 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "damage", Target = "target_unit_own_half", Amount = 4 }],
     };
 
+    // ---- new-faction fixtures (架设 / 贯穿) ----
+
+    public static readonly CardDefinition Turret = new()
+    { Id = "t_turret", Name = "Turret 2/4", Cost = 3, Atk = 2, Hp = 4, Keywords = [new(Keyword.Range, 2), new(Keyword.Emplacement)] };
+
+    public static readonly CardDefinition Barricade = new()
+    { Id = "t_barricade", Name = "Barricade 1/5", Cost = 2, Atk = 1, Hp = 5, Keywords = [new(Keyword.Guard), new(Keyword.Emplacement)] };
+
+    public static readonly CardDefinition Piercer = new()
+    { Id = "t_piercer", Name = "Piercer 3/3", Cost = 4, Atk = 3, Hp = 3, Keywords = [new(Keyword.Range, 2), new(Keyword.Pierce)] };
+
+    public static readonly CardDefinition SacrificeOrder = new()
+    {
+        Id = "t_sacrifice", Name = "Immolate", Type = CardType.Order, Cost = 2,
+        Effects = [new EffectSpec { Trigger = "play", Action = "destroy", Target = "target_unit_ally" }],
+    };
+
+    public static readonly CardDefinition RowBlastOrder = new()
+    {
+        Id = "t_row", Name = "Fire Curtain", Type = CardType.Order, Rarity = Rarity.Rare, Cost = 4,
+        Effects = [new EffectSpec { Trigger = "play", Action = "damage", Target = "row_enemies", Amount = 2 }],
+    };
+
+    public static readonly CardDefinition CrossBlastOrder = new()
+    {
+        Id = "t_cross", Name = "Vesper Blast", Type = CardType.Order, Rarity = Rarity.Rare, Cost = 3,
+        Effects = [new EffectSpec { Trigger = "play", Action = "damage", Target = "cell_cross_all", Amount = 2 }],
+    };
+
+    public static readonly CardDefinition ColumnAllyBuffOrder = new()
+    {
+        Id = "t_col_ally", Name = "Fire Lattice", Type = CardType.Order, Rarity = Rarity.Rare, Cost = 2,
+        Effects = [new EffectSpec { Trigger = "play", Action = "buff", Target = "column_allies", Atk = 1 }],
+    };
+
+    /// <summary>1/2 unit whose on-cast (ally_order_played) buffs itself +1/+0 — the 灰烬侍徒 pattern.</summary>
+    public static readonly CardDefinition OnCastGrower = new()
+    {
+        Id = "t_oncast_self", Name = "Ash Acolyte 1/2", Cost = 1, Atk = 1, Hp = 2,
+        Effects = [new EffectSpec { Trigger = "ally_order_played", Action = "buff", Target = "self", Atk = 1 }],
+    };
+
+    /// <summary>1/3 unit whose on-cast pings adjacent enemies for 1 — the 引焰法徒 pattern.</summary>
+    public static readonly CardDefinition OnCastPinger = new()
+    {
+        Id = "t_oncast_ping", Name = "Pyre Channeler 1/3", Cost = 2, Atk = 1, Hp = 3,
+        Effects = [new EffectSpec { Trigger = "ally_order_played", Action = "damage", Target = "adjacent_enemies", Amount = 1 }],
+    };
+
+    public static readonly CardDefinition Recaller = new()
+    {
+        Id = "t_recaller", Name = "Recaller 2/2", Cost = 4, Atk = 2, Hp = 2,
+        Effects = [new EffectSpec { Trigger = "battlecry", Action = "recall_order", Amount = 1 }],
+    };
+
     // ---- balance-pass fixtures (围猎) ----
 
     public static readonly CardDefinition PackHunter = new()
@@ -156,6 +211,8 @@ public static class TestKit
         Garrison, Leaper, PupToken, Medic, GrantGuardOrder, PounceOrder, GrantShieldOrder,
         SpeedOrder, SummonOrder, ColumnOrder, HomeRowBuffOrder, OwnHalfSnipe, AllAlliesBuff,
         PackHunter, PackArcher,
+        Turret, Barricade, Piercer, SacrificeOrder, RowBlastOrder, CrossBlastOrder,
+        ColumnAllyBuffOrder, OnCastGrower, OnCastPinger, Recaller,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.

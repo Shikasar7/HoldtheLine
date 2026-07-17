@@ -1,0 +1,25 @@
+[
+  {
+    "id": "undervault_sunline",
+    "name": "贯日阵列",
+    "faction": "undervault",
+    "leader": "leader_uv_brom",
+    "cards": [
+      { "id": "uv_cog_apprentice", "count": 2 },
+      { "id": "uv_barricade_frame", "count": 3 },
+      { "id": "uv_scattergunner", "count": 2 },
+      { "id": "uv_bolt_turret", "count": 3 },
+      { "id": "uv_repair_sapper", "count": 2 },
+      { "id": "uv_line_engineer", "count": 2 },
+      { "id": "uv_flak_battery", "count": 2 },
+      { "id": "uv_precision_cannon", "count": 2 },
+      { "id": "uv_siege_platform", "count": 2 },
+      { "id": "uv_ironclad", "count": 1 },
+      { "id": "uv_grand_cannon", "count": 1 },
+      { "id": "uv_calibrate", "count": 2 },
+      { "id": "uv_emergency_repair", "count": 2 },
+      { "id": "uv_deploy_sentries", "count": 2 },
+      { "id": "uv_fire_lattice", "count": 2 }
+    ]
+  }
+]

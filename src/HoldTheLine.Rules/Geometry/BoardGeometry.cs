@@ -39,6 +39,29 @@ public static class BoardGeometry
         return -1;
     }
 
+    /// <summary>Orthogonal-step (Manhattan) distance: |Δcol| + |Δrow|. The metric for 射程 N — a
+    /// range-N unit hits any cell within N steps, diagonals included (diagonal-1 = distance 2).</summary>
+    public static int StepDistance(Cell a, Cell b) =>
+        Math.Abs(a.Col - b.Col) + Math.Abs(a.Row - b.Row);
+
+    /// <summary>Whether two distinct cells share a row or column (the only case where a shot has a
+    /// well-defined "straight line" and thus a cell directly behind the target — used by 贯穿).</summary>
+    public static bool AreAligned(Cell a, Cell b) => a.Col == b.Col || a.Row == b.Row;
+
+    /// <summary>
+    /// The cell one orthogonal step beyond <paramref name="through"/>, continuing the straight line
+    /// from <paramref name="from"/> (the attacker) through the target. Null when the two are not
+    /// aligned (no straight line). The result may lie outside the board — callers check <see cref="IsInside"/>.
+    /// </summary>
+    public static Cell? StepBeyond(Cell from, Cell through)
+    {
+        if (from == through || !AreAligned(from, through))
+            return null;
+        int dc = Math.Sign(through.Col - from.Col);
+        int dr = Math.Sign(through.Row - from.Row);
+        return new Cell(through.Col + dc, through.Row + dr);
+    }
+
     /// <summary>Cells strictly between two aligned cells (exclusive of both ends). Empty when adjacent or not aligned.</summary>
     public static IReadOnlyList<Cell> CellsBetween(Cell a, Cell b)
     {

@@ -1,4 +1,123 @@
 {
+  "dw_ash_acolyte": {
+    "name": "灰烬侍徒",
+    "type": "unit",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a young hooded acolyte in ash-grey robes, cupping a small growing flame in both hands",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_cinder_moth": {
+    "name": "烬爆蛾",
+    "type": "unit",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a giant moth with smoldering ember wings, sparks drifting off its dust trail",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_pyre_channeler": {
+    "name": "引焰法徒",
+    "type": "unit",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a gaunt mystic channeling fire through chained bracelets, small flames orbiting them",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_dusk_warden": {
+    "name": "焰誓卫",
+    "type": "unit",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a robed temple guardian bracing a charred greatshield before an altar flame",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_flame_caster": {
+    "name": "焰击术士",
+    "type": "unit",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a battle mage hurling a compressed bolt of fire, robes whipping backward",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_ember_seer": {
+    "name": "烬眼先知",
+    "type": "unit",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a blindfolded seer, ember light glowing through the cloth, heat runes hanging in the air",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_flare_dancer": {
+    "name": "焰跃术士",
+    "type": "unit",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: an agile fire-dancer mid-leap, twin ribbons of flame tracing arcs around them",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_pyroclast": {
+    "name": "熔岩巨灵",
+    "type": "unit",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a hulking elemental of cooling lava and obsidian plates, cracks glowing from within",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_ash_phoenix": {
+    "name": "灰烬凤凰",
+    "type": "unit",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a phoenix of grey ash and orange embers rising, loose feathers scattering as sparks",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_first_ritualist": {
+    "name": "黄昏首祭·门德",
+    "type": "unit",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: an elder high ritualist in ember-trimmed dusk robes, a halo of orbiting fire sigils",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_spark": {
+    "name": "星火",
+    "type": "order",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. wide landscape 3:2 composition, dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a single spark leaping between two outstretched fingertips against the night",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_flame_lash": {
+    "name": "焰鞭",
+    "type": "order",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. wide landscape 3:2 composition, dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a whip of flame cracking across the frame, molten droplets flying",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_immolate": {
+    "name": "献祭",
+    "type": "order",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. wide landscape 3:2 composition, dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a ceremonial dagger dissolving a kneeling silhouette into rising embers and pages of light",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_vesper_blast": {
+    "name": "晚祷烈焰",
+    "type": "order",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. wide landscape 3:2 composition, dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a cross-shaped eruption of fire seen from above, four arms of flame over trench grid",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_fire_curtain": {
+    "name": "焰幕",
+    "type": "order",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. wide landscape 3:2 composition, dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a horizontal wall of fire sweeping down a trench line, soldiers recoiling",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_column_inferno": {
+    "name": "焚烬之列",
+    "type": "order",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. wide landscape 3:2 composition, dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a vertical pillar of roaring fire punching down one narrow lane, everything ablaze",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "dw_phoenix_chick": {
+    "name": "烬火雏凤",
+    "type": "unit",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a small ember-feathered phoenix chick with wobbly flame wings",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
   "iv_oath_squire": {
     "name": "誓火侍从",
     "type": "unit",
@@ -230,6 +349,125 @@
     "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. wide landscape 3:2 composition, dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem. Subject: a coordinated artillery barrage hammering one straight lane of the battlefield, dust column",
     "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
   },
+  "uv_cog_apprentice": {
+    "name": "齿轮学徒",
+    "type": "unit",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a young dwarf apprentice hauling an oversized wrench and a belt of spare gears",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_barricade_frame": {
+    "name": "装甲路桩",
+    "type": "unit",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a riveted iron barricade frame bolted into the ground, sandbag skirt at its base",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_scattergunner": {
+    "name": "短管铳手",
+    "type": "unit",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a stout dwarf with a short wide-barreled scattergun, smoke curling from the muzzle",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_bolt_turret": {
+    "name": "弩炮塔",
+    "type": "unit",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a squat automated ballista turret on a bolted tripod, glowing brass sight",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_repair_sapper": {
+    "name": "抢修工兵",
+    "type": "unit",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: an engineer in a heavy apron welding a dented automaton plate, sparks flying",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_flak_battery": {
+    "name": "防空炮组",
+    "type": "unit",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a wheeled twin-barreled flak gun with its dwarf gunner braced on the trail",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_line_engineer": {
+    "name": "战线工程师",
+    "type": "unit",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a foreman dwarf unrolling blueprints while a wall frame rises behind him",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_precision_cannon": {
+    "name": "校射加农",
+    "type": "unit",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a long-barreled precision cannon with brass scope arrays sighting down a line",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_siege_platform": {
+    "name": "攻城平台",
+    "type": "unit",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a massive anchored siege platform with a mounted long-range ballista, pylons driven into rock",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_ironclad": {
+    "name": "铁甲战体",
+    "type": "unit",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a walking ironclad automaton with a furnace chest and shield-plate arms",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_grand_cannon": {
+    "name": "主炮巨械·贯日",
+    "type": "unit",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a colossal fortress cannon with a brass sun emblem, barrel longer than a house, anchored on iron legs",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_calibrate": {
+    "name": "校准指令",
+    "type": "order",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. wide landscape 3:2 composition, dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a dwarf hand adjusting a brass targeting dial, etched range markings glowing",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_emergency_repair": {
+    "name": "紧急抢修",
+    "type": "order",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. wide landscape 3:2 composition, dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: mechanics swarming a smoking turret with hammers and rivet guns",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_deploy_sentries": {
+    "name": "空投哨戒炮",
+    "type": "order",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. wide landscape 3:2 composition, dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: supply crates cracking open mid-airdrop, sentry turrets unfolding their legs",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_fire_lattice": {
+    "name": "火力网",
+    "type": "order",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. wide landscape 3:2 composition, dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: overlapping glowing tracer lines forming a lattice of fire down one lane",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_overcharge": {
+    "name": "蒸汽过载",
+    "type": "order",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. wide landscape 3:2 composition, dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a machine core overloading with steam and arcing energy, every gauge past red",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "uv_sentry_token": {
+    "name": "哨戒炮",
+    "type": "unit",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. character art: single full-body primary figure or one rider-and-mount unit, three-quarter view, centered, entire figure visible including feet or paws, standing over a subtle ground shadow, plain softly-blurred smoky background for clean silhouette cutout, dramatic rim light from upper left; if the subject mentions additional allies, comrades, enemies, packmates, or targets beyond the primary figure or rider-and-mount unit, keep them as distant softly blurred secondary silhouettes fully separated from and never overlapping the primary silhouette. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a small freshly-unfolded sentry turret, single ballista bolt loaded",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
   "wp_pup": {
     "name": "掠群幼狼",
     "type": "unit",
@@ -356,6 +594,20 @@
     "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. waist-up heroic portrait, three-quarter view, commanding presence, centered, plain smoky background, dramatic rim light, face and emblem clearly readable inside a circular crop. Wildpack faction: feral orc and beast-rider war-band, hide and fur armor, bone and feather totems, streaked war-paint, kicked-up dust and motion, warm hide-brown palette with feral green and bone-white accents. Subject: a wind-speaker warchief with a great curved horn, feathers and beast-bone",
     "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
   },
+  "leader_dw_vela": {
+    "name": "烬语者·薇拉",
+    "type": "leader",
+    "faction": "duskweaver",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. waist-up heroic portrait, three-quarter view, commanding presence, centered, plain smoky background, dramatic rim light, face and emblem clearly readable inside a circular crop. Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims. Subject: a pale sorceress with ash-streaked hair and faint ember-glow tattoos, dusk-purple robes, calm and burning",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "leader_uv_brom": {
+    "name": "总工·布罗姆·铆歌",
+    "type": "leader",
+    "faction": "undervault",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. waist-up heroic portrait, three-quarter view, commanding presence, centered, plain smoky background, dramatic rim light, face and emblem clearly readable inside a circular crop. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a grizzled dwarf chief engineer with a brass monocle, soot-streaked beard, blueprints under one arm",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
   "board_main": {
     "name": "board_main",
     "type": "board",
@@ -398,6 +650,20 @@
     "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI asset: flat front view, perfectly symmetrical ornamental design, isolated on plain neutral dark background, crisp clean edges suitable for nine-slice scaling, no text, the inner window area left plain and empty. Subject: portrait trading card frame of plain weathered bronze and patched leather straps, rectangular empty artwork window in the upper two thirds, plain text panel in the lower third, muted bronze and faded ochre",
     "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
   },
+  "frame_duskweaver": {
+    "name": "frame_duskweaver",
+    "type": "ui_frame",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI asset: flat front view, perfectly symmetrical ornamental design, isolated on plain neutral dark background, crisp clean edges suitable for nine-slice scaling, no text, the inner window area left plain and empty. Subject: portrait trading card frame using the exact same window and panel geometry as the existing faction frames, rectangular empty artwork window spanning 16.5% to 84% width and 15.2% to 68.8% height, plain text panel below, dusk-purple and charcoal-black surfaces with restrained ember-orange outline and obsidian corner trims",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "frame_undervault": {
+    "name": "frame_undervault",
+    "type": "ui_frame",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI asset: flat front view, perfectly symmetrical ornamental design, isolated on plain neutral dark background, crisp clean edges suitable for nine-slice scaling, no text, the inner window area left plain and empty. Subject: portrait trading card frame using the exact same window and panel geometry as the existing faction frames, rectangular empty artwork window spanning 16.5% to 84% width and 15.2% to 68.8% height, plain text panel below, gunmetal-grey surfaces with polished brass rivets and restrained industrial corner details",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
   "gem_cost": {
     "name": "gem_cost",
     "type": "ui_icon",
@@ -431,6 +697,20 @@
     "type": "ui_icon",
     "faction": null,
     "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: faction crest: a bone-white wolf skull with trailing feathers on a hide-brown field",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "emblem_duskweaver": {
+    "name": "emblem_duskweaver",
+    "type": "ui_icon",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: faction crest: an inverted ember-orange flame suspended inside a circular ring of drifting embers, bold simple silhouette readable in one color",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "emblem_undervault": {
+    "name": "emblem_undervault",
+    "type": "ui_icon",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: faction crest: the circular muzzle cross-section of a heavy cannon embraced by a brass gear, bold simple silhouette readable in one color",
     "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
   },
   "texture_parchment": {

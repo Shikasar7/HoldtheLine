@@ -92,4 +92,30 @@ public class SerializationTests
         var json = RulesJson.Serialize(new KeywordSpec(Keyword.CheapShot));
         Assert.Contains("\"cheap_shot\"", json);
     }
+
+    [Fact]
+    public void New_keywords_serialize_as_snake_case()
+    {
+        Assert.Contains("\"emplacement\"", RulesJson.Serialize(new KeywordSpec(Keyword.Emplacement)));
+        Assert.Contains("\"pierce\"", RulesJson.Serialize(new KeywordSpec(Keyword.Pierce)));
+    }
+
+    [Fact]
+    public void New_faction_vocabulary_round_trips()
+    {
+        // Keywords 架设/贯穿 and effect triggers/actions/targets added for the new factions must survive the wire.
+        CardDefinition[] cards =
+        [
+            TestKit.Turret, TestKit.Piercer, TestKit.SacrificeOrder,
+            TestKit.RowBlastOrder, TestKit.CrossBlastOrder, TestKit.ColumnAllyBuffOrder,
+            TestKit.OnCastGrower, TestKit.OnCastPinger,
+        ];
+        foreach (var card in cards)
+        {
+            var back = RulesJson.Deserialize<CardDefinition>(RulesJson.Serialize(card));
+            Assert.Equal(card.Keywords.Select(k => (k.Keyword, k.Value)), back.Keywords.Select(k => (k.Keyword, k.Value)));
+            Assert.Equal(card.Effects.Select(e => (e.Trigger, e.Action, e.Target)),
+                         back.Effects.Select(e => (e.Trigger, e.Action, e.Target)));
+        }
+    }
 }

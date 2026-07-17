@@ -1,0 +1,345 @@
+[
+  {
+    "id": "uv_cog_apprentice",
+    "name": "齿轮学徒",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 1,
+    "atk": 1,
+    "hp": 2,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "buff",
+        "target": "target_unit_ally",
+        "hp": 1
+      }
+    ],
+    "text": "战吼:一个友方随从 +0/+1。",
+    "art_prompt": "a young dwarf apprentice hauling an oversized wrench and a belt of spare gears"
+  },
+  {
+    "id": "uv_barricade_frame",
+    "name": "装甲路桩",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 2,
+    "atk": 1,
+    "hp": 5,
+    "keywords": [
+      {
+        "keyword": "guard"
+      },
+      {
+        "keyword": "emplacement"
+      }
+    ],
+    "text": "守护,架设(不能移动;受到指令等效果伤害 +1)。",
+    "art_prompt": "a riveted iron barricade frame bolted into the ground, sandbag skirt at its base"
+  },
+  {
+    "id": "uv_scattergunner",
+    "name": "短管铳手",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 2,
+    "atk": 2,
+    "hp": 2,
+    "keywords": [
+      {
+        "keyword": "range",
+        "value": 1
+      }
+    ],
+    "text": "射程 1。",
+    "art_prompt": "a stout dwarf with a short wide-barreled scattergun, smoke curling from the muzzle"
+  },
+  {
+    "id": "uv_bolt_turret",
+    "name": "弩炮塔",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 3,
+    "atk": 2,
+    "hp": 4,
+    "keywords": [
+      {
+        "keyword": "range",
+        "value": 2
+      },
+      {
+        "keyword": "emplacement"
+      }
+    ],
+    "text": "射程 2,架设。",
+    "art_prompt": "a squat automated ballista turret on a bolted tripod, glowing brass sight"
+  },
+  {
+    "id": "uv_repair_sapper",
+    "name": "抢修工兵",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 3,
+    "atk": 3,
+    "hp": 3,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "heal",
+        "target": "target_unit",
+        "amount": 2
+      }
+    ],
+    "text": "战吼:一个随从恢复 2 点生命。",
+    "art_prompt": "an engineer in a heavy apron welding a dented automaton plate, sparks flying"
+  },
+  {
+    "id": "uv_flak_battery",
+    "name": "防空炮组",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 4,
+    "atk": 3,
+    "hp": 5,
+    "keywords": [
+      {
+        "keyword": "range",
+        "value": 2
+      }
+    ],
+    "text": "射程 2。",
+    "art_prompt": "a wheeled twin-barreled flak gun with its dwarf gunner braced on the trail"
+  },
+  {
+    "id": "uv_line_engineer",
+    "name": "战线工程师",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "rare",
+    "cost": 3,
+    "atk": 2,
+    "hp": 3,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "grant_keyword",
+        "target": "target_unit_ally",
+        "keyword": "guard",
+        "duration": "permanent"
+      }
+    ],
+    "text": "战吼:一个友方随从获得守护。",
+    "art_prompt": "a foreman dwarf unrolling blueprints while a wall frame rises behind him"
+  },
+  {
+    "id": "uv_precision_cannon",
+    "name": "校射加农",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "rare",
+    "cost": 4,
+    "atk": 3,
+    "hp": 4,
+    "keywords": [
+      {
+        "keyword": "range",
+        "value": 2
+      },
+      {
+        "keyword": "pierce"
+      }
+    ],
+    "text": "射程 2,贯穿(远程攻击时,同时对目标正后方一格的随从造成等额伤害)。",
+    "art_prompt": "a long-barreled precision cannon with brass scope arrays sighting down a line"
+  },
+  {
+    "id": "uv_siege_platform",
+    "name": "攻城平台",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "epic",
+    "cost": 5,
+    "atk": 4,
+    "hp": 6,
+    "keywords": [
+      {
+        "keyword": "range",
+        "value": 3
+      },
+      {
+        "keyword": "emplacement"
+      }
+    ],
+    "text": "射程 3,架设。",
+    "art_prompt": "a massive anchored siege platform with a mounted long-range ballista, pylons driven into rock"
+  },
+  {
+    "id": "uv_ironclad",
+    "name": "铁甲战体",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "epic",
+    "cost": 6,
+    "atk": 5,
+    "hp": 7,
+    "keywords": [
+      {
+        "keyword": "guard"
+      }
+    ],
+    "text": "守护。",
+    "art_prompt": "a walking ironclad automaton with a furnace chest and shield-plate arms"
+  },
+  {
+    "id": "uv_grand_cannon",
+    "name": "主炮巨械·贯日",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "legendary",
+    "cost": 7,
+    "atk": 5,
+    "hp": 8,
+    "keywords": [
+      {
+        "keyword": "range",
+        "value": 3
+      },
+      {
+        "keyword": "pierce"
+      },
+      {
+        "keyword": "emplacement"
+      }
+    ],
+    "text": "射程 3,贯穿,架设。落成即封锁一横一纵。",
+    "art_prompt": "a colossal fortress cannon with a brass sun emblem, barrel longer than a house, anchored on iron legs"
+  },
+  {
+    "id": "uv_calibrate",
+    "name": "校准指令",
+    "faction": "undervault",
+    "type": "order",
+    "rarity": "common",
+    "cost": 1,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "grant_keyword",
+        "target": "target_unit_ally",
+        "keyword": "range",
+        "keyword_value": 1,
+        "duration": "end_of_turn"
+      }
+    ],
+    "text": "一个友方随从获得射程 1,直到回合结束。",
+    "art_prompt": "a dwarf hand adjusting a brass targeting dial, etched range markings glowing"
+  },
+  {
+    "id": "uv_emergency_repair",
+    "name": "紧急抢修",
+    "faction": "undervault",
+    "type": "order",
+    "rarity": "common",
+    "cost": 2,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "heal",
+        "target": "target_unit",
+        "amount": 4
+      }
+    ],
+    "text": "一个随从恢复 4 点生命。",
+    "art_prompt": "mechanics swarming a smoking turret with hammers and rivet guns"
+  },
+  {
+    "id": "uv_deploy_sentries",
+    "name": "空投哨戒炮",
+    "faction": "undervault",
+    "type": "order",
+    "rarity": "rare",
+    "cost": 3,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "summon",
+        "summon_card_id": "uv_sentry_token",
+        "amount": 2
+      }
+    ],
+    "text": "在你的底线行召唤两座 1/2 哨戒炮(射程 2、架设)。",
+    "art_prompt": "supply crates cracking open mid-airdrop, sentry turrets unfolding their legs"
+  },
+  {
+    "id": "uv_fire_lattice",
+    "name": "火力网",
+    "faction": "undervault",
+    "type": "order",
+    "rarity": "rare",
+    "cost": 2,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "buff",
+        "target": "column_allies",
+        "atk": 1,
+        "hp": 1
+      }
+    ],
+    "text": "选择一列:该列所有友方随从 +1/+1。",
+    "art_prompt": "overlapping glowing tracer lines forming a lattice of fire down one lane"
+  },
+  {
+    "id": "uv_overcharge",
+    "name": "蒸汽过载",
+    "faction": "undervault",
+    "type": "order",
+    "rarity": "epic",
+    "cost": 4,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "buff",
+        "target": "target_unit_ally",
+        "atk": 1,
+        "hp": 1
+      },
+      {
+        "trigger": "play",
+        "action": "grant_keyword",
+        "target": "target_unit_ally",
+        "keyword": "pierce",
+        "duration": "permanent"
+      }
+    ],
+    "text": "一个友方随从 +1/+1,并获得贯穿。",
+    "art_prompt": "a machine core overloading with steam and arcing energy, every gauge past red"
+  },
+  {
+    "id": "uv_sentry_token",
+    "name": "哨戒炮",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "token",
+    "cost": 2,
+    "atk": 1,
+    "hp": 2,
+    "keywords": [
+      {
+        "keyword": "range",
+        "value": 2
+      },
+      {
+        "keyword": "emplacement"
+      }
+    ],
+    "text": "射程 2,架设。",
+    "art_prompt": "a small freshly-unfolded sentry turret, single ballista bolt loaded"
+  }
+]

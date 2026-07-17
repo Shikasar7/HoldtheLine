@@ -57,6 +57,13 @@ internal sealed class ResolutionContext
         Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = amount, NewHp = target.CurrentHp });
     }
 
+    /// <summary>
+    /// 消灭 (destroy): drops the unit straight into the death sweep, bypassing DamageUnit — so 持盾
+    /// and 坚守 give no protection. Death itself is emitted by <see cref="ProcessDeaths"/> (UnitDiedEvent),
+    /// so this adds no new event type. Deathrattles fire as normal.
+    /// </summary>
+    public void DestroyUnit(UnitInstance target) => target.CurrentHp = 0;
+
     public void DamageLeader(int seat, int amount)
     {
         if (amount <= 0)
@@ -125,6 +132,36 @@ internal sealed class ResolutionContext
 
             player.Hand.Add(card);
             Emit(new CardDrawnEvent { Seat = seat, CardEntityId = card.EntityId, CardId = card.CardId });
+        }
+    }
+
+    /// <summary>
+    /// 火种循环 (recall_order): moves up to <paramref name="count"/> RANDOM order cards from the
+    /// seat's graveyard back to hand. Random pick runs on the match Rng (replay-deterministic);
+    /// unit cards in the graveyard are never eligible. Reuses the draw pipeline's hand-limit
+    /// semantics (overdraw burns) and the existing CardDrawn/CardBurned events — zero new protocol.
+    /// </summary>
+    public void RecallOrders(int seat, int count)
+    {
+        var player = State.Player(seat);
+        for (int i = 0; i < count; i++)
+        {
+            var orders = player.Graveyard.Where(id => Db.Get(id).Type == CardType.Order).ToList();
+            if (orders.Count == 0)
+                return;
+
+            string pick = orders[State.Rng.NextInt(orders.Count)];
+            player.Graveyard.Remove(pick); // first occurrence — ids are interchangeable copies
+
+            if (player.Hand.Count >= MaxHandSize)
+            {
+                Emit(new CardBurnedEvent { Seat = seat, CardId = pick });
+                continue;
+            }
+
+            var card = new CardInstance { EntityId = State.TakeEntityId(), CardId = pick };
+            player.Hand.Add(card);
+            Emit(new CardDrawnEvent { Seat = seat, CardEntityId = card.EntityId, CardId = pick });
         }
     }
 
@@ -251,6 +288,29 @@ internal sealed class ResolutionContext
     {
         foreach (var unit in State.Units)
             unit.TempGrants.RemoveAll(g => g.Expiry == "your_next_turn" && g.GrantedBySeat == seat);
+    }
+
+    // ---- 教团触发器: ally_order_played ----
+
+    /// <summary>
+    /// Fires every friendly unit's <c>ally_order_played</c> effects after one of <paramref name="seat"/>'s
+    /// Order cards has fully resolved (docs/06 §3.1). Units trigger in deploy order (Units list order) so
+    /// replays stay deterministic; a trigger that kills a later source removes it before its turn comes
+    /// (sweep semantics). The military coin is an Order and so counts; leader skills are not Orders and do not.
+    /// </summary>
+    public void FireAllyOrderPlayed(int seat)
+    {
+        var sources = State.Units
+            .Where(u => u.OwnerSeat == seat && Db.Get(u.CardId).Effects.Any(e => e.Trigger == "ally_order_played"))
+            .ToList();
+
+        foreach (var unit in sources)
+        {
+            if (State.FindUnit(unit.EntityId) is null)
+                continue; // died to an earlier trigger in this pass
+            var def = Db.Get(unit.CardId);
+            EffectEngine.RunTrigger(this, unit, seat, def.Effects, "ally_order_played", targetUnitId: null);
+        }
     }
 
     // ---- game end ----

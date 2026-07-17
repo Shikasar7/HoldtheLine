@@ -86,8 +86,8 @@ public static class CommandEnumerator
                 { Seat = seat, CardEntityId = cardEntityId, TargetUnitId = u.EntityId });
 
         if (needsCell)
-            return Enumerable.Range(0, BoardGeometry.Cols).Select(col => (Command)new PlayCardCommand
-                { Seat = seat, CardEntityId = cardEntityId, TargetCell = new Cell(col, BoardGeometry.EnemyHomeRow(seat)) });
+            return AllBoardCells().Select(cell => (Command)new PlayCardCommand
+                { Seat = seat, CardEntityId = cardEntityId, TargetCell = cell });
 
         return [new PlayCardCommand { Seat = seat, CardEntityId = cardEntityId }];
     }
@@ -97,13 +97,24 @@ public static class CommandEnumerator
         if (leader.SkillNeedsUnitTarget)
             return state.Units.Select(u => (Command)new UseLeaderSkillCommand { Seat = seat, TargetUnitId = u.EntityId });
         if (leader.SkillNeedsCellTarget)
-            return Enumerable.Range(0, BoardGeometry.Cols).Select(col => (Command)new UseLeaderSkillCommand
-                { Seat = seat, TargetCell = new Cell(col, BoardGeometry.EnemyHomeRow(seat)) });
+            return AllBoardCells().Select(cell => (Command)new UseLeaderSkillCommand { Seat = seat, TargetCell = cell });
         return [new UseLeaderSkillCommand { Seat = seat }];
+    }
+
+    /// <summary>Every cell on the board. Cell-target orders/skills (cell_cross_all, row_enemies, …) may point
+    /// anywhere; the resolver is the final arbiter of legality, so over-generating candidates is safe.</summary>
+    private static IEnumerable<Cell> AllBoardCells()
+    {
+        for (int row = 0; row < BoardGeometry.Rows; row++)
+            for (int col = 0; col < BoardGeometry.Cols; col++)
+                yield return new Cell(col, row);
     }
 
     private static IEnumerable<Cell> MoveDestinations(UnitInstance unit)
     {
+        if (unit.HasKeyword(Keyword.Emplacement))
+            yield break; // 架设: pinned to its cell — never enumerate a move for it.
+
         foreach (var c in BoardGeometry.AdjacentCells(unit.Cell))
             yield return c;
 

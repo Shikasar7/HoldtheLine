@@ -32,6 +32,14 @@
     "neutral": {
       "name": "中立",
       "block": "unaligned wanderers and mercenaries of the frontier, weathered leather and patched cloth, mixed scavenged gear, muted bronze and faded ochre palette, no faction emblem"
+    },
+    "duskweaver": {
+      "name": "黄昏教团",
+      "block": "Duskweaver faction: dusk-purple and charcoal-black palette with ember orange-red glow accents, drifting ash particles, ragged ritual robes, obsidian trims"
+    },
+    "undervault": {
+      "name": "掘世匠会",
+      "block": "Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship"
     }
   },
 
@@ -73,6 +81,18 @@
       "art_prompt": "portrait trading card frame of plain weathered bronze and patched leather straps, rectangular empty artwork window in the upper two thirds, plain text panel in the lower third, muted bronze and faded ochre"
     },
     {
+      "id": "frame_duskweaver",
+      "type": "ui_frame",
+      "faction": null,
+      "art_prompt": "portrait trading card frame using the exact same window and panel geometry as the existing faction frames, rectangular empty artwork window spanning 16.5% to 84% width and 15.2% to 68.8% height, plain text panel below, dusk-purple and charcoal-black surfaces with restrained ember-orange outline and obsidian corner trims"
+    },
+    {
+      "id": "frame_undervault",
+      "type": "ui_frame",
+      "faction": null,
+      "art_prompt": "portrait trading card frame using the exact same window and panel geometry as the existing faction frames, rectangular empty artwork window spanning 16.5% to 84% width and 15.2% to 68.8% height, plain text panel below, gunmetal-grey surfaces with polished brass rivets and restrained industrial corner details"
+    },
+    {
       "id": "gem_cost",
       "type": "ui_icon",
       "faction": null,
@@ -101,6 +121,18 @@
       "type": "ui_icon",
       "faction": null,
       "art_prompt": "faction crest: a bone-white wolf skull with trailing feathers on a hide-brown field"
+    },
+    {
+      "id": "emblem_duskweaver",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "faction crest: an inverted ember-orange flame suspended inside a circular ring of drifting embers, bold simple silhouette readable in one color"
+    },
+    {
+      "id": "emblem_undervault",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "faction crest: the circular muzzle cross-section of a heavy cannon embraced by a brass gear, bold simple silhouette readable in one color"
     },
     {
       "id": "texture_parchment",

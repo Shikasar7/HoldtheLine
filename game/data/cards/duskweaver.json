@@ -1,0 +1,338 @@
+[
+  {
+    "id": "dw_ash_acolyte",
+    "name": "灰烬侍徒",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 1,
+    "atk": 1,
+    "hp": 1,
+    "effects": [
+      {
+        "trigger": "ally_order_played",
+        "action": "buff",
+        "target": "self",
+        "atk": 1
+      }
+    ],
+    "text": "你每施放一张指令牌后,本随从 +1/+0。",
+    "art_prompt": "a young hooded acolyte in ash-grey robes, cupping a small growing flame in both hands"
+  },
+  {
+    "id": "dw_cinder_moth",
+    "name": "烬爆蛾",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 2,
+    "atk": 2,
+    "hp": 1,
+    "effects": [
+      {
+        "trigger": "deathrattle",
+        "action": "damage",
+        "target": "adjacent_enemies",
+        "amount": 1
+      }
+    ],
+    "text": "亡语:相邻敌方随从受到 1 点伤害。",
+    "art_prompt": "a giant moth with smoldering ember wings, sparks drifting off its dust trail"
+  },
+  {
+    "id": "dw_pyre_channeler",
+    "name": "引焰法徒",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 2,
+    "atk": 1,
+    "hp": 2,
+    "effects": [
+      {
+        "trigger": "ally_order_played",
+        "action": "damage",
+        "target": "adjacent_enemies",
+        "amount": 1
+      }
+    ],
+    "text": "你每施放一张指令牌后,相邻敌方随从受到 1 点伤害。",
+    "art_prompt": "a gaunt mystic channeling fire through chained bracelets, small flames orbiting them"
+  },
+  {
+    "id": "dw_dusk_warden",
+    "name": "焰誓卫",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 3,
+    "atk": 2,
+    "hp": 3,
+    "keywords": [
+      {
+        "keyword": "guard"
+      }
+    ],
+    "text": "守护。",
+    "art_prompt": "a robed temple guardian bracing a charred greatshield before an altar flame"
+  },
+  {
+    "id": "dw_flame_caster",
+    "name": "焰击术士",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 4,
+    "atk": 3,
+    "hp": 3,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "damage",
+        "target": "target_unit",
+        "amount": 2
+      }
+    ],
+    "text": "战吼:对一个随从造成 2 点伤害。",
+    "art_prompt": "a battle mage hurling a compressed bolt of fire, robes whipping backward"
+  },
+  {
+    "id": "dw_ember_seer",
+    "name": "烬眼先知",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "rare",
+    "cost": 3,
+    "atk": 2,
+    "hp": 2,
+    "effects": [
+      {
+        "trigger": "ally_order_played",
+        "action": "buff",
+        "target": "self",
+        "atk": 1,
+        "hp": 1
+      }
+    ],
+    "text": "你每施放一张指令牌后,本随从 +1/+1。",
+    "art_prompt": "a blindfolded seer, ember light glowing through the cloth, heat runes hanging in the air"
+  },
+  {
+    "id": "dw_flare_dancer",
+    "name": "焰跃术士",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "rare",
+    "cost": 4,
+    "atk": 2,
+    "hp": 3,
+    "keywords": [
+      {
+        "keyword": "assault"
+      }
+    ],
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "recall_order",
+        "amount": 1
+      }
+    ],
+    "text": "突袭。战吼:将一张随机指令牌从你的墓地移回手牌。",
+    "art_prompt": "an agile fire-dancer mid-leap, twin ribbons of flame tracing arcs around them"
+  },
+  {
+    "id": "dw_pyroclast",
+    "name": "熔岩巨灵",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "epic",
+    "cost": 5,
+    "atk": 4,
+    "hp": 5,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "damage",
+        "target": "unit_cross_all",
+        "amount": 1
+      }
+    ],
+    "text": "战吼:对一个随从及其相邻格的所有随从造成 1 点伤害(含友方)。",
+    "art_prompt": "a hulking elemental of cooling lava and obsidian plates, cracks glowing from within"
+  },
+  {
+    "id": "dw_ash_phoenix",
+    "name": "灰烬凤凰",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "epic",
+    "cost": 6,
+    "atk": 5,
+    "hp": 6,
+    "effects": [
+      {
+        "trigger": "deathrattle",
+        "action": "summon",
+        "summon_card_id": "dw_phoenix_chick",
+        "amount": 1
+      },
+      {
+        "trigger": "deathrattle",
+        "action": "recall_order",
+        "amount": 1
+      }
+    ],
+    "text": "亡语:在你的底线行召唤一只 2/2 烬火雏凤,并将一张随机指令牌从你的墓地移回手牌。",
+    "art_prompt": "a phoenix of grey ash and orange embers rising, loose feathers scattering as sparks"
+  },
+  {
+    "id": "dw_first_ritualist",
+    "name": "黄昏首祭·门德",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "legendary",
+    "cost": 7,
+    "atk": 4,
+    "hp": 6,
+    "effects": [
+      {
+        "trigger": "ally_order_played",
+        "action": "damage",
+        "target": "adjacent_enemies",
+        "amount": 1
+      }
+    ],
+    "text": "你每施放一张指令牌后,相邻敌方随从受到 1 点伤害。",
+    "art_prompt": "an elder high ritualist in ember-trimmed dusk robes, a halo of orbiting fire sigils"
+  },
+  {
+    "id": "dw_spark",
+    "name": "星火",
+    "faction": "duskweaver",
+    "type": "order",
+    "rarity": "common",
+    "cost": 1,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "damage",
+        "target": "target_unit",
+        "amount": 1
+      },
+      {
+        "trigger": "play",
+        "action": "draw",
+        "amount": 1
+      }
+    ],
+    "text": "对一个随从造成 1 点伤害,抽 1 张牌。",
+    "art_prompt": "a single spark leaping between two outstretched fingertips against the night"
+  },
+  {
+    "id": "dw_flame_lash",
+    "name": "焰鞭",
+    "faction": "duskweaver",
+    "type": "order",
+    "rarity": "common",
+    "cost": 2,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "damage",
+        "target": "target_unit",
+        "amount": 3
+      }
+    ],
+    "text": "对一个随从造成 3 点伤害。",
+    "art_prompt": "a whip of flame cracking across the frame, molten droplets flying"
+  },
+  {
+    "id": "dw_immolate",
+    "name": "献祭",
+    "faction": "duskweaver",
+    "type": "order",
+    "rarity": "common",
+    "cost": 2,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "destroy",
+        "target": "target_unit_ally"
+      },
+      {
+        "trigger": "play",
+        "action": "draw",
+        "amount": 2
+      }
+    ],
+    "text": "消灭一个友方随从,抽 2 张牌。",
+    "art_prompt": "a ceremonial dagger dissolving a kneeling silhouette into rising embers and pages of light"
+  },
+  {
+    "id": "dw_vesper_blast",
+    "name": "晚祷烈焰",
+    "faction": "duskweaver",
+    "type": "order",
+    "rarity": "rare",
+    "cost": 4,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "damage",
+        "target": "cell_cross_all",
+        "amount": 2
+      }
+    ],
+    "text": "对一个格子及其相邻格的所有随从造成 2 点伤害(含友方)。",
+    "art_prompt": "a cross-shaped eruption of fire seen from above, four arms of flame over trench grid"
+  },
+  {
+    "id": "dw_fire_curtain",
+    "name": "焰幕",
+    "faction": "duskweaver",
+    "type": "order",
+    "rarity": "rare",
+    "cost": 5,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "damage",
+        "target": "row_enemies",
+        "amount": 2
+      }
+    ],
+    "text": "选择一行:该行所有敌方随从受到 2 点伤害。",
+    "art_prompt": "a horizontal wall of fire sweeping down a trench line, soldiers recoiling"
+  },
+  {
+    "id": "dw_column_inferno",
+    "name": "焚烬之列",
+    "faction": "duskweaver",
+    "type": "order",
+    "rarity": "epic",
+    "cost": 6,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "damage",
+        "target": "column_enemies",
+        "amount": 4
+      }
+    ],
+    "text": "选择一列:该列所有敌方随从受到 4 点伤害。",
+    "art_prompt": "a vertical pillar of roaring fire punching down one narrow lane, everything ablaze"
+  },
+  {
+    "id": "dw_phoenix_chick",
+    "name": "烬火雏凤",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "token",
+    "cost": 2,
+    "atk": 2,
+    "hp": 2,
+    "text": "烬火雏凤。",
+    "art_prompt": "a small ember-feathered phoenix chick with wobbly flame wings"
+  }
+]
