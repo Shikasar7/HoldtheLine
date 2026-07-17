@@ -54,7 +54,10 @@ rm -rf /opt/holdtheline/new /tmp/holdtheline-server.tgz
 systemctl start holdtheline
 sleep 2
 systemctl is-active holdtheline
-curl -sf http://127.0.0.1:5210/healthz && echo " <- healthz ok"
+# 注意:此 here-string 经 PS5.1 → ssh 传输会丢内嵌双引号,这里只能用无引号无重定向符的写法
+curl -sf http://127.0.0.1:5210/healthz
+echo
+echo healthz-ok
 '@
 if ($LASTEXITCODE -ne 0) { throw "服务器端切换/启动失败,查看:ssh $Server 'journalctl -u holdtheline -n 50'" }
 
