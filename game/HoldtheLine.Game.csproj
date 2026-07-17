@@ -6,5 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\src\HoldTheLine.Rules\HoldTheLine.Rules.csproj" />
+    <ProjectReference Include="..\src\HoldTheLine.Net\HoldTheLine.Net.csproj" />
   </ItemGroup>
 </Project>

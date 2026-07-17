@@ -13,8 +13,18 @@ public static class GameConfig
     public static string Deck1 = "wildpack_hunt";
     public static bool Configured;
 
+    // Online (M2 N2). When Online is set, BattleScene connects to a server instead of running a
+    // LocalGameHost; the local seat is assigned by the server's match_started, not chosen here.
+    public static bool Online;
+    public static string ServerUrl = "ws://127.0.0.1:5210/ws";
+    public static string Nickname = "玩家";
+    public static bool CreateRoom;    // true = host a room; false = join RoomCode
+    public static string RoomCode = "";
+    public static string OnlineDeck = "iron_wall";
+
     public static void SetVsAi(string humanDeck, string aiDeck)
     {
+        Online = false;
         VsAi = true;
         HumanSeat = 0;
         Deck0 = humanDeck;
@@ -24,10 +34,22 @@ public static class GameConfig
 
     public static void SetHotseat()
     {
-        VsAi = false;
+        VsAi = false; Online = false;
         HumanSeat = 0;
         Deck0 = "iron_wall";
         Deck1 = "wildpack_hunt";
+        Configured = true;
+    }
+
+    public static void SetOnline(string serverUrl, string nickname, bool createRoom, string roomCode, string deck)
+    {
+        VsAi = false;
+        Online = true;
+        ServerUrl = serverUrl;
+        Nickname = string.IsNullOrWhiteSpace(nickname) ? "玩家" : nickname;
+        CreateRoom = createRoom;
+        RoomCode = roomCode.Trim().ToUpperInvariant();
+        OnlineDeck = deck;
         Configured = true;
     }
 }

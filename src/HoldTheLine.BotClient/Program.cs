@@ -17,7 +17,43 @@ if (ArgValue("--selfplay") is { } nStr && int.TryParse(nStr, out int games))
     return await SelfPlayAsync(new Uri(url), games,
         ArgValue("--deck-a") ?? "iron_wall", ArgValue("--deck-b") ?? "wildpack_hunt");
 
+if (HasFlag("--play") && (HasFlag("--create") || ArgValue("--join") is not null))
+    return await PlayAsync(new Uri(url), ArgValue("--join"), ArgValue("--deck") ?? "wildpack_hunt", ArgValue("--name") ?? "bot");
+
 return await HandshakeDemoAsync(new Uri(url));
+
+// Create or join a room and play it out with the random-legal policy (manual N2 testing vs a Godot
+// client). Waits generously so a slow human opponent doesn't trip the timeout.
+async Task<int> PlayAsync(Uri serverUri, string? joinCode, string deck, string name)
+{
+    await using var client = new GameServerClient(new WebSocketTransport());
+    var host = new RemoteGameHost(client);
+
+    if (joinCode is null)
+        client.MessageReceived += m => { if (m is RoomCreated rc) Console.WriteLine($"[room] created — code: {rc.Code}"); };
+
+    await client.ConnectAsync(serverUri, NewHello(name));
+    if (joinCode is null)
+        await client.SendAsync(new CreateRoom { DeckId = deck });
+    else
+        await client.SendAsync(new JoinRoom { Code = joinCode, DeckId = deck });
+
+    int seat = await host.WaitForMatchAsync().WaitAsync(TimeSpan.FromMinutes(10));
+    Console.WriteLine($"[match] started as seat {seat}");
+
+    using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(20));
+    var driver = new NetworkBotDriver(host, NetworkBotDriver.RandomLegal(seed: 4242));
+    try
+    {
+        int winner = await driver.RunAsync(cts.Token);
+        Console.WriteLine($"[match] over — winner seat {winner}");
+    }
+    catch (OperationCanceledException)
+    {
+        Console.WriteLine("[match] driver cancelled (timeout)");
+    }
+    return 0;
+}
 
 // ---------------------------------------------------------------------------------------------
 

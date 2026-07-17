@@ -1,4 +1,6 @@
 using Godot;
+using HoldTheLine.Net.Client;
+using HoldTheLine.Net.Protocol;
 using HoldTheLine.Rules.Cards;
 using HoldTheLine.Rules.Commands;
 using HoldTheLine.Rules.Engine;
@@ -17,7 +19,11 @@ public partial class BattleScene : Control
 {
 	private CardDatabase _cards = null!;
 	private LeaderDatabase _leaders = null!;
-	private LocalGameHost _host = null!;
+	private IGameHost _host = null!;
+	private LocalGameHost? _localHost;   // set for hotseat / vs-AI (SuggestCommand lives here)
+	private GameServerClient? _client;   // set for online
+	private RemoteGameHost? _remoteHost; // set for online
+	private bool _onlineReady;           // match_started applied and local seat known
 
 	private Control _boardLayer = null!, _standeeLayer = null!, _handLayer = null!, _hudLayer = null!, _overlayLayer = null!;
 	private readonly Button[,] _cellButtons = new Button[BattleTheme.Cols, BattleTheme.Rows];
@@ -42,8 +48,18 @@ public partial class BattleScene : Control
 
 	// Mode.
 	private bool _vsAi;
+	private bool _online;
 	private int _humanSeat;
 	private int _aiSeat;
+
+	// Online event delivery: RemoteGameHost dispatches from the WebSocket receive thread, so events
+	// land in a thread-safe queue and are drained + animated by a single pump on the Godot main thread.
+	private readonly System.Collections.Concurrent.ConcurrentQueue<GameEvent> _eventQueue = new();
+	private bool _pumping;
+	private Label? _connLabel;   // connection / opponent status banner (online only)
+
+	// A view is "fixed" (always the local seat, mirrored for seat 1) in vs-AI and online; hotseat flips.
+	private bool FixedView => _vsAi || _online;
 
 	// Selection / targeting state.
 	private enum SelKind { None, Card, Unit, Leader }
@@ -96,11 +112,22 @@ public partial class BattleScene : Control
 		if (!GameConfig.Configured)
 			GameConfig.SetHotseat(); // launched directly (e.g. from the editor) → default to hotseat
 		_vsAi = GameConfig.VsAi;
-		_humanSeat = GameConfig.HumanSeat;
-		_aiSeat = 1 - _humanSeat;
+		_online = GameConfig.Online;
 
 		_cards = GameData.LoadCards();
 		_leaders = GameData.LoadLeaders();
+
+		BuildStaticUi();
+		_sfx = new SfxBank(this);
+
+		if (_online)
+		{
+			_ = SetupOnline(); // async connect → match → render (see partial below)
+			return;
+		}
+
+		_humanSeat = GameConfig.HumanSeat;
+		_aiSeat = 1 - _humanSeat;
 
 		var decks = GameData.LoadDecks();
 		var d0 = decks.First(d => d.Id == GameConfig.Deck0);
@@ -113,11 +140,11 @@ public partial class BattleScene : Control
 			Deck0 = d0.Expand(), Leader0 = d0.Leader,
 			Deck1 = d1.Expand(), Leader1 = d1.Leader,
 		};
-		_host = new LocalGameHost(_cards, _leaders, config);
+		var local = new LocalGameHost(_cards, _leaders, config);
+		_localHost = local;
+		_host = local;
 		_host.Subscribe(0, e => { _pendingEvents.Add(e); AccumulateStat(e); }); // seat-0 stream: public events drive animation + stats
 
-		BuildStaticUi();
-		_sfx = new SfxBank(this);
 		FullRender();
 
 		if (_vsAi && ActiveSeat == _aiSeat)
@@ -265,8 +292,9 @@ public partial class BattleScene : Control
 
 	private int ActiveSeat => _host.GetView(0).ActiveSeat;
 
-	// Whose eyes we render through: the human in vs-AI (fixed), the active seat in hotseat (flips).
-	private int ViewSeat => _vsAi ? _humanSeat : ActiveSeat;
+	// Whose eyes we render through: the local seat when fixed (vs-AI / online), the active seat in
+	// hotseat (flips each turn). Seat 1's board is mirrored automatically via _persp = ViewSeat.
+	private int ViewSeat => FixedView ? _humanSeat : ActiveSeat;
 
 	private void FullRender()
 	{
@@ -528,8 +556,8 @@ public partial class BattleScene : Control
 	private void RenderHud(PlayerView view)
 	{
 		bool viewerActive = view.ActiveSeat == ViewSeat;
-		_turnLabel.Text = _vsAi
-			? (viewerActive ? "▼ 你的回合" : "▲ 对手思考中…")
+		_turnLabel.Text = FixedView
+			? (viewerActive ? "▼ 你的回合" : "▲ 对手回合…")
 			: $"▼ {LeaderName(view.Self.LeaderId)} 的回合";
 		_turnLabel.AddThemeColorOverride("font_color", viewerActive ? BattleTheme.Accent : BattleTheme.TextDim);
 
@@ -555,7 +583,7 @@ public partial class BattleScene : Control
 	{
 		view ??= _host.GetView(ViewSeat);
 		bool over = view.Result != null;
-		bool canAct = !_busy && !over && (!_vsAi || ActiveSeat == _humanSeat);
+		bool canAct = !_busy && !over && (!FixedView || ActiveSeat == _humanSeat);
 		_endTurnBtn.Disabled = !canAct;
 		IReadOnlyList<Command> legal = canAct ? _host.LegalCommands(ActiveSeat) : [];
 		_leaderPowerBtn.Disabled = !canAct || !legal.Any(c => c is UseLeaderSkillCommand);
@@ -749,6 +777,7 @@ public partial class BattleScene : Control
 	{
 		if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
 		{
+			if (_online) { ConcedeOnline(); return; } // Esc mid-match = concede (plan N2)
 			GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn");
 			return;
 		}
@@ -842,6 +871,7 @@ public partial class BattleScene : Control
 
 	private async void Submit(Command cmd)
 	{
+		if (_online) { SubmitOnline(cmd); return; }
 		if (_busy) return;
 		_busy = true;
 		RefreshInteractable();
@@ -881,13 +911,169 @@ public partial class BattleScene : Control
 		while (_vsAi && ActiveSeat == _aiSeat && _host.GetView(0).Result == null)
 		{
 			await Delay(0.5);
-			var cmd = _host.SuggestCommand(_aiSeat);
+			var cmd = _localHost!.SuggestCommand(_aiSeat);
 			if (cmd is null) break;
 			if (!await Apply(cmd)) return; // game ended (overlay shown), keep input locked
 			if (cmd is EndTurnCommand) break;
 		}
 		_busy = false;
 		RefreshInteractable();
+	}
+
+	// ---------- online: connect, event pump, submit, concede (M2 N2) ----------
+
+	/// <summary>Connect, hello, create/join a room, wait for the match, then hand off to the main
+	/// thread to render. Runs off the main thread after the first await, so every UI touch here is
+	/// marshalled via Callable.CallDeferred.</summary>
+	private async Task SetupOnline()
+	{
+		SetConn("连接服务器…");
+
+		var client = new GameServerClient(new WebSocketTransport());
+		var remote = new RemoteGameHost(client);
+		_client = client;
+		_remoteHost = remote;
+		_host = remote;
+
+		// Room code / errors: shown while waiting for an opponent (marshalled to the main thread).
+		client.MessageReceived += msg =>
+		{
+			switch (msg)
+			{
+				case RoomCreated rc:
+					{ var code = rc.Code; Callable.From(() => SetConn($"房间号  {code}\n把它发给朋友,等待加入…")).CallDeferred(); break; }
+				case ErrorMsg em:
+					{ var m = $"{em.Code}:{em.Message}"; Callable.From(() => SetConn($"错误:{m}")).CallDeferred(); break; }
+			}
+		};
+
+		// Events arrive on the WS receive thread → queue + wake the main-thread pump.
+		remote.Subscribe(0, e => { _eventQueue.Enqueue(e); Callable.From(PumpOnlineEvents).CallDeferred(); });
+
+		try
+		{
+			var hello = new Hello
+			{
+				GuestId = "",
+				Name = GameConfig.Nickname,
+				ProtocolVersion = ProtocolConstants.ProtocolVersion,
+				RulesVersion = HoldTheLine.Rules.RulesInfo.Version,
+			};
+			await client.ConnectAsync(new System.Uri(GameConfig.ServerUrl), hello);
+
+			if (GameConfig.CreateRoom)
+				await client.SendAsync(new CreateRoom { DeckId = GameConfig.OnlineDeck });
+			else
+				await client.SendAsync(new JoinRoom { Code = GameConfig.RoomCode, DeckId = GameConfig.OnlineDeck });
+
+			int seat = await remote.WaitForMatchAsync();
+			Callable.From(() => OnMatchReady(seat)).CallDeferred();
+		}
+		catch (System.Exception ex)
+		{
+			var m = ex.Message;
+			Callable.From(() => SetConn($"连接失败:{m}")).CallDeferred();
+		}
+	}
+
+	/// <summary>Main-thread handoff once the server's match_started is in. Sets the local seat and
+	/// renders; only now may the event pump run (it reads _humanSeat via ViewSeat).</summary>
+	private void OnMatchReady(int seat)
+	{
+		_humanSeat = seat;
+		_aiSeat = 1 - seat;
+		_onlineReady = true;
+		SetConn("");
+		FullRender();
+		if (!_eventQueue.IsEmpty) PumpOnlineEvents();
+	}
+
+	/// <summary>Kick the single-consumer pump. Safe to call repeatedly; no-op while one is running or
+	/// before the match is ready.</summary>
+	private void PumpOnlineEvents()
+	{
+		if (!_onlineReady || _pumping) return;
+		_ = RunOnlinePump();
+	}
+
+	private async Task RunOnlinePump()
+	{
+		_pumping = true;
+		_busy = true;
+		RefreshInteractable();
+
+		while (!_eventQueue.IsEmpty)
+		{
+			var batch = new List<GameEvent>();
+			while (_eventQueue.TryDequeue(out var e)) { batch.Add(e); AccumulateStat(e); }
+
+			await AnimateEvents(batch);
+			FullRender();
+
+			var ended = batch.OfType<GameEndedEvent>().FirstOrDefault();
+			if (ended != null) { ShowWinOverlay(ended); _pumping = false; return; }
+		}
+
+		_pumping = false;
+		_busy = false;
+		RefreshInteractable();
+	}
+
+	/// <summary>Send a command over the wire. The result batch is animated by the pump; only the
+	/// rejection/error paths touch UI here, marshalled back to the main thread.</summary>
+	private async void SubmitOnline(Command cmd)
+	{
+		if (_busy) return;
+		_busy = true;
+		ClearSelection();
+		RefreshInteractable();
+
+		CommandResult result;
+		try
+		{
+			result = await _host.SubmitCommandAsync(cmd.Seat, cmd);
+		}
+		catch (System.Exception ex)
+		{
+			var m = ex.Message;
+			Callable.From(() => { Log($"网络错误:{m}"); _busy = false; RefreshInteractable(); }).CallDeferred();
+			return;
+		}
+
+		if (!result.Accepted)
+		{
+			var code = result.Error?.Code.ToString() ?? "?";
+			Callable.From(() => { Log($"非法操作:{code}"); _busy = false; RefreshInteractable(); }).CallDeferred();
+		}
+		// accepted → the resulting EventsMsg drives the pump, which clears _busy
+	}
+
+	/// <summary>Esc mid-match = concede. The resulting GameEnded flows through the pump to the overlay.</summary>
+	private void ConcedeOnline()
+	{
+		if (_remoteHost is null || !_onlineReady) return;
+		_ = _host.SubmitCommandAsync(_humanSeat, new ConcedeCommand { Seat = _humanSeat });
+	}
+
+	/// <summary>Connection / room-status banner (online only).</summary>
+	private void SetConn(string text)
+	{
+		if (_connLabel == null)
+		{
+			_connLabel = BattleTheme.MakeOutlinedLabel("", 28, BattleTheme.TextMain, HorizontalAlignment.Center);
+			_connLabel.Position = new Vector2(0, 452);
+			_connLabel.Size = new Vector2(BattleTheme.ScreenW, 160);
+			_connLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+			_overlayLayer.AddChild(_connLabel);
+		}
+		_connLabel.Text = text;
+		_connLabel.Visible = text.Length > 0;
+	}
+
+	public override void _ExitTree()
+	{
+		if (_client != null)
+			_ = _client.DisposeAsync().AsTask(); // closes the socket → server tears the match down
 	}
 
 	private async Task AnimateEvents(IReadOnlyList<GameEvent> events)
@@ -966,11 +1152,11 @@ public partial class BattleScene : Control
 		string who;
 		Color tint;
 		if (ended.WinnerSeat < 0) { who = "平局"; tint = BattleTheme.TextMain; }
-		else if (_vsAi) { bool win = ended.WinnerSeat == _humanSeat; who = win ? "胜 利" : "败 北"; tint = win ? BattleTheme.Accent : BattleTheme.DangerColor; }
+		else if (FixedView) { bool win = ended.WinnerSeat == _humanSeat; who = win ? "胜 利" : "败 北"; tint = win ? BattleTheme.Accent : BattleTheme.DangerColor; }
 		else { who = $"{LeaderName(_host.GetView(ended.WinnerSeat).Self.LeaderId)} 获胜"; tint = BattleTheme.Accent; }
 
 		// Result illustration behind the text (dimmed); a draw keeps the plain panel.
-		bool defeat = _vsAi && ended.WinnerSeat >= 0 && ended.WinnerSeat != _humanSeat;
+		bool defeat = FixedView && ended.WinnerSeat >= 0 && ended.WinnerSeat != _humanSeat;
 		if (ended.WinnerSeat >= 0 &&
 			BattleTheme.Tex(defeat ? "screens/result_defeat.png" : "screens/result_victory.png") is { } resultTex)
 		{
@@ -987,8 +1173,8 @@ public partial class BattleScene : Control
 
 		// Match stats: rounds, line-breaks (推过底线打脸), leader damage taken.
 		int rounds = (_host.GetView(0).TurnNumber + 1) / 2;
-		int a = _vsAi ? _humanSeat : 0, b = 1 - a;
-		string Side(int seat) => _vsAi ? (seat == _humanSeat ? "你" : "对手") : (seat == 0 ? "玩家1" : "玩家2");
+		int a = FixedView ? _humanSeat : 0, b = 1 - a;
+		string Side(int seat) => FixedView ? (seat == _humanSeat ? "你" : "对手") : (seat == 0 ? "玩家1" : "玩家2");
 
 		void StatLine(string text, float y, int size, Color color)
 		{
@@ -1001,13 +1187,19 @@ public partial class BattleScene : Control
 		StatLine($"破线打脸    {Side(a)} {_lineBreaks[a]} 次        {Side(b)} {_lineBreaks[b]} 次", 446, 26, BattleTheme.Accent);
 		StatLine($"领袖受创    {Side(a)} {_leaderDmg[a]}        {Side(b)} {_leaderDmg[b]}", 490, 26, BattleTheme.TextDim);
 
-		var again = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2 - 320, 570), new Vector2(280, 80), BattleTheme.AccentSoft, BattleTheme.Accent, 2, 12);
-		again.Text = "再来一局";
-		again.AddThemeFontSizeOverride("font_size", 26);
-		again.Pressed += () => GetTree().ReloadCurrentScene();
-		panel.AddChild(again);
+		// Rematch reloads the scene locally; online can't (it would reconnect / create a new room —
+		// same-room rematch is N3), so online shows only "return to menu", centered.
+		if (!_online)
+		{
+			var again = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2 - 320, 570), new Vector2(280, 80), BattleTheme.AccentSoft, BattleTheme.Accent, 2, 12);
+			again.Text = "再来一局";
+			again.AddThemeFontSizeOverride("font_size", 26);
+			again.Pressed += () => GetTree().ReloadCurrentScene();
+			panel.AddChild(again);
+		}
 
-		var menu = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2 + 40, 570), new Vector2(280, 80), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12);
+		var menuX = _online ? BattleTheme.ScreenW / 2 - 140 : BattleTheme.ScreenW / 2 + 40;
+		var menu = BattleTheme.MakeButton(new Vector2(menuX, 570), new Vector2(280, 80), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12);
 		menu.Text = "返回菜单";
 		menu.AddThemeFontSizeOverride("font_size", 26);
 		menu.Pressed += () => GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn");
