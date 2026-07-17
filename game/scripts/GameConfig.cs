@@ -16,7 +16,9 @@ public static class GameConfig
     // Online (M2 N2). When Online is set, BattleScene connects to a server instead of running a
     // LocalGameHost; the local seat is assigned by the server's match_started, not chosen here.
     public static bool Online;
-    public static string ServerUrl = "ws://127.0.0.1:5210/ws";
+    /// <summary>Default = the public battle server on the cicala.chat VPS (docs/08 §4). Friends just
+    /// open the online panel and create/join — no address typing. Editable for LAN/local testing.</summary>
+    public static string ServerUrl = "ws://212.64.21.174:5210/ws";
     public static string Nickname = "玩家";
     public static bool CreateRoom;    // true = host a room; false = join RoomCode
     public static string RoomCode = "";
