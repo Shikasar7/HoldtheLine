@@ -6,6 +6,9 @@ obj/
 TestResults/
 artifacts/
 
+# Export output (regenerate with: godot --headless --path game --export-release "Windows Desktop")
+build/
+
 # Godot
 game/.godot/
 game/android/
