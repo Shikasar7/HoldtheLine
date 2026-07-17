@@ -1,4 +1,4 @@
-# 一键部署对战服务器到 VPS:发布 → 打包 → 上传 → 服务器上原子切换 + systemd 重启
+﻿# 一键部署对战服务器到 VPS:发布 → 打包 → 上传 → 服务器上原子切换 + systemd 重启
 # 用法:.\deploy\vps\deploy.ps1    (同 Portcialio 的部署模式;首次运行会自动装 systemd 服务)
 # 自包含 linux-x64 发布 —— 服务器上不需要安装 .NET,不触碰现有 nginx/pm2/项目。
 param([string]$Server = "root@212.64.21.174")
