@@ -39,15 +39,27 @@ public sealed class RoomManager
         await room.JoinAndStartAsync(guest, deckId);
     }
 
-    /// <summary>Clean up when a connection ends. Discards a room the connection was still waiting in.</summary>
+    /// <summary>Clean up when a connection ends. A still-waiting room is discarded once empty; a room
+    /// whose match had started is torn down entirely (N1 has no reconnect grace — that's N3).</summary>
     public void OnDisconnect(ClientConnection conn)
     {
         if (conn.Room is not { } room)
             return;
-        if (room.RemoveIfWaiting(conn))
+
+        if (room.Started)
+        {
+            room.Teardown();
             _rooms.TryRemove(room.Code, out _);
+        }
+        else if (room.RemoveIfWaiting(conn))
+        {
+            _rooms.TryRemove(room.Code, out _);
+        }
         conn.Room = null;
     }
+
+    /// <summary>Test/inspection hook: the room for a code, if it still exists.</summary>
+    public Room? FindRoom(string code) => _rooms.TryGetValue(code, out var room) ? room : null;
 
     public int RoomCount => _rooms.Count;
 }

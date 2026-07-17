@@ -49,6 +49,19 @@ public sealed class Room(string code, GameContent content)
         await Session.SendMatchStartedAsync();
     }
 
+    /// <summary>Was this connection an occupant of this room?</summary>
+    public bool Contains(ClientConnection conn)
+    {
+        lock (_gate)
+            return _host == conn || _guest == conn;
+    }
+
+    /// <summary>True once the match is underway (an occupant drop here means abandonment, not just leaving a lobby).</summary>
+    public bool Started
+    {
+        get { lock (_gate) return _started; }
+    }
+
     /// <summary>Remove a still-waiting occupant (pre-match). Returns true if the room is now empty and
     /// should be discarded. No-op once the match has started (that path is N3 reconnect handling).</summary>
     public bool RemoveIfWaiting(ClientConnection conn)
@@ -62,4 +75,8 @@ public sealed class Room(string code, GameContent content)
             return _host == null && _guest == null;
         }
     }
+
+    /// <summary>Stop the match pump and release the room. N1: any mid-match drop ends the match (no
+    /// grace); N3 replaces this with a reconnect window keyed on the resume token.</summary>
+    public void Teardown() => Session?.Stop();
 }

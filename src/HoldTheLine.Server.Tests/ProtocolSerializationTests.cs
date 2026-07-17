@@ -1,6 +1,7 @@
 using HoldTheLine.Net.Protocol;
 using HoldTheLine.Rules.Commands;
 using HoldTheLine.Rules.Events;
+using HoldTheLine.Rules.Hosting;
 using Xunit;
 
 namespace HoldTheLine.Server.Tests;
@@ -66,6 +67,7 @@ public class ProtocolSerializationTests
                 new TurnStartedEvent { Seat = 0, TurnNumber = 1, Mana = 1, ManaMax = 1 },
                 new CardDrawnEvent { Seat = 0, CardEntityId = 3, CardId = "iron_recruit" },
             ],
+            View = MinimalView(),
             EventIndex = 2,
         });
         RoundTripsServer(new OpponentStatus { Connected = false, GraceSeconds = 120 });
@@ -74,6 +76,23 @@ public class ProtocolSerializationTests
         RoundTripsServer(new ErrorMsg { Code = "room_not_found", Message = "No room 'ZZZ'." });
         RoundTripsServer(new Pong { Seq = 6 });
     }
+
+    private static PlayerView MinimalView() => new()
+    {
+        ViewerSeat = 0,
+        TurnNumber = 1,
+        ActiveSeat = 0,
+        Self = new SelfView
+        {
+            LeaderId = "iron_vow", LeaderHp = 25, Mana = 1, ManaMax = 1, DeckCount = 25, Fatigue = 0,
+            Hand = [new CardInHandView { EntityId = 3, CardId = "iron_recruit" }],
+        },
+        Opponent = new OpponentView
+        {
+            LeaderId = "wild_hunt", LeaderHp = 25, Mana = 0, ManaMax = 0, DeckCount = 26, HandCount = 7, Fatigue = 0,
+        },
+        Units = [],
+    };
 
     [Fact]
     public void Unknown_tag_decodes_to_null_not_throw()

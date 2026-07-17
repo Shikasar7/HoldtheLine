@@ -110,7 +110,9 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
                 break;
 
             case SubmitCommand or Resync:
-                throw new ProtocolError("not_implemented", "In-match routing lands in N1.");
+                var session = Room?.Session ?? throw new ProtocolError("not_in_match", "No active match on this connection.");
+                session.Enqueue(Seat, msg);
+                break;
 
             case Hello:
                 throw new ProtocolError("already_hello", "Duplicate hello on an established connection.");

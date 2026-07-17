@@ -48,13 +48,23 @@ public sealed class GameServerClient : IAsyncDisposable
         return await _helloTcs.Task.ConfigureAwait(false);
     }
 
+    /// <summary>Reserve the next sequence number. Use with <see cref="SendWithSeqAsync"/> when the
+    /// caller must register a pending reply-handler under the seq *before* the frame goes out (else a
+    /// fast loopback reply can arrive before the handler is in place).</summary>
+    public int NextSeq() => Interlocked.Increment(ref _seq);
+
     /// <summary>Assign the next sequence number, encode, and send. Returns the assigned seq.</summary>
     public async Task<int> SendAsync(ClientMessage message, CancellationToken ct = default)
     {
-        int seq = Interlocked.Increment(ref _seq);
-        var framed = message with { Seq = seq };
-        string json = ProtocolJson.Encode(framed);
+        int seq = NextSeq();
+        await SendWithSeqAsync(message, seq, ct).ConfigureAwait(false);
+        return seq;
+    }
 
+    /// <summary>Send a message stamped with a caller-chosen (pre-reserved) seq.</summary>
+    public async Task SendWithSeqAsync(ClientMessage message, int seq, CancellationToken ct = default)
+    {
+        string json = ProtocolJson.Encode(message with { Seq = seq });
         await _sendGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
@@ -64,7 +74,6 @@ public sealed class GameServerClient : IAsyncDisposable
         {
             _sendGate.Release();
         }
-        return seq;
     }
 
     private async Task ReceiveLoopAsync()

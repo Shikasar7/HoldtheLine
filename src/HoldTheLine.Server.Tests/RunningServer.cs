@@ -31,6 +31,9 @@ public sealed class RunningServer : IAsyncDisposable
         return new RunningServer(app, ws);
     }
 
+    /// <summary>Resolve a server-side singleton (RoomManager, GameContent) for white-box assertions.</summary>
+    public T Service<T>() where T : notnull => _app.Services.GetRequiredService<T>();
+
     public async ValueTask DisposeAsync()
     {
         await _app.StopAsync();

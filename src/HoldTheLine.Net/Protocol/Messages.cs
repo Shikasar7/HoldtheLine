@@ -122,9 +122,13 @@ public sealed record CommandResultMsg : ServerMessage
 public sealed record EventsMsg : ServerMessage
 {
     public required IReadOnlyList<GameEvent> Batch { get; init; }
+    /// <summary>The authoritative post-batch snapshot for this seat. Ships with every batch so
+    /// RemoteGameHost.GetView stays current without reconstructing state from events (plan §6.2) —
+    /// events drive animation, the view drives layout.</summary>
+    public required PlayerView View { get; init; }
     /// <summary>Running count of events dispatched to this seat *after* this batch — used to detect gaps.</summary>
     public required int EventIndex { get; init; }
-    /// <summary>Present when this batch hands the turn to the recipient; their new legal moves.</summary>
+    /// <summary>Present when the recipient is the one now on the move; their fresh legal moves.</summary>
     public IReadOnlyList<Command>? LegalCommands { get; init; }
 }
 

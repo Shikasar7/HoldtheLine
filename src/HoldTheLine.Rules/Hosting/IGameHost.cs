@@ -23,6 +23,14 @@ public interface IGameHost
 
     /// <summary>All events so far, redacted for the seat (catch-up after subscribing late).</summary>
     IReadOnlyList<GameEvent> GetEventLog(int seat);
+
+    /// <summary>
+    /// Legal commands for a seat (empty unless it's that seat's turn). On the local host this
+    /// enumerates authoritative state; on the network host it returns the server's last-pushed set —
+    /// either way the presentation layer never touches GameState. Callbacks from
+    /// <see cref="Subscribe"/> may arrive on any thread (the network host dispatches from its receive loop).
+    /// </summary>
+    IReadOnlyList<Command> LegalCommands(int seat);
 }
 
 public sealed record CommandResult
