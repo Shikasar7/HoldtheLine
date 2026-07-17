@@ -44,17 +44,19 @@ public sealed class MatchSession
     private bool _over;
     private string? _endReasonOverride;
     private readonly string? _logPath;   // per-match JSONL command log (null = disabled)
+    private readonly Func<int, string, Task>? _onEnded;   // ranked settlement hook (winnerSeat, reason); null for friend rooms
 
     private enum Signal { Client, Dropped, Reattach, Forfeit, TurnBegin, TurnTimeout }
     private readonly record struct Envelope(Signal Kind, int Seat, ClientMessage? Message, ClientConnection? Conn, string? Reason, int Gen);
 
-    private MatchSession(LocalGameHost host, ClientConnection[] conns, string[] resumeTokens, int graceSeconds, int turnSeconds, string? logDir)
+    private MatchSession(LocalGameHost host, ClientConnection[] conns, string[] resumeTokens, int graceSeconds, int turnSeconds, string? logDir, Func<int, string, Task>? onEnded)
     {
         Host = host;
         _conns = conns;
         _resumeTokens = resumeTokens;
         _graceSeconds = graceSeconds;
         _turnSeconds = turnSeconds;
+        _onEnded = onEnded;
         _logPath = OpenLog(logDir, host.Config);
         _buffers = [new List<GameEvent>(), new List<GameEvent>()];
 
@@ -74,7 +76,8 @@ public sealed class MatchSession
     public static MatchSession Create(
         GameContent content, ServerOptions opts,
         ClientConnection seat0, Data.ResolvedDeck deck0,
-        ClientConnection seat1, Data.ResolvedDeck deck1)
+        ClientConnection seat1, Data.ResolvedDeck deck1,
+        Func<int, string, Task>? onEnded = null)
     {
         var config = new MatchConfig
         {
@@ -89,7 +92,7 @@ public sealed class MatchSession
         var host = new LocalGameHost(content.Cards, content.Leaders, config);
         var conns = new[] { seat0, seat1 };
         var tokens = new[] { SessionAuth.NewResumeToken(), SessionAuth.NewResumeToken() };
-        return new MatchSession(host, conns, tokens, opts.DisconnectGraceSeconds, opts.TurnSeconds, opts.CommandLogDir);
+        return new MatchSession(host, conns, tokens, opts.DisconnectGraceSeconds, opts.TurnSeconds, opts.CommandLogDir, onEnded);
     }
 
     /// <summary>Start a JSONL log for this match (config header, then one accepted command per line).
@@ -238,6 +241,10 @@ public sealed class MatchSession
             ?? "normal";
         for (int s = 0; s < 2; s++)
             await _conns[s].SendAsync(new MatchEnded { WinnerSeat = outcome.WinnerSeat, Reason = reason });
+
+        if (_onEnded is not null)
+            try { await _onEnded(outcome.WinnerSeat, reason); }
+            catch { /* ranked settlement is best-effort; a match must never fail to end because of it */ }
     }
 
     private async Task HandleResyncAsync(int seat)

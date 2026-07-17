@@ -21,8 +21,10 @@ public static class ServerApp
         builder.Services.AddSingleton<AccountStore>();
         builder.Services.AddSingleton<DeckStore>();
         builder.Services.AddSingleton<CollectionStore>();
+        builder.Services.AddSingleton<LadderStore>();
         builder.Services.AddSingleton<DeckSource>();
         builder.Services.AddSingleton<RoomManager>();
+        builder.Services.AddSingleton<QueueManager>();
 
         var app = builder.Build();
         app.UseWebSockets();
@@ -46,10 +48,12 @@ public static class ServerApp
         var accounts = ctx.RequestServices.GetRequiredService<AccountStore>();
         var decks = ctx.RequestServices.GetRequiredService<DeckStore>();
         var collection = ctx.RequestServices.GetRequiredService<CollectionStore>();
+        var ladder = ctx.RequestServices.GetRequiredService<LadderStore>();
+        var queue = ctx.RequestServices.GetRequiredService<QueueManager>();
         var loggerFactory = ctx.RequestServices.GetRequiredService<ILoggerFactory>();
 
         using var socket = await ctx.WebSockets.AcceptWebSocketAsync();
         var conn = new ClientConnection(socket, loggerFactory.CreateLogger<ClientConnection>());
-        await conn.RunAsync(rooms, content, opts, accounts, decks, collection, ctx.RequestAborted);
+        await conn.RunAsync(rooms, content, opts, accounts, decks, collection, ladder, queue, ctx.RequestAborted);
     }
 }

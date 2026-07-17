@@ -30,7 +30,7 @@ public sealed class Room(string code, GameContent content, ServerOptions opts, D
 
     /// <summary>Seat the joiner and kick off the match. Throws <see cref="ProtocolError"/> if the room
     /// is already full or in progress.</summary>
-    public async Task JoinAndStartAsync(ClientConnection guest, string deckId)
+    public async Task JoinAndStartAsync(ClientConnection guest, string deckId, Func<int, string, Task>? onEnded = null)
     {
         lock (_gate)
         {
@@ -48,7 +48,7 @@ public sealed class Room(string code, GameContent content, ServerOptions opts, D
         // Resolve each side's deck (saved-or-built-in) now that both players + their picks are seated.
         var host0 = deckSource.Resolve(_host!.GuestId, _hostDeck!);
         var guest1 = deckSource.Resolve(_guest!.GuestId, _guestDeck!);
-        Session = MatchSession.Create(content, opts, _host!, host0, _guest!, guest1);
+        Session = MatchSession.Create(content, opts, _host!, host0, _guest!, guest1, onEnded);
         await Session.SendMatchStartedAsync();
         Session.Begin(); // start the first turn clock
     }

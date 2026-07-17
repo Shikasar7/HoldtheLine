@@ -36,8 +36,29 @@ public sealed class RoomManager(ServerOptions opts, GameContent content, DeckSou
             throw new ProtocolError("room_not_found", $"No room '{code}'.");
 
         await room.JoinAndStartAsync(guest, deckId);
+        IndexTokens(room);
+    }
 
-        // Index both resume tokens so either player can reconnect to this match.
+    /// <summary>Start a ranked match directly from two queued connections (M3 B2). No shareable code —
+    /// the room exists only to carry the reconnect/timer machinery. <paramref name="onEnded"/> settles ELO.</summary>
+    public async Task StartRankedMatchAsync(ClientConnection a, string deckA, ClientConnection b, string deckB, Func<int, string, Task> onEnded)
+    {
+        Room? room = null;
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            var candidate = new Room(SessionAuth.NewRoomCode(), content, opts, deckSource);
+            if (_rooms.TryAdd(candidate.Code, candidate)) { room = candidate; break; }
+        }
+        if (room is null)
+            throw new ProtocolError("server_busy", "Could not allocate a match.");
+
+        room.SetHost(a, deckA);
+        await room.JoinAndStartAsync(b, deckB, onEnded);
+        IndexTokens(room);
+    }
+
+    private void IndexTokens(Room room)
+    {
         var session = room.Session!;
         _byToken[session.ResumeTokenFor(0)] = (room, 0);
         _byToken[session.ResumeTokenFor(1)] = (room, 1);

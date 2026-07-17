@@ -26,6 +26,8 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
     private AccountStore _accounts = null!;
     private DeckStore _decks = null!;
     private CollectionStore _collection = null!;
+    private LadderStore _ladder = null!;
+    private QueueManager _queue = null!;
 
     public string GuestId { get; private set; } = "";
     public string Name { get; private set; } = "";
@@ -33,7 +35,7 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
     public int Seat { get; set; }
 
     public async Task RunAsync(RoomManager rooms, GameContent content, ServerOptions opts, AccountStore accounts,
-        DeckStore decks, CollectionStore collection, CancellationToken ct)
+        DeckStore decks, CollectionStore collection, LadderStore ladder, QueueManager queue, CancellationToken ct)
     {
         _rooms = rooms;
         _content = content;
@@ -41,6 +43,8 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
         _accounts = accounts;
         _decks = decks;
         _collection = collection;
+        _ladder = ladder;
+        _queue = queue;
         try
         {
             if (!await HandshakeAsync(ct).ConfigureAwait(false))
@@ -70,6 +74,7 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
         }
         finally
         {
+            _queue.Leave(this);
             _rooms.OnDisconnect(this);
         }
     }
@@ -155,15 +160,19 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
 
     /// <summary>The account snapshot pushed after hello_ok and on get_profile. Name + decks are persisted;
     /// rating / W-L stay at Beta defaults until LadderStore lands (B2).</summary>
-    private Profile BuildProfile() => new()
+    private Profile BuildProfile()
     {
-        Name = Name,
-        Rating = 1000,
-        Wins = 0,
-        Losses = 0,
-        Decks = _decks.ListFor(GuestId).Select(d => new DeckSummary { Id = d.Id, Name = d.Name, Faction = d.Faction }).ToList(),
-        CollectionMode = _collection.Mode,
-    };
+        var (rating, wins, losses) = _ladder.Get(GuestId);
+        return new Profile
+        {
+            Name = Name,
+            Rating = rating,
+            Wins = wins,
+            Losses = losses,
+            Decks = _decks.ListFor(GuestId).Select(d => new DeckSummary { Id = d.Id, Name = d.Name, Faction = d.Faction }).ToList(),
+            CollectionMode = _collection.Mode,
+        };
+    }
 
     private async Task DispatchAsync(ClientMessage msg)
     {
@@ -202,6 +211,15 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
             case DeleteDeck dd:
                 _decks.Delete(GuestId, dd.DeckId);
                 await SendAsync(BuildProfile()).ConfigureAwait(false);
+                break;
+
+            case JoinQueue jq:
+                _queue.Join(this, jq.DeckId); // validates the deck; throws ProtocolError on a bad one
+                await SendAsync(new QueueStatus { Position = 1, WaitedSeconds = 0, BotFallbackIn = QueueManager.BotFallbackSeconds, Seq = msg.Seq }).ConfigureAwait(false);
+                break;
+
+            case LeaveQueue:
+                _queue.Leave(this);
                 break;
 
             case Hello:
