@@ -1,0 +1,21 @@
+# systemd unit for the Hold the Line battle server.
+# Installed by deploy.ps1 to /etc/systemd/system/holdtheline.service
+[Unit]
+Description=Hold the Line battle server (M2)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/holdtheline/server
+ExecStart=/opt/holdtheline/server/HoldTheLine.Server
+Restart=on-failure
+RestartSec=3
+# All config via env (HTL_ prefix, Server section):
+Environment=HTL_Server__Urls=http://0.0.0.0:5210
+Environment=HTL_Server__DataRoot=/opt/holdtheline/data
+Environment=HTL_Server__CommandLogDir=/var/lib/holdtheline/match-logs
+Environment=HTL_Server__TurnSeconds=90
+Environment=HTL_Server__DisconnectGraceSeconds=120
+
+[Install]
+WantedBy=multi-user.target
