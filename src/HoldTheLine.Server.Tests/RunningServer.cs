@@ -20,9 +20,12 @@ public sealed class RunningServer : IAsyncDisposable
         Ws = ws;
     }
 
-    public static async Task<RunningServer> StartAsync()
+    public static async Task<RunningServer> StartAsync(int? disconnectGraceSeconds = null, int? turnSeconds = null)
     {
-        var app = ServerApp.Build(new ServerOptions { Urls = "http://127.0.0.1:0" });
+        var opts = new ServerOptions { Urls = "http://127.0.0.1:0" };
+        if (disconnectGraceSeconds is { } g) opts.DisconnectGraceSeconds = g;
+        if (turnSeconds is { } t) opts.TurnSeconds = t;
+        var app = ServerApp.Build(opts);
         await app.StartAsync();
 
         var addresses = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses;

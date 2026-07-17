@@ -97,6 +97,104 @@ public class NetworkedMatchTests
     }
 
     [Fact]
+    public async Task Dropped_client_reconnects_via_resume_token_and_finishes_the_match()
+    {
+        await using var server = await RunningServer.StartAsync();
+
+        // Reconnect-capable clients: a fresh transport is minted per (re)connect.
+        var helloA = NewHello("alice");
+        var helloB = NewHello("bob");
+        await using var clientA = new GameServerClient(() => new WebSocketTransport());
+        await using var clientB = new GameServerClient(() => new WebSocketTransport());
+        var hostA = new RemoteGameHost(clientA);
+        var hostB = new RemoteGameHost(clientB);
+
+        var roomCode = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        clientA.MessageReceived += m => { if (m is RoomCreated rc) roomCode.TrySetResult(rc.Code); };
+
+        await clientA.ConnectAsync(server.Ws, helloA);
+        await clientB.ConnectAsync(server.Ws, helloB);
+        await clientA.SendAsync(new CreateRoom { DeckId = "iron_wall" });
+        var code = await roomCode.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await clientB.SendAsync(new JoinRoom { Code = code, DeckId = "wildpack_hunt" });
+
+        await hostA.WaitForMatchAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        await hostB.WaitForMatchAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        hostA.EnableReconnect(helloA);
+        hostB.EnableReconnect(helloB);
+
+        // Signal when A has come back online after the forced drop.
+        var reconnected = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool dropped = false;
+        hostA.ConnectionStateChanged += s =>
+        {
+            if (s == ConnectionState.Reconnecting) dropped = true;
+            if (s == ConnectionState.Connected && dropped) reconnected.TrySetResult(true);
+        };
+        // The server-declared winner, from B's match_ended (survives room cleanup).
+        var bEnded = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        clientB.MessageReceived += m => { if (m is MatchEnded me) bEnded.TrySetResult(me.WinnerSeat); };
+
+        int seatA = hostA.Seat;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+        var driverA = new NetworkBotDriver(hostA, NetworkBotDriver.RandomLegal(seed: 7));
+        var driverB = new NetworkBotDriver(hostB, NetworkBotDriver.RandomLegal(seed: 8));
+        var play = Task.WhenAll(driverA.RunAsync(cts.Token), driverB.RunAsync(cts.Token));
+
+        // Drop A mid-game (event-driven so it's a real in-progress reconnect regardless of load), then
+        // require it to transparently reconnect and keep playing.
+        while (hostA.EventIndex < 2 && hostA.GetView(seatA).Result is null)
+            await Task.Delay(15);
+        await clientA.SimulateDropAsync();
+        await reconnected.Task.WaitAsync(TimeSpan.FromSeconds(30));
+
+        var winners = await play;
+        Assert.Equal(winners[0], winners[1]);              // both clients agree
+        Assert.Equal(winners[0], await bEnded.Task.WaitAsync(TimeSpan.FromSeconds(5))); // server agrees
+    }
+
+    [Fact]
+    public async Task Grace_window_expires_then_the_remaining_player_wins_by_abandon()
+    {
+        await using var server = await RunningServer.StartAsync(disconnectGraceSeconds: 1);
+        await using var clientA = new GameServerClient(new WebSocketTransport());
+        await using var clientB = new GameServerClient(new WebSocketTransport());
+        var hostA = new RemoteGameHost(clientA);
+        var hostB = new RemoteGameHost(clientB);
+
+        var roomCode = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        clientA.MessageReceived += m => { if (m is RoomCreated rc) roomCode.TrySetResult(rc.Code); };
+        // B watches for the abandon end + disconnect notice.
+        var bEnded = new TaskCompletionSource<MatchEnded>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var bSawDrop = new TaskCompletionSource<OpponentStatus>(TaskCreationOptions.RunContinuationsAsynchronously);
+        clientB.MessageReceived += m =>
+        {
+            if (m is MatchEnded me) bEnded.TrySetResult(me);
+            if (m is OpponentStatus { Connected: false } os) bSawDrop.TrySetResult(os);
+        };
+
+        await clientA.ConnectAsync(server.Ws, NewHello("alice"));
+        await clientB.ConnectAsync(server.Ws, NewHello("bob"));
+        await clientA.SendAsync(new CreateRoom { DeckId = "iron_wall" });
+        var code = await roomCode.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await clientB.SendAsync(new JoinRoom { Code = code, DeckId = "wildpack_hunt" });
+
+        int seatB = await hostB.WaitForMatchAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        await hostA.WaitForMatchAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        // A leaves for good (no reconnect); B should be told, then win when the grace window closes.
+        await clientA.DisposeAsync();
+
+        var drop = await bSawDrop.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.NotNull(drop.GraceSeconds);
+
+        var ended = await bEnded.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal("abandon", ended.Reason);
+        Assert.Equal(seatB, ended.WinnerSeat); // the player who stayed wins
+    }
+
+    [Fact]
     public async Task Rejected_when_submitting_a_command_out_of_turn()
     {
         await using var server = await RunningServer.StartAsync();

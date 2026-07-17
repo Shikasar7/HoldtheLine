@@ -25,7 +25,7 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
     {
         try
         {
-            if (!await HandshakeAsync(opts, ct).ConfigureAwait(false))
+            if (!await HandshakeAsync(rooms, opts, ct).ConfigureAwait(false))
                 return;
 
             while (!ct.IsCancellationRequested)
@@ -56,8 +56,9 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
         }
     }
 
-    /// <summary>First frame must be a version-matching hello; otherwise send an error and close.</summary>
-    private async Task<bool> HandshakeAsync(ServerOptions opts, CancellationToken ct)
+    /// <summary>First frame must be a version-matching hello; otherwise send an error and close. A hello
+    /// carrying a resume token re-attaches to an in-progress match instead of waiting for create/join.</summary>
+    private async Task<bool> HandshakeAsync(RoomManager rooms, ServerOptions opts, CancellationToken ct)
     {
         if (await ReceiveAsync(ct).ConfigureAwait(false) is not Hello hello)
         {
@@ -85,6 +86,16 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
             Motd = opts.Motd,
             Seq = hello.Seq,
         }, ct).ConfigureAwait(false);
+
+        if (!string.IsNullOrEmpty(hello.ResumeToken))
+        {
+            if (rooms.TryReconnect(hello.ResumeToken, this))
+                return true; // Reattach (via the match pump) resyncs this connection
+
+            await SendAsync(new ErrorMsg { Code = "bad_resume", Message = "Unknown or expired resume token." }, ct)
+                .ConfigureAwait(false);
+            return false;
+        }
         return true;
     }
 

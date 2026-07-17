@@ -66,6 +66,7 @@ public partial class BattleScene : Control
 	private SelKind _selKind = SelKind.None;
 	private List<Command> _candidates = new();
 	private Cell? _chosenCell;
+	private bool _crossPreview; // true while aiming a 十字 AOE order (cell_cross_all) — hover shows the footprint
 
 	// Hand layout: cards nearly fill the hand strip; the leader panel stacks vertically on the left.
 	private static readonly Vector2 HandCardSize = new(196, 280);
@@ -165,8 +166,8 @@ public partial class BattleScene : Control
 		_gemCost = BattleTheme.Tex("ui/gem_cost.png");
 		_gemAtk = BattleTheme.Tex("ui/gem_atk.png");
 		_gemHp = BattleTheme.Tex("ui/gem_hp.png");
-		foreach (var f in new[] { "iron_vow", "wildpack", "neutral" })
-			_frameTex[f] = BattleTheme.Tex($"ui/frame_{f}.png");
+		foreach (var f in new[] { "iron_vow", "wildpack", "neutral", "duskweaver", "undervault" })
+			_frameTex[f] = BattleTheme.Tex($"ui/frame_{f}.png"); // duskweaver/undervault frames land in X4 (null-safe until then)
 
 		if (_boardTex != null)
 		{
@@ -197,6 +198,8 @@ public partial class BattleScene : Control
 				int sc = scol, sr = srow;
 				var btn = BattleTheme.MakeButton(BattleTheme.CellPos(scol, srow), new Vector2(BattleTheme.CellW, BattleTheme.CellH), CellBase(srow));
 				btn.Pressed += () => OnCellClicked(sc, sr);
+				btn.MouseEntered += () => OnCellHover(sc, sr); // 友伤确认: preview the AOE footprint
+				btn.MouseExited += OnCellHoverExit;
 				_boardLayer.AddChild(btn);
 				_cellButtons[scol, srow] = btn;
 			}
@@ -597,7 +600,33 @@ public partial class BattleScene : Control
 		_selKind = SelKind.None;
 		_candidates.Clear();
 		_chosenCell = null;
+		_crossPreview = false;
 		ClearHighlights();
+	}
+
+	// 友伤确认 (docs/07 X3.2): while aiming a 十字 AOE order, hovering a legal cell previews the whole
+	// blast — cyan on empty/enemy cells, a red frame on any FRIENDLY unit caught in it (misplay guard).
+	private void OnCellHover(int scol, int srow)
+	{
+		if (_busy || !_crossPreview || _selKind != SelKind.Card) return;
+		var center = ScreenToBoard(scol, srow);
+		if (!_candidates.Any(c => CellOf(c) is { } cc && cc == center)) return; // not a legal center
+
+		ClearHighlights();
+		var view = _host.GetView(ViewSeat);
+		foreach (var cell in BoardGeometry.AdjacentCells(center).Append(center))
+		{
+			var u = view.Units.FirstOrDefault(x => x.Cell == cell);
+			if (u == null) { HighlightCell(cell); continue; }
+			HighlightUnitColor(u.EntityId, u.OwnerSeat == ActiveSeat ? BattleTheme.DangerColor : BattleTheme.Accent);
+		}
+	}
+
+	private void OnCellHoverExit()
+	{
+		if (_busy || !_crossPreview || _selKind != SelKind.Card) return;
+		ClearHighlights();
+		HighlightCardCandidates(); // restore the plain legal-cell highlight
 	}
 
 	private void ClearHighlights()
@@ -617,12 +646,14 @@ public partial class BattleScene : Control
 	private void HighlightCell(Cell cell) =>
 		BattleTheme.SetButtonBg(CellButton(cell), BattleTheme.AccentSoft, BattleTheme.Accent, 4);
 
-	private void HighlightUnit(int id)
+	private void HighlightUnit(int id) => HighlightUnitColor(id, BattleTheme.Accent);
+
+	private void HighlightUnitColor(int id, Color border)
 	{
 		if (_standees.TryGetValue(id, out var node))
 		{
 			int owner = (int)node.GetMeta("owner");
-			BattleTheme.SetButtonBg(node, BattleTheme.SeatColor(owner).Darkened(0.15f), BattleTheme.Accent, 5);
+			BattleTheme.SetButtonBg(node, BattleTheme.SeatColor(owner).Darkened(0.15f), border, 5);
 		}
 	}
 
@@ -639,6 +670,9 @@ public partial class BattleScene : Control
 		_candidates = legal.Where(c => c is PlayCardCommand p && p.CardEntityId == cardEntityId).ToList();
 		_selKind = SelKind.Card;
 		_chosenCell = null;
+		var handCard = _host.GetView(ViewSeat).Self.Hand.FirstOrDefault(h => h.EntityId == cardEntityId);
+		_crossPreview = handCard != null && _cards.TryGet(handCard.CardId, out var cardDef)
+			&& cardDef.Effects.Any(e => e.Target == "cell_cross_all"); // 十字 AOE → hover shows friendly-fire footprint
 		ClearHighlights();
 
 		if (_candidates.Count == 0) { Log("这张牌现在打不出。"); ClearSelection(); return; }
@@ -949,6 +983,10 @@ public partial class BattleScene : Control
 
 		// Events arrive on the WS receive thread → queue + wake the main-thread pump.
 		remote.Subscribe(0, e => { _eventQueue.Enqueue(e); Callable.From(PumpOnlineEvents).CallDeferred(); });
+		// A resync (reconnect) updates the view without events — re-render off ViewUpdated when idle.
+		remote.ViewUpdated += _ => Callable.From(RefreshFromSnapshot).CallDeferred();
+		remote.ConnectionStateChanged += s => Callable.From(() => OnConnState(s)).CallDeferred();
+		remote.OpponentStatusChanged += (connected, grace) => Callable.From(() => OnOpponentStatus(connected)).CallDeferred();
 
 		try
 		{
@@ -967,6 +1005,7 @@ public partial class BattleScene : Control
 				await client.SendAsync(new JoinRoom { Code = GameConfig.RoomCode, DeckId = GameConfig.OnlineDeck });
 
 			int seat = await remote.WaitForMatchAsync();
+			remote.EnableReconnect(hello); // dropped socket now auto-reconnects with the resume token
 			Callable.From(() => OnMatchReady(seat)).CallDeferred();
 		}
 		catch (System.Exception ex)
@@ -986,6 +1025,40 @@ public partial class BattleScene : Control
 		SetConn("");
 		FullRender();
 		if (!_eventQueue.IsEmpty) PumpOnlineEvents();
+	}
+
+	/// <summary>Re-render after a pure snapshot update (reconnect resync carries no events, so the
+	/// event pump won't fire). No-op during normal event flow — the pump owns that.</summary>
+	private void RefreshFromSnapshot()
+	{
+		if (_onlineReady && !_pumping && _eventQueue.IsEmpty && _remoteHost?.GetView(_humanSeat).Result is null)
+			FullRender();
+	}
+
+	/// <summary>Our own connection lifecycle: lock input + banner while reconnecting, clear on recovery.</summary>
+	private void OnConnState(ConnectionState state)
+	{
+		switch (state)
+		{
+			case ConnectionState.Reconnecting:
+				_busy = true; RefreshInteractable();
+				SetConn("与服务器断线,重连中…");
+				break;
+			case ConnectionState.Connected when _onlineReady:
+				SetConn("");
+				_busy = false; RefreshInteractable();
+				break;
+			case ConnectionState.Failed:
+				_busy = true; RefreshInteractable();
+				SetConn("连接已断开,无法重连。Esc 返回菜单。");
+				break;
+		}
+	}
+
+	/// <summary>Opponent dropped / came back — banner only; the server runs their grace-forfeit timer.</summary>
+	private void OnOpponentStatus(bool connected)
+	{
+		SetConn(connected ? "" : "对手掉线,等待重连…");
 	}
 
 	/// <summary>Kick the single-consumer pump. Safe to call repeatedly; no-op while one is running or
@@ -1082,6 +1155,10 @@ public partial class BattleScene : Control
 		{
 			switch (e)
 			{
+				case CardPlayedEvent cp when _cards.TryGet(cp.CardId, out var pd) && pd.Type == CardType.Order:
+					// 教团 on-cast: casting an order lights up the caster's ally_order_played engines.
+					await FlashOnCastEngines(cp.Seat);
+					break;
 				case UnitDeployedEvent:
 					_sfx.Play("play");
 					await Delay(0.05);
@@ -1127,6 +1204,18 @@ public partial class BattleScene : Control
 					break;
 			}
 		}
+	}
+
+	// 教团 on-cast flash: after an order is cast, pulse each of the caster's ally_order_played engines ember-orange.
+	private async Task FlashOnCastEngines(int seat)
+	{
+		var ember = Color.FromHtml("ff7a3c");
+		bool any = false;
+		foreach (var uv in _host.GetView(ViewSeat).Units.Where(u => u.OwnerSeat == seat))
+			if (_standees.TryGetValue(uv.EntityId, out var node)
+				&& _cards.TryGet(uv.CardId, out var ud) && ud.Effects.Any(x => x.Trigger == "ally_order_played"))
+			{ Flash(node, ember); any = true; }
+		if (any) await Delay(0.14);
 	}
 
 	// ---------- overlays ----------
@@ -1349,6 +1438,8 @@ public partial class BattleScene : Control
 	{
 		"iron_vow" => "铁誓军团",
 		"wildpack" => "荒野游群",
+		"duskweaver" => "黄昏教团",
+		"undervault" => "掘世匠会",
 		_ => "中立",
 	};
 
@@ -1356,6 +1447,8 @@ public partial class BattleScene : Control
 	{
 		"iron_vow" => "铁誓军团 —— 誓约骑士与堡垒工程师,断层战争中最后的正规军。以墙为盾,寸土不让。",
 		"wildpack" => "荒野游群 —— 兽人与掠猎兽骑手,在断层荒原上以速度为生存法则。风过之处,防线洞开。",
+		"duskweaver" => "黄昏教团 —— 焚火祭司与灰烬信徒,以格、行、列为祭坛的法术连锁者。误伤友军是代价,也是燃料。",
+		"undervault" => "掘世匠会 —— 掘地矮人与蒸汽工程师,把阵型钉死成答案。架起炮台,隔墙点名。",
 		_ => "中立 —— 游荡在断层各段防线之间的雇佣兵、民兵与工匠,为辉尘而战。",
 	};
 
@@ -1379,6 +1472,8 @@ public partial class BattleScene : Control
 		Keyword.Leap => "跃障",
 		Keyword.PackTactics => "围猎",
 		Keyword.Hidden => "伏兵",
+		Keyword.Emplacement => "架设",
+		Keyword.Pierce => "贯穿",
 		_ => k.ToString(),
 	};
 
@@ -1387,7 +1482,7 @@ public partial class BattleScene : Control
 		Keyword.Charge => "部署当回合即可移动与攻击。",
 		Keyword.Assault => "部署当回合可攻击,但不能移动。",
 		Keyword.Swift => "每回合可移动的格数提升。",
-		Keyword.Range => "可攻击同一行/列、直线且中间无阻挡的敌人,不受反击。",
+		Keyword.Range => "可攻击 N 步(横纵相加)内的任意敌人,越过其他随从;仅当目标能反击到你(在其射程/相邻内)时才吃反击。",
 		Keyword.Guard => "与其相邻的敌方随从必须优先攻击它。",
 		Keyword.HoldFast => "本回合未移动时,受到的伤害 -1。",
 		Keyword.Trample => "近战消灭敌方随从后,可立即占据其空出的格子。",
@@ -1397,6 +1492,8 @@ public partial class BattleScene : Control
 		Keyword.Leap => "移动时可跨过一个随从,直线跳跃 2 格。",
 		Keyword.PackTactics => "近战攻击一个与你另一友方相邻的敌人时,伤害 +1。",
 		Keyword.Hidden => "不能被选为目标,直到它造成伤害。",
+		Keyword.Emplacement => "架设:不能移动(身材更硬,永远吃不到潮汐豁免)。",
+		Keyword.Pierce => "贯穿:远程攻击时,同时对目标正后方一格的随从(不分敌我)造成等额伤害。",
 		_ => "",
 	};
 
@@ -1501,6 +1598,8 @@ public partial class BattleScene : Control
 	{
 		"iron_vow" => BattleTheme.SeatColor0,
 		"wildpack" => BattleTheme.SeatColor1,
+		"duskweaver" => Color.FromHtml("8b5fa6"), // dusk purple (教团)
+		"undervault" => Color.FromHtml("b5883f"), // brass (匠会)
 		_ => BattleTheme.TextDim,
 	};
 
@@ -1533,6 +1632,8 @@ public partial class BattleScene : Control
 				Keyword.Garrison => "防",
 				Keyword.Leap => "跃",
 				Keyword.PackTactics => "围",
+				Keyword.Emplacement => "架",
+				Keyword.Pierce => "贯",
 				_ => "",
 			});
 		return string.Join(" ", parts.Where(p => p.Length > 0));

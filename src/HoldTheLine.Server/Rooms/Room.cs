@@ -5,7 +5,7 @@ namespace HoldTheLine.Server.Rooms;
 /// present the room starts its <see cref="MatchSession"/>. Slot mutation is guarded so a join and a
 /// disconnect can't race.
 /// </summary>
-public sealed class Room(string code, GameContent content)
+public sealed class Room(string code, GameContent content, ServerOptions opts)
 {
     private readonly object _gate = new();
     private ClientConnection? _host;
@@ -45,7 +45,7 @@ public sealed class Room(string code, GameContent content)
         guest.Room = this;
         guest.Seat = 1;
 
-        Session = MatchSession.Create(content, _host!, _hostDeck!, _guest!, _guestDeck!);
+        Session = MatchSession.Create(content, opts, _host!, _hostDeck!, _guest!, _guestDeck!);
         await Session.SendMatchStartedAsync();
     }
 

@@ -3,14 +3,15 @@ using System.Collections.Concurrent;
 namespace HoldTheLine.Server.Rooms;
 
 /// <summary>
-/// The room registry: share code → <see cref="Room"/>. One instance per server, shared across all
-/// connections (registered as a DI singleton). Rooms live only as long as they're occupied — a
-/// still-waiting room whose sole occupant drops is discarded (plan §5.1 recycling; the 10-minute
-/// idle sweep is deferred to N3 alongside reconnection).
+/// The room registry: share code → <see cref="Room"/>, plus a resume-token index that lets a dropped
+/// player re-attach to their in-progress match (plan §5.2). A still-waiting room whose sole occupant
+/// drops is discarded immediately; a room whose match is underway is kept alive through the
+/// disconnect grace window so the player can reconnect.
 /// </summary>
-public sealed class RoomManager
+public sealed class RoomManager(ServerOptions opts)
 {
     private readonly ConcurrentDictionary<string, Room> _rooms = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, (Room Room, int Seat)> _byToken = new(StringComparer.Ordinal);
 
     public Room CreateRoom(ClientConnection host, string deckId, GameContent content)
     {
@@ -19,7 +20,7 @@ public sealed class RoomManager
 
         for (int attempt = 0; attempt < 8; attempt++)
         {
-            var room = new Room(SessionAuth.NewRoomCode(), content);
+            var room = new Room(SessionAuth.NewRoomCode(), content, opts);
             if (_rooms.TryAdd(room.Code, room))
             {
                 room.SetHost(host, deckId);
@@ -37,28 +38,62 @@ public sealed class RoomManager
             throw new ProtocolError("room_not_found", $"No room '{code}'.");
 
         await room.JoinAndStartAsync(guest, deckId);
+
+        // Index both resume tokens so either player can reconnect to this match.
+        var session = room.Session!;
+        _byToken[session.ResumeTokenFor(0)] = (room, 0);
+        _byToken[session.ResumeTokenFor(1)] = (room, 1);
     }
 
-    /// <summary>Clean up when a connection ends. A still-waiting room is discarded once empty; a room
-    /// whose match had started is torn down entirely (N1 has no reconnect grace — that's N3).</summary>
+    /// <summary>Re-attach a freshly-connected client to its match by resume token. False if the token is
+    /// unknown / the match is already over.</summary>
+    public bool TryReconnect(string resumeToken, ClientConnection conn)
+    {
+        if (!_byToken.TryGetValue(resumeToken, out var loc))
+            return false;
+        if (loc.Room.Session is not { } session || session.IsOver)
+            return false;
+
+        conn.Room = loc.Room;
+        conn.Seat = loc.Seat;
+        session.Reattach(loc.Seat, conn); // pump sends resync_ok + notifies the opponent
+        return true;
+    }
+
+    /// <summary>Clean up when a connection ends. A waiting room is discarded once empty; a live match
+    /// starts its grace window (keep for reconnect); a finished match is torn down.</summary>
     public void OnDisconnect(ClientConnection conn)
     {
         if (conn.Room is not { } room)
             return;
 
-        if (room.Started)
+        if (!room.Started)
         {
-            room.Teardown();
-            _rooms.TryRemove(room.Code, out _);
+            if (room.RemoveIfWaiting(conn))
+                _rooms.TryRemove(room.Code, out _);
         }
-        else if (room.RemoveIfWaiting(conn))
+        else if (room.Session is { IsOver: false } session)
         {
-            _rooms.TryRemove(room.Code, out _);
+            session.OnConnectionDropped(conn); // grace window; room stays for reconnect
+        }
+        else
+        {
+            DiscardRoom(room);
         }
         conn.Room = null;
     }
 
-    /// <summary>Test/inspection hook: the room for a code, if it still exists.</summary>
+    private void DiscardRoom(Room room)
+    {
+        room.Teardown();
+        if (room.Session is { } session)
+        {
+            _byToken.TryRemove(session.ResumeTokenFor(0), out _);
+            _byToken.TryRemove(session.ResumeTokenFor(1), out _);
+        }
+        _rooms.TryRemove(room.Code, out _);
+    }
+
     public Room? FindRoom(string code) => _rooms.TryGetValue(code, out var room) ? room : null;
 
     public int RoomCount => _rooms.Count;

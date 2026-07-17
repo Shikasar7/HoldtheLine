@@ -1,5 +1,6 @@
 using System.Threading.Channels;
 using HoldTheLine.Net.Protocol;
+using HoldTheLine.Rules.Commands;
 using HoldTheLine.Rules.Engine;
 using HoldTheLine.Rules.Events;
 using HoldTheLine.Rules.Hosting;
@@ -10,53 +11,54 @@ namespace HoldTheLine.Server.Rooms;
 /// One live match. The authoritative state IS a <see cref="LocalGameHost"/> reused verbatim from the
 /// prototype; this class bridges its per-seat views/events to two client connections (plan §3, §5.1).
 ///
-/// Concurrency (plan §5.1): every in-match input is funneled through a single-reader channel and
-/// applied on one pump thread, so the host is only ever touched serially — no lock contention with
-/// its own internal gate. Per-seat event redaction is the host's job: we subscribe both seats and let
-/// each seat's buffer fill with its already-redacted view of a command's events, then fan those out.
+/// Everything that mutates the match — client commands, a drop, a reconnect, a grace-window forfeit —
+/// is funneled through a single-reader channel and applied on one pump thread, so the host and the
+/// connection slots are only ever touched serially. Per-seat event redaction is the host's job (both
+/// seats are subscribed and their buffers fill with their already-redacted view of a command's events).
 /// </summary>
 public sealed class MatchSession
 {
     public LocalGameHost Host { get; }
 
-    private readonly ClientConnection[] _conns;              // indexed by seat
-    private readonly string[] _resumeTokens;                 // indexed by seat
-    private readonly List<GameEvent>[] _buffers;             // per-seat redacted events for the in-flight command
+    private readonly ClientConnection[] _conns;             // indexed by seat; swapped on reconnect
+    private readonly string[] _resumeTokens;
+    private readonly List<GameEvent>[] _buffers;
     private readonly IDisposable[] _subscriptions;
-    private readonly int[] _eventIndex = new int[2];         // running count already fanned out per seat
+    private readonly int[] _eventIndex = new int[2];
+    private readonly bool[] _connected = { true, true };
+    private readonly CancellationTokenSource?[] _graceCts = new CancellationTokenSource?[2];
+    private readonly int _graceSeconds;
     private readonly Channel<Envelope> _inbox;
     private readonly Task _pump;
     private bool _over;
+    private string? _endReasonOverride;
 
-    private readonly record struct Envelope(int Seat, ClientMessage Message);
+    private enum Signal { Client, Dropped, Reattach, Forfeit }
+    private readonly record struct Envelope(Signal Kind, int Seat, ClientMessage? Message, ClientConnection? Conn, string? Reason);
 
-    private MatchSession(LocalGameHost host, ClientConnection[] conns, string[] resumeTokens)
+    private MatchSession(LocalGameHost host, ClientConnection[] conns, string[] resumeTokens, int graceSeconds)
     {
         Host = host;
         _conns = conns;
         _resumeTokens = resumeTokens;
+        _graceSeconds = graceSeconds;
         _buffers = [new List<GameEvent>(), new List<GameEvent>()];
 
-        // The buffers fill synchronously inside SubmitCommandAsync (on the pump thread), already
-        // seat-redacted by the host — so seat 0 physically cannot see seat 1's hidden card ids.
         _subscriptions =
         [
             Host.Subscribe(0, e => _buffers[0].Add(e)),
             Host.Subscribe(1, e => _buffers[1].Add(e)),
         ];
 
-        _inbox = Channel.CreateUnbounded<Envelope>(new UnboundedChannelOptions
-        {
-            SingleReader = true,
-            SingleWriter = false,
-        });
+        _inbox = Channel.CreateUnbounded<Envelope>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
         _pump = Task.Run(PumpAsync);
     }
 
     public string ResumeTokenFor(int seat) => _resumeTokens[seat];
+    public bool IsOver => _over;
 
     public static MatchSession Create(
-        GameContent content,
+        GameContent content, ServerOptions opts,
         ClientConnection seat0, string deck0Id,
         ClientConnection seat1, string deck1Id)
     {
@@ -76,10 +78,9 @@ public sealed class MatchSession
         var host = new LocalGameHost(content.Cards, content.Leaders, config);
         var conns = new[] { seat0, seat1 };
         var tokens = new[] { SessionAuth.NewResumeToken(), SessionAuth.NewResumeToken() };
-        return new MatchSession(host, conns, tokens);
+        return new MatchSession(host, conns, tokens, opts.DisconnectGraceSeconds);
     }
 
-    /// <summary>Send each seat its opening snapshot, plus legal moves to whichever seat acts first.</summary>
     public async Task SendMatchStartedAsync()
     {
         for (int seat = 0; seat < 2; seat++)
@@ -97,17 +98,27 @@ public sealed class MatchSession
         }
     }
 
-    /// <summary>Queue an in-match message (submit_command / resync) for serial processing.</summary>
-    public void Enqueue(int seat, ClientMessage message) => _inbox.Writer.TryWrite(new Envelope(seat, message));
+    // ---- inbox producers (any thread) ---------------------------------------------------------
 
-    /// <summary>Stop the pump and unsubscribe. N1 tears the whole session down when a player drops;
-    /// N3 replaces this with a grace window + resume-token reconnect.</summary>
+    public void Enqueue(int seat, ClientMessage message) =>
+        _inbox.Writer.TryWrite(new Envelope(Signal.Client, seat, message, null, null));
+
+    /// <summary>A connection's socket closed. Starts the grace window unless the match is already over.</summary>
+    public void OnConnectionDropped(ClientConnection conn) =>
+        _inbox.Writer.TryWrite(new Envelope(Signal.Dropped, -1, null, conn, null));
+
+    /// <summary>A client re-attached with a valid resume token. Swaps in the new connection and resyncs it.</summary>
+    public void Reattach(int seat, ClientConnection conn) =>
+        _inbox.Writer.TryWrite(new Envelope(Signal.Reattach, seat, null, conn, null));
+
     public void Stop()
     {
         _inbox.Writer.TryComplete();
-        foreach (var sub in _subscriptions)
-            sub.Dispose();
+        foreach (var cts in _graceCts) cts?.Cancel();
+        foreach (var sub in _subscriptions) sub.Dispose();
     }
+
+    // ---- the single pump ----------------------------------------------------------------------
 
     private async Task PumpAsync()
     {
@@ -115,15 +126,19 @@ public sealed class MatchSession
         {
             try
             {
-                switch (env.Message)
+                switch (env.Kind)
                 {
-                    case SubmitCommand sc: await HandleSubmitAsync(env.Seat, sc); break;
-                    case Resync r: await HandleResyncAsync(env.Seat, r); break;
+                    case Signal.Client when env.Message is SubmitCommand sc: await HandleSubmitAsync(env.Seat, sc); break;
+                    case Signal.Client when env.Message is Resync: await HandleResyncAsync(env.Seat); break;
+                    case Signal.Dropped: await HandleDroppedAsync(env.Conn!); break;
+                    case Signal.Reattach: await HandleReattachAsync(env.Seat, env.Conn!); break;
+                    case Signal.Forfeit: await HandleForfeitAsync(env.Seat, env.Reason!); break;
                 }
             }
             catch (Exception ex)
             {
-                await _conns[env.Seat].SendAsync(new ErrorMsg { Code = "internal", Message = ex.Message });
+                if (env.Seat is >= 0 and < 2)
+                    await _conns[env.Seat].SendAsync(new ErrorMsg { Code = "internal", Message = ex.Message });
             }
         }
     }
@@ -134,7 +149,6 @@ public sealed class MatchSession
         _buffers[1].Clear();
 
         var result = await Host.SubmitCommandAsync(seat, sc.Command);
-
         await _conns[seat].SendAsync(new CommandResultMsg
         {
             AckSeq = sc.Seq,
@@ -142,23 +156,13 @@ public sealed class MatchSession
             ErrorCode = result.Error?.Code.ToString(),
             ErrorMessage = result.Error?.Message,
         });
-
         if (!result.Accepted)
-            return; // rejected: no state change, no events
+            return;
 
         await FanOutAsync();
-
-        if (!_over && Host.GetView(0).Result is { } outcome)
-        {
-            _over = true;
-            var reason = _buffers[0].OfType<GameEndedEvent>().FirstOrDefault()?.Reason ?? "normal";
-            for (int s = 0; s < 2; s++)
-                await _conns[s].SendAsync(new MatchEnded { WinnerSeat = outcome.WinnerSeat, Reason = reason });
-        }
+        await CheckMatchEndAsync();
     }
 
-    /// <summary>Push the just-produced batch to both seats — each its own redacted copy — with the
-    /// post-batch snapshot, and legal moves to whoever is now on the move.</summary>
     private async Task FanOutAsync()
     {
         for (int seat = 0; seat < 2; seat++)
@@ -178,9 +182,19 @@ public sealed class MatchSession
         }
     }
 
-    /// <summary>N1 resync = snapshot only: hand the seat the authoritative view and reset its index
-    /// (the client snaps to state without replaying animation). N3 adds event-delta catch-up.</summary>
-    private async Task HandleResyncAsync(int seat, Resync r)
+    private async Task CheckMatchEndAsync()
+    {
+        if (_over || Host.GetView(0).Result is not { } outcome)
+            return;
+        _over = true;
+        var reason = _endReasonOverride
+            ?? _buffers[0].OfType<GameEndedEvent>().FirstOrDefault()?.Reason
+            ?? "normal";
+        for (int s = 0; s < 2; s++)
+            await _conns[s].SendAsync(new MatchEnded { WinnerSeat = outcome.WinnerSeat, Reason = reason });
+    }
+
+    private async Task HandleResyncAsync(int seat)
     {
         var view = Host.GetView(seat);
         await _conns[seat].SendAsync(new ResyncOk
@@ -190,5 +204,56 @@ public sealed class MatchSession
             EventIndex = _eventIndex[seat],
             LegalCommands = view.Result is null && view.ActiveSeat == seat ? Host.LegalCommands(seat) : null,
         });
+    }
+
+    private async Task HandleDroppedAsync(ClientConnection conn)
+    {
+        int seat = Array.IndexOf(_conns, conn);
+        if (seat < 0 || _over || !_connected[seat])
+            return; // stale (already reattached/replaced) or match over
+
+        _connected[seat] = false;
+        await _conns[1 - seat].SendAsync(new OpponentStatus { Connected = false, GraceSeconds = _graceSeconds });
+
+        var cts = new CancellationTokenSource();
+        _graceCts[seat] = cts;
+        _ = RunGraceAsync(seat, cts.Token);
+    }
+
+    private async Task RunGraceAsync(int seat, CancellationToken ct)
+    {
+        try { await Task.Delay(TimeSpan.FromSeconds(_graceSeconds), ct); }
+        catch (OperationCanceledException) { return; } // reattached in time
+        _inbox.Writer.TryWrite(new Envelope(Signal.Forfeit, seat, null, null, "abandon"));
+    }
+
+    private async Task HandleReattachAsync(int seat, ClientConnection conn)
+    {
+        _conns[seat] = conn;
+        _connected[seat] = true;
+        _graceCts[seat]?.Cancel();
+
+        var view = Host.GetView(seat);
+        await conn.SendAsync(new ResyncOk
+        {
+            View = view,
+            EventsSince = [],
+            EventIndex = _eventIndex[seat],
+            LegalCommands = view.Result is null && view.ActiveSeat == seat ? Host.LegalCommands(seat) : null,
+        });
+        await _conns[1 - seat].SendAsync(new OpponentStatus { Connected = true });
+    }
+
+    private async Task HandleForfeitAsync(int loserSeat, string reason)
+    {
+        if (_over || _connected[loserSeat])
+            return; // reattached before the window closed, or already over
+
+        _buffers[0].Clear();
+        _buffers[1].Clear();
+        _endReasonOverride = reason;
+        await Host.SubmitCommandAsync(loserSeat, new ConcedeCommand { Seat = loserSeat });
+        await FanOutAsync();
+        await CheckMatchEndAsync();
     }
 }

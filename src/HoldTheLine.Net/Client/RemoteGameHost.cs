@@ -62,6 +62,24 @@ public sealed class RemoteGameHost : IGameHost
     /// <summary>Completes with the local seat once the server's match_started snapshot has been applied.</summary>
     public Task<int> WaitForMatchAsync() => _matchStarted.Task;
 
+    /// <summary>Connection lifecycle (Connected / Reconnecting / Failed) for a reconnect UI. Passthrough
+    /// to the underlying client.</summary>
+    public event Action<ConnectionState> ConnectionStateChanged
+    {
+        add => _client.StateChanged += value;
+        remove => _client.StateChanged -= value;
+    }
+
+    public ConnectionState ConnectionState => _client.State;
+
+    /// <summary>Turn on transparent reconnect: a dropped socket is retried with backoff, re-sending
+    /// <paramref name="baseHello"/> stamped with this match's resume token. Call after the match starts.</summary>
+    public void EnableReconnect(Hello baseHello)
+    {
+        _client.AutoReconnect = true;
+        _client.ReconnectHelloProvider = () => baseHello with { ResumeToken = ResumeToken };
+    }
+
     // ---- IGameHost (writes) -------------------------------------------------------------------
 
     public async Task<CommandResult> SubmitCommandAsync(int seat, Command command)

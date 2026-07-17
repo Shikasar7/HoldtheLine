@@ -59,10 +59,26 @@ public sealed class NetworkBotDriver
                 Console.Error.WriteLine($"[bot{_seat}] t{view.TurnNumber} active={view.ActiveSeat} legal={legal.Count} -> {command.GetType().Name}(seat={command.Seat})");
 
             int gen = _host.EventIndex;
-            var outcome = await _host.SubmitCommandAsync(_seat, command).ConfigureAwait(false);
-            if (!outcome.Accepted)
-                throw new InvalidOperationException(
-                    $"Server rejected {command.GetType().Name}(seat={command.Seat}) at t{view.TurnNumber} active={view.ActiveSeat} (my seat={_seat}): {outcome.Error?.Code}");
+            bool accepted;
+            try
+            {
+                var outcome = await _host.SubmitCommandAsync(_seat, command).ConfigureAwait(false);
+                accepted = outcome.Accepted;
+                if (!accepted && DebugLog)
+                    Console.Error.WriteLine($"[bot{_seat}] rejected {command.GetType().Name}: {outcome.Error?.Code}");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Transient — a drop mid-submit. Reconnect + resync will re-poke; re-evaluate from fresh state.
+                if (DebugLog) Console.Error.WriteLine($"[bot{_seat}] submit failed ({ex.GetType().Name}); waiting for resync");
+                accepted = false;
+            }
+
+            if (!accepted)
+            {
+                await WaitPokeAsync(ct).ConfigureAwait(false); // wait for the next update, then re-decide
+                continue;
+            }
 
             // Block until this action's result batch has actually been applied — otherwise the next
             // snapshot could still show the pre-action legal set and we'd act on stale state.

@@ -2,42 +2,67 @@ using HoldTheLine.Net.Protocol;
 
 namespace HoldTheLine.Net.Client;
 
+public enum ConnectionState { Disconnected, Connecting, Connected, Reconnecting, Failed }
+
 /// <summary>
 /// Client-side connection to the battle server: owns the receive loop, assigns request sequence
-/// numbers, and keeps the link alive with heartbeats. It is transport-agnostic (see
-/// <see cref="IClientTransport"/>) and message-shape-agnostic above the handshake — every decoded
-/// <see cref="ServerMessage"/> is raised on <see cref="MessageReceived"/> for a higher layer
-/// (RemoteGameHost in N1, the bot/console in N0) to interpret.
+/// numbers, keeps the link alive with heartbeats, and — when <see cref="AutoReconnect"/> is set —
+/// transparently re-establishes a dropped connection with exponential backoff, re-sending a
+/// resume-token hello (N3). It is transport-agnostic: a fresh <see cref="IClientTransport"/> is minted
+/// per (re)connect via the factory, so a Steam transport slots in the same way (plan §6, §9).
 ///
-/// N0 scope: connect + hello handshake + send + receive-dispatch + heartbeat. Automatic reconnect
-/// with resume tokens lands in N3.
+/// Every decoded <see cref="ServerMessage"/> is raised on <see cref="MessageReceived"/> for a higher
+/// layer (RemoteGameHost) to interpret; connection lifecycle surfaces via <see cref="StateChanged"/>.
 /// </summary>
 public sealed class GameServerClient : IAsyncDisposable
 {
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan[] ReconnectBackoff =
+        [TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2),
+         TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4)];
 
-    private readonly IClientTransport _transport;
+    private readonly Func<IClientTransport> _transportFactory;
     private readonly CancellationTokenSource _cts = new();
     private readonly SemaphoreSlim _sendGate = new(1, 1);
+    private volatile IClientTransport? _transport;
+    private Uri? _uri;
     private int _seq;
-    private Task? _receiveLoop;
+    private Task? _supervisor;
     private Task? _heartbeatLoop;
     private TaskCompletionSource<HelloOk>? _helloTcs;
+    private Exception? _lastFault;
+    private bool _disposed;
 
-    public GameServerClient(IClientTransport transport) => _transport = transport;
+    public GameServerClient(Func<IClientTransport> transportFactory) => _transportFactory = transportFactory;
 
-    /// <summary>Every decoded server message, in arrival order, on the receive-loop thread.</summary>
+    /// <summary>Single-shot convenience (no reconnect): reuses the one transport for the initial connect only.</summary>
+    public GameServerClient(IClientTransport transport) : this(() => transport) { }
+
+    public ConnectionState State { get; private set; } = ConnectionState.Disconnected;
+
+    /// <summary>When true, a dropped connection is retried with backoff, re-sending
+    /// <see cref="ReconnectHelloProvider"/>'s hello. Enable only after a match has started (the resume
+    /// token is issued in match_started).</summary>
+    public bool AutoReconnect { get; set; }
+
+    /// <summary>Builds the hello sent on each reconnect — must carry the resume token.</summary>
+    public Func<Hello>? ReconnectHelloProvider { get; set; }
+
     public event Action<ServerMessage>? MessageReceived;
+    public event Action<ConnectionState>? StateChanged;
 
-    /// <summary>Raised once when the receive loop ends (clean close or drop). Argument is the fault, if any.</summary>
+    /// <summary>Raised once when the connection is finally given up (no reconnect, or reconnect failed).</summary>
     public event Action<Exception?>? Closed;
 
-    /// <summary>Connect the transport, start the loops, send <paramref name="hello"/>, and await the server's HelloOk.</summary>
     public async Task<HelloOk> ConnectAsync(Uri uri, Hello hello, CancellationToken ct = default)
     {
+        _uri = uri;
+        SetState(ConnectionState.Connecting);
         _helloTcs = new TaskCompletionSource<HelloOk>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        _transport = _transportFactory();
         await _transport.ConnectAsync(uri, ct).ConfigureAwait(false);
-        _receiveLoop = Task.Run(ReceiveLoopAsync);
+        _supervisor = Task.Run(SupervisorAsync);
         _heartbeatLoop = Task.Run(HeartbeatLoopAsync);
 
         await SendAsync(hello, ct).ConfigureAwait(false);
@@ -45,15 +70,13 @@ public sealed class GameServerClient : IAsyncDisposable
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(10));
         await using var reg = timeout.Token.Register(() => _helloTcs.TrySetCanceled());
-        return await _helloTcs.Task.ConfigureAwait(false);
+        var ok = await _helloTcs.Task.ConfigureAwait(false);
+        SetState(ConnectionState.Connected);
+        return ok;
     }
 
-    /// <summary>Reserve the next sequence number. Use with <see cref="SendWithSeqAsync"/> when the
-    /// caller must register a pending reply-handler under the seq *before* the frame goes out (else a
-    /// fast loopback reply can arrive before the handler is in place).</summary>
     public int NextSeq() => Interlocked.Increment(ref _seq);
 
-    /// <summary>Assign the next sequence number, encode, and send. Returns the assigned seq.</summary>
     public async Task<int> SendAsync(ClientMessage message, CancellationToken ct = default)
     {
         int seq = NextSeq();
@@ -61,14 +84,14 @@ public sealed class GameServerClient : IAsyncDisposable
         return seq;
     }
 
-    /// <summary>Send a message stamped with a caller-chosen (pre-reserved) seq.</summary>
     public async Task SendWithSeqAsync(ClientMessage message, int seq, CancellationToken ct = default)
     {
+        var transport = _transport ?? throw new InvalidOperationException("Not connected.");
         string json = ProtocolJson.Encode(message with { Seq = seq });
         await _sendGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            await _transport.SendTextAsync(json, ct).ConfigureAwait(false);
+            await transport.SendTextAsync(json, ct).ConfigureAwait(false);
         }
         finally
         {
@@ -76,20 +99,49 @@ public sealed class GameServerClient : IAsyncDisposable
         }
     }
 
-    private async Task ReceiveLoopAsync()
+    /// <summary>Test/diagnostic hook: drop the current transport to exercise the reconnect path.</summary>
+    public Task SimulateDropAsync() => _transport?.CloseAsync() ?? Task.CompletedTask;
+
+    /// <summary>Owns the connection for its whole life: read until the transport closes, then reconnect
+    /// (if enabled) and read again. Exits only on dispose or a give-up.</summary>
+    private async Task SupervisorAsync()
     {
-        Exception? fault = null;
+        while (!_cts.IsCancellationRequested)
+        {
+            await ReceiveLoopAsync(_transport!).ConfigureAwait(false);
+            if (_cts.IsCancellationRequested)
+                return;
+
+            if (!AutoReconnect || ReconnectHelloProvider is null)
+            {
+                Closed?.Invoke(_lastFault);
+                return;
+            }
+
+            SetState(ConnectionState.Reconnecting);
+            if (!await ReconnectAsync().ConfigureAwait(false))
+            {
+                SetState(ConnectionState.Failed);
+                Closed?.Invoke(_lastFault);
+                return;
+            }
+            SetState(ConnectionState.Connected);
+        }
+    }
+
+    private async Task ReceiveLoopAsync(IClientTransport transport)
+    {
         try
         {
             while (!_cts.IsCancellationRequested)
             {
-                string? json = await _transport.ReceiveTextAsync(_cts.Token).ConfigureAwait(false);
+                string? json = await transport.ReceiveTextAsync(_cts.Token).ConfigureAwait(false);
                 if (json is null)
-                    break; // peer closed
+                    return; // this transport closed
 
                 var message = ProtocolJson.TryDecodeServer(json);
                 if (message is null)
-                    continue; // unknown/newer message type — log-and-skip (plan §8-1)
+                    continue;
 
                 if (message is HelloOk ok)
                     _helloTcs?.TrySetResult(ok);
@@ -98,12 +150,33 @@ public sealed class GameServerClient : IAsyncDisposable
             }
         }
         catch (OperationCanceledException) { /* disposing */ }
-        catch (Exception ex) { fault = ex; }
-        finally
+        catch (Exception ex) { _lastFault = ex; }
+    }
+
+    private async Task<bool> ReconnectAsync()
+    {
+        foreach (var delay in ReconnectBackoff)
         {
-            _helloTcs?.TrySetCanceled();
-            Closed?.Invoke(fault);
+            if (_cts.IsCancellationRequested)
+                return false;
+            try { await Task.Delay(delay, _cts.Token).ConfigureAwait(false); }
+            catch (OperationCanceledException) { return false; }
+
+            try
+            {
+                var transport = _transportFactory();
+                await transport.ConnectAsync(_uri!, _cts.Token).ConfigureAwait(false);
+                _transport = transport;
+                _helloTcs = new TaskCompletionSource<HelloOk>(TaskCreationOptions.RunContinuationsAsynchronously);
+                await SendAsync(ReconnectHelloProvider!()).ConfigureAwait(false);
+                return true; // supervisor re-enters ReceiveLoop to read hello_ok + resync_ok
+            }
+            catch (Exception ex)
+            {
+                _lastFault = ex; // try the next backoff step
+            }
         }
+        return false;
     }
 
     private async Task HeartbeatLoopAsync()
@@ -113,24 +186,37 @@ public sealed class GameServerClient : IAsyncDisposable
             while (!_cts.IsCancellationRequested)
             {
                 await Task.Delay(HeartbeatInterval, _cts.Token).ConfigureAwait(false);
-                await SendAsync(new Ping(), _cts.Token).ConfigureAwait(false);
+                try { await SendAsync(new Ping(), _cts.Token).ConfigureAwait(false); }
+                catch { /* mid-reconnect send can fail; the receive side drives recovery */ }
             }
         }
         catch (OperationCanceledException) { /* disposing */ }
-        catch (Exception) { /* a failed heartbeat surfaces via the receive loop's close */ }
+    }
+
+    private void SetState(ConnectionState state)
+    {
+        if (State == state)
+            return;
+        State = state;
+        StateChanged?.Invoke(state);
     }
 
     public async ValueTask DisposeAsync()
     {
+        if (_disposed)
+            return;
+        _disposed = true;
         _cts.Cancel();
-        await _transport.CloseAsync().ConfigureAwait(false);
+        _helloTcs?.TrySetCanceled();
+        if (_transport is { } t)
+            await t.CloseAsync().ConfigureAwait(false);
         try
         {
-            await Task.WhenAll(_receiveLoop ?? Task.CompletedTask, _heartbeatLoop ?? Task.CompletedTask)
-                .ConfigureAwait(false);
+            await Task.WhenAll(_supervisor ?? Task.CompletedTask, _heartbeatLoop ?? Task.CompletedTask).ConfigureAwait(false);
         }
         catch { /* loops observe cancellation */ }
-        await _transport.DisposeAsync().ConfigureAwait(false);
+        if (_transport is { } t2)
+            await t2.DisposeAsync().ConfigureAwait(false);
         _cts.Dispose();
         _sendGate.Dispose();
     }
