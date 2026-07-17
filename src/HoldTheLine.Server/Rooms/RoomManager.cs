@@ -8,19 +8,18 @@ namespace HoldTheLine.Server.Rooms;
 /// drops is discarded immediately; a room whose match is underway is kept alive through the
 /// disconnect grace window so the player can reconnect.
 /// </summary>
-public sealed class RoomManager(ServerOptions opts)
+public sealed class RoomManager(ServerOptions opts, GameContent content, DeckSource deckSource)
 {
     private readonly ConcurrentDictionary<string, Room> _rooms = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, (Room Room, int Seat)> _byToken = new(StringComparer.Ordinal);
 
-    public Room CreateRoom(ClientConnection host, string deckId, GameContent content)
+    public Room CreateRoom(ClientConnection host, string deckId)
     {
-        if (content.FindDeck(deckId) is null)
-            throw new ProtocolError("unknown_deck", $"No deck '{deckId}'.");
+        deckSource.Resolve(host.GuestId, deckId); // validate the host's pick up front
 
         for (int attempt = 0; attempt < 8; attempt++)
         {
-            var room = new Room(SessionAuth.NewRoomCode(), content, opts);
+            var room = new Room(SessionAuth.NewRoomCode(), content, opts, deckSource);
             if (_rooms.TryAdd(room.Code, room))
             {
                 room.SetHost(host, deckId);
@@ -30,10 +29,9 @@ public sealed class RoomManager(ServerOptions opts)
         throw new ProtocolError("server_busy", "Could not allocate a room code, try again.");
     }
 
-    public async Task JoinAsync(string code, ClientConnection guest, string deckId, GameContent content)
+    public async Task JoinAsync(string code, ClientConnection guest, string deckId)
     {
-        if (content.FindDeck(deckId) is null)
-            throw new ProtocolError("unknown_deck", $"No deck '{deckId}'.");
+        deckSource.Resolve(guest.GuestId, deckId); // validate the joiner's pick
         if (!_rooms.TryGetValue(code, out var room))
             throw new ProtocolError("room_not_found", $"No room '{code}'.");
 

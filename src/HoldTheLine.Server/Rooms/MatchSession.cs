@@ -73,20 +73,17 @@ public sealed class MatchSession
 
     public static MatchSession Create(
         GameContent content, ServerOptions opts,
-        ClientConnection seat0, string deck0Id,
-        ClientConnection seat1, string deck1Id)
+        ClientConnection seat0, Data.ResolvedDeck deck0,
+        ClientConnection seat1, Data.ResolvedDeck deck1)
     {
-        var d0 = content.FindDeck(deck0Id) ?? throw new ProtocolError("unknown_deck", $"No deck '{deck0Id}'.");
-        var d1 = content.FindDeck(deck1Id) ?? throw new ProtocolError("unknown_deck", $"No deck '{deck1Id}'.");
-
         var config = new MatchConfig
         {
             Seed = SessionAuth.NewMatchSeed(),
             FirstSeat = SessionAuth.NewFirstSeat(),
-            Deck0 = d0.Expand(),
-            Deck1 = d1.Expand(),
-            Leader0 = d0.Leader,
-            Leader1 = d1.Leader,
+            Deck0 = deck0.CardIds,
+            Deck1 = deck1.CardIds,
+            Leader0 = deck0.Leader,
+            Leader1 = deck1.Leader,
         };
 
         var host = new LocalGameHost(content.Cards, content.Leaders, config);
