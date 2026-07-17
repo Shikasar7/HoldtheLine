@@ -32,7 +32,6 @@ public partial class BattleScene : Control
 	private Label _turnLabel = null!, _oppInfo = null!, _selfInfo = null!, _logLabel = null!;
 	private Panel _detailPanel = null!; // left-side card inspector (click a piece to show it)
 
-	private readonly List<GameEvent> _pendingEvents = new();
 	private bool _busy;
 
 	// Match stats for the result screen (accumulated from the public event stream).
@@ -52,10 +51,13 @@ public partial class BattleScene : Control
 	private int _humanSeat;
 	private int _aiSeat;
 
-	// Online event delivery: RemoteGameHost dispatches from the WebSocket receive thread, so events
-	// land in a thread-safe queue and are drained + animated by a single pump on the Godot main thread.
-	private readonly System.Collections.Concurrent.ConcurrentQueue<GameEvent> _eventQueue = new();
-	private bool _pumping;
+	// Presentation queue (plan §10 item 9). Every public event — whether the in-process host dispatched
+	// it on the main thread or the RemoteGameHost received it on the WebSocket thread — lands in this
+	// thread-safe queue and is played back one BEAT at a time by a single consumer (RunPlayback), paced
+	// by animation rather than by network arrival. Local and online drive the same consumer, so the feel
+	// work in items 2/3/5 (attack stages, projectiles, hit feedback, opponent card reveal) has one seam.
+	private readonly System.Collections.Concurrent.ConcurrentQueue<GameEvent> _playQueue = new();
+	private bool _playing;
 	private Label? _connLabel;   // connection / opponent status banner (online only)
 	private Label? _timerLabel;  // turn countdown (online only)
 	private double _turnSecondsLeft;
@@ -147,7 +149,7 @@ public partial class BattleScene : Control
 		var local = new LocalGameHost(_cards, _leaders, config);
 		_localHost = local;
 		_host = local;
-		_host.Subscribe(0, e => { _pendingEvents.Add(e); AccumulateStat(e); }); // seat-0 stream: public events drive animation + stats
+		_host.Subscribe(0, e => _playQueue.Enqueue(e)); // seat-0 public stream → presentation queue (RunPlayback animates + tallies)
 
 		FullRender();
 
@@ -923,21 +925,18 @@ public partial class BattleScene : Control
 		RefreshInteractable();
 	}
 
-	/// <summary>Submit one command, animate its events, re-render. Returns false if rejected or the game ended.</summary>
+	/// <summary>Submit one command, then play its events back through the shared presentation queue.
+	/// The in-process host dispatches synchronously, so every event is already queued by the time the
+	/// submit returns; RunPlayback drains and animates them. Returns false if rejected or the game ended
+	/// (in which case RunPlayback has already shown the win overlay).</summary>
 	private async Task<bool> Apply(Command cmd)
 	{
 		ClearSelection();
 		var result = await _host.SubmitCommandAsync(cmd.Seat, cmd);
 		if (!result.Accepted) { Log($"非法操作:{result.Error?.Code}"); return false; }
 
-		var events = _pendingEvents.ToList();
-		_pendingEvents.Clear();
-		await AnimateEvents(events);
-		FullRender();
-
-		var ended = events.OfType<GameEndedEvent>().FirstOrDefault();
-		if (ended != null) { ShowWinOverlay(ended); return false; }
-		return true;
+		await RunPlayback();
+		return _host.GetView(0).Result == null;
 	}
 
 	/// <summary>Drives the AI seat: pick → apply → repeat until it ends its turn or the game ends.</summary>
@@ -985,7 +984,7 @@ public partial class BattleScene : Control
 		};
 
 		// Events arrive on the WS receive thread → queue + wake the main-thread pump.
-		remote.Subscribe(0, e => { _eventQueue.Enqueue(e); Callable.From(PumpOnlineEvents).CallDeferred(); });
+		remote.Subscribe(0, e => { _playQueue.Enqueue(e); Callable.From(KickPlayback).CallDeferred(); });
 		// A resync (reconnect) updates the view without events — re-render off ViewUpdated when idle.
 		remote.ViewUpdated += _ => Callable.From(RefreshFromSnapshot).CallDeferred();
 		remote.ConnectionStateChanged += s => Callable.From(() => OnConnState(s)).CallDeferred();
@@ -1028,14 +1027,14 @@ public partial class BattleScene : Control
 		_onlineReady = true;
 		SetConn("");
 		FullRender();
-		if (!_eventQueue.IsEmpty) PumpOnlineEvents();
+		if (!_playQueue.IsEmpty) KickPlayback();
 	}
 
 	/// <summary>Re-render after a pure snapshot update (reconnect resync carries no events, so the
 	/// event pump won't fire). No-op during normal event flow — the pump owns that.</summary>
 	private void RefreshFromSnapshot()
 	{
-		if (_onlineReady && !_pumping && _eventQueue.IsEmpty && _remoteHost?.GetView(_humanSeat).Result is null)
+		if (_onlineReady && !_playing && _playQueue.IsEmpty && _remoteHost?.GetView(_humanSeat).Result is null)
 			FullRender();
 	}
 
@@ -1100,36 +1099,72 @@ public partial class BattleScene : Control
 		_timerLabel.AddThemeColorOverride("font_color", secs <= 10 ? BattleTheme.DangerColor : BattleTheme.TextDim);
 	}
 
-	/// <summary>Kick the single-consumer pump. Safe to call repeatedly; no-op while one is running or
-	/// before the match is ready.</summary>
-	private void PumpOnlineEvents()
+	/// <summary>Online kick: wake the shared consumer from the main thread once WS events have landed in
+	/// the queue. No-op while one is already running (it absorbs the new arrivals) or before match start.</summary>
+	private void KickPlayback()
 	{
-		if (!_onlineReady || _pumping) return;
-		_ = RunOnlinePump();
+		if (!_onlineReady || _playing) return;
+		_ = RunPlaybackOnline();
 	}
 
-	private async Task RunOnlinePump()
+	/// <summary>Online wrapper around the shared consumer: lock input for the burst (an opponent turn, or
+	/// our own command's result), then unlock once the queue is quiet — unless the game just ended, in
+	/// which case the win overlay owns the screen and input stays locked.</summary>
+	private async Task RunPlaybackOnline()
 	{
-		_pumping = true;
 		_busy = true;
 		RefreshInteractable();
-
-		while (!_eventQueue.IsEmpty)
-		{
-			var batch = new List<GameEvent>();
-			while (_eventQueue.TryDequeue(out var e)) { batch.Add(e); AccumulateStat(e); }
-
-			await AnimateEvents(batch);
-			FullRender();
-
-			var ended = batch.OfType<GameEndedEvent>().FirstOrDefault();
-			if (ended != null) { ShowWinOverlay(ended); _pumping = false; return; }
-		}
-
-		_pumping = false;
-		_busy = false;
-		RefreshInteractable();
+		await RunPlayback();
+		if (_host.GetView(_humanSeat).Result == null) { _busy = false; RefreshInteractable(); }
 	}
+
+	/// <summary>The single presentation consumer (plan §10 item 9). Drains the play queue one BEAT at a
+	/// time — an attack and the strikes it lands play as one beat, so a unit's death animates only after
+	/// the blow that killed it — and re-renders from truth at each quiescent point. Playback is paced by
+	/// animation and decoupled from arrival: events that land mid-playback are picked up by the outer
+	/// loop. Idempotent — a re-entrant call returns at once, letting the running consumer own the drain.</summary>
+	private async Task RunPlayback()
+	{
+		if (_playing) return;
+		_playing = true;
+		try
+		{
+			do
+			{
+				while (TryDequeueBeat(out var beat))
+				{
+					foreach (var e in beat) AccumulateStat(e);
+					await AnimateEvents(beat);
+					if (beat.OfType<GameEndedEvent>().FirstOrDefault() is { } ended)
+					{ FullRender(); ShowWinOverlay(ended); return; }
+				}
+				FullRender();
+			} while (!_playQueue.IsEmpty);
+		}
+		finally { _playing = false; }
+	}
+
+	/// <summary>Pull one presentation beat off the queue. Usually a single event; an AttackedEvent also
+	/// takes the strikes it causes (unit/leader damage, deaths) so they play as one unit — the seam the
+	/// later feel work (items 2/3/5: projectile flight, hit-stop, on-land damage) refines. Safe to peek
+	/// the head to decide grouping: there is only ever one consumer, and producers append to the tail.</summary>
+	private bool TryDequeueBeat(out List<GameEvent> beat)
+	{
+		beat = new List<GameEvent>();
+		if (!_playQueue.TryDequeue(out var first))
+			return false;
+		beat.Add(first);
+		if (first is AttackedEvent)
+			while (_playQueue.TryPeek(out var next) && IsStrikeAftermath(next) && _playQueue.TryDequeue(out var e))
+				beat.Add(e);
+		return true;
+	}
+
+	// Events that only ever arise as the resolution of the attack just dequeued, so they fold into its
+	// beat. A normal move, heal or buff is a separate action carrying its own leading event (a card play,
+	// a move command, a leader skill), so it is never mis-grouped onto the preceding attack.
+	private static bool IsStrikeAftermath(GameEvent e) =>
+		e is UnitDamagedEvent or UnitDiedEvent or LeaderDamagedEvent;
 
 	/// <summary>Send a command over the wire. The result batch is animated by the pump; only the
 	/// rejection/error paths touch UI here, marshalled back to the main thread.</summary>
