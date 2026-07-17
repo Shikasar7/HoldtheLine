@@ -19,6 +19,7 @@ public sealed class LocalGameHost : IGameHost
     private readonly CardDatabase _db;
     private readonly LeaderDatabase _leaders;
     private readonly Resolver _resolver;
+    private readonly Ai.SearchAi _ai;   // M3 B3: vs-AI opponent uses lookahead, not one-ply greedy
     private readonly List<(int Seat, Action<GameEvent> Handler)> _subscribers = new();
     private readonly List<Command> _commandLog = new();
     private readonly List<GameEvent> _eventLog = new();
@@ -37,6 +38,7 @@ public sealed class LocalGameHost : IGameHost
         _db = db;
         _leaders = leaders;
         _resolver = new Resolver(db, leaders);
+        _ai = new Ai.SearchAi(db, leaders);
         var (state, events) = GameFactory.CreateGame(config, db, leaders);
         _state = state;
         _eventLog.AddRange(events);
@@ -63,7 +65,7 @@ public sealed class LocalGameHost : IGameHost
         {
             if (_state.Result != null || seat != _state.ActiveSeat)
                 return null;
-            return Ai.GreedyAi.Pick(_state, _db, _leaders);
+            return _ai.Pick(_state);
         }
     }
 
