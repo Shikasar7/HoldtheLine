@@ -86,7 +86,11 @@ public partial class BattleScene : Control
 	private int? _dragCardId;
 	private bool _dragMoved;
 	private Vector2 _dragStart;
+	private Vector2 _dragTarget;      // mouse target the ghost eases toward each frame (item 1)
 	private Control? _dragGhost;
+	private Cell? _dragHoverCell;     // legal cell currently under the cursor (item 1: strengthen its highlight)
+
+	private Tween? _shakeTween;       // active screen-shake tween (item 2/6), killed before a new one starts
 
 	private enum HitKind { Cell, Unit, Leader }
 	private readonly record struct Hit(HitKind Kind, Cell Cell, int UnitId);
@@ -279,7 +283,7 @@ public partial class BattleScene : Control
 		var menuBtn = BattleTheme.MakeButton(new Vector2(20, 20), new Vector2(120, 44), BattleTheme.PanelDark, BattleTheme.TextDim, 1, 8);
 		menuBtn.Text = "菜单 (Esc)";
 		menuBtn.AddThemeFontSizeOverride("font_size", 18);
-		menuBtn.Pressed += () => GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn");
+		menuBtn.Pressed += () => { _sfx.Play("button"); GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn"); };
 		_hudLayer.AddChild(menuBtn);
 
 		_detailPanel = new Panel { Position = DetailOrigin, Size = new Vector2(DetailW, DetailH), Visible = false };
@@ -792,6 +796,7 @@ public partial class BattleScene : Control
 	private void OnLeaderPower()
 	{
 		if (_busy) return;
+		_sfx.Play("button");
 		int seat = ActiveSeat;
 		var legal = _host.LegalCommands(seat);
 		_candidates = legal.Where(c => c is UseLeaderSkillCommand).ToList();
@@ -807,6 +812,7 @@ public partial class BattleScene : Control
 	private void OnEndTurn()
 	{
 		if (_busy) return;
+		_sfx.Play("button");
 		Submit(new EndTurnCommand { Seat = ActiveSeat });
 	}
 
@@ -827,8 +833,8 @@ public partial class BattleScene : Control
 		{
 			if (!_dragMoved && mm.Position.DistanceTo(_dragStart) > 6f)
 				_dragMoved = true;
-			if (_dragGhost != null)
-				_dragGhost.Position = mm.Position - GhostSize / 2f;
+			_dragTarget = mm.Position;      // _Process eases the ghost toward this (critically-damped follow)
+			HighlightDragHover(mm.Position);
 		}
 		else if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } mb)
 		{
@@ -845,10 +851,30 @@ public partial class BattleScene : Control
 		_dragCardId = cardEntityId;
 		_dragMoved = false;
 		_dragStart = GetGlobalMousePosition();
+		_dragTarget = _dragStart;
+		_dragHoverCell = null;
 		_dragGhost = BuildGhost(cardEntityId);
+		_dragGhost.PivotOffset = GhostSize / 2f;
 		_dragGhost.Position = _dragStart - GhostSize / 2f;
+		_dragGhost.Scale = new Vector2(1.06f, 1.06f); // item 1: lift + slight tilt on pickup
+		_dragGhost.Rotation = 0.05f;
 		_overlayLayer.AddChild(_dragGhost);
 		SelectCard(cardEntityId, autoSubmit: false); // highlight legal targets while dragging
+	}
+
+	// item 1: while dragging, the legal cell under the cursor lights brighter than the rest. Recomputes
+	// only when the hovered cell changes (mouse-motion fires often).
+	private void HighlightDragHover(Vector2 mousePos)
+	{
+		if (_selKind != SelKind.Card) return;
+		var hit = HitTest(mousePos);
+		Cell? cell = hit is { Kind: HitKind.Cell } h ? h.Cell : null;
+		if (Nullable.Equals(cell, _dragHoverCell)) return;
+		_dragHoverCell = cell;
+
+		HighlightCardCandidates();
+		if (cell is { } cc && _candidates.Any(c => CellOf(c) is { } x && x.Col == cc.Col && x.Row == cc.Row))
+			BattleTheme.SetButtonBg(CellButton(cc), BattleTheme.Accent, Colors.White, 5);
 	}
 
 	private void EndCardDrag(Vector2 pos)
@@ -1073,6 +1099,13 @@ public partial class BattleScene : Control
 
 	public override void _Process(double delta)
 	{
+		if (_dragGhost != null)
+		{
+			// Critically-damped follow (item 1): the ghost trails the cursor instead of hard-snapping.
+			float k = 1f - Mathf.Exp(-25f * (float)delta);
+			_dragGhost.Position = _dragGhost.Position.Lerp(_dragTarget - GhostSize / 2f, k);
+		}
+
 		if (!_online || !_onlineReady || _turnActiveSeat < 0)
 			return;
 		if (_turnSecondsLeft > 0)
@@ -1223,61 +1256,363 @@ public partial class BattleScene : Control
 			_ = _client.DisposeAsync().AsTask(); // closes the socket → server tears the match down
 	}
 
-	private async Task AnimateEvents(IReadOnlyList<GameEvent> events)
+	private async Task AnimateEvents(IReadOnlyList<GameEvent> beat)
 	{
-		foreach (var e in events)
+		// An attack cluster (item 9's beat) plays as a staged strike: the blow lands, THEN the damage,
+		// death and line-break reactions fire (see PlayAttackBeat). Everything else is a single event.
+		if (beat.Count > 0 && beat[0] is AttackedEvent atk)
 		{
+			await PlayAttackBeat(atk, beat);
+			return;
+		}
+		foreach (var e in beat)
+			await PlaySingle(e);
+	}
+
+	private async Task PlaySingle(GameEvent e)
+	{
+		switch (e)
+		{
+			case CardPlayedEvent cp:
+				await ShowOpponentCardReveal(cp);   // item 5: show an opponent's play before it lands
+				if (_cards.TryGet(cp.CardId, out var pd) && pd.Type == CardType.Order)
+				{
+					_sfx.Play("cast");
+					await FlashOnCastEngines(cp.Seat); // 教团 on-cast: light the caster's ally_order_played engines
+				}
+				break;
+			case CardDrawnEvent cd when cd.Seat == ViewSeat:
+				_sfx.Play("draw");
+				break;
+			case UnitDeployedEvent:
+				_sfx.Play("play");
+				await Delay(0.05);
+				break;
+			case UnitMovedEvent m when _standees.TryGetValue(m.UnitEntityId, out var node):
+				_sfx.Play("move");
+				await TweenTo(node, CellScreenPos(m.To) + new Vector2(7, 7), 0.16);
+				break;
+			case UnitDamagedEvent d:
+				await ReactDamage(d, null);          // standalone (battlecry / order / skill) — no lunge origin
+				break;
+			case UnitHealedEvent h when h.Amount > 0 && _standees.TryGetValue(h.UnitEntityId, out var hn):
+				Flash(hn, BattleTheme.HpColor);
+				FloatNumber(Center(hn), $"+{h.Amount}", BattleTheme.HpColor, h.Amount);
+				await Delay(0.12);
+				break;
+			case UnitBuffedEvent b when _standees.TryGetValue(b.UnitEntityId, out var bn):
+				Flash(bn, BattleTheme.Accent);
+				await Delay(0.08);
+				break;
+			case PressureTideEvent tide:
+				// 压力潮汐: the bleed is explained here; the follow-up LeaderDamagedEvent animates the HP hit.
+				_sfx.Play("tide");
+				FloatText(new Vector2(BattleTheme.ScreenW / 2f, 430),
+					$"压力潮汐!{(tide.Seat == 0 ? "玩家1" : "玩家2")}未攻入敌方半场 -{tide.Amount}", BattleTheme.DangerColor);
+				await Delay(0.5);
+				break;
+			case LeaderDamagedEvent ld:
+				await ReactLeaderDamage(ld, fromAttack: false); // standalone (tide / fatigue)
+				break;
+			case UnitDiedEvent dd:
+				await ReactDeath(dd);
+				break;
+			case TurnStartedEvent ts when FixedView:
+				await ShowTurnBanner(ts.Seat);       // item 8 (hotseat uses the pass overlay instead)
+				break;
+			default:
+				break;
+		}
+	}
+
+	// ---------- item 2: staged attack (melee lunge / ranged projectile) ----------
+
+	/// <summary>Play one attack beat: melee windup→charge→hit→return, or a ranged projectile that must
+	/// LAND before its damage resolves. The aftermath events (damage / death / leader hit / trample move)
+	/// fire on the contact frame, so a unit dies only after the blow that killed it (plan §10 item 9).</summary>
+	private async Task PlayAttackBeat(AttackedEvent atk, IReadOnlyList<GameEvent> beat)
+	{
+		var attacker = _standees.GetValueOrDefault(atk.AttackerEntityId);
+		Vector2 targetPos = AttackTargetCenter(atk);
+		Vector2 origin = attacker != null ? Center(attacker) : targetPos;
+		// A unit hit ≥ ~2 cells away is a shot; a leader plate sits in the corner (distance unreliable), so
+		// fall back to the attacker's 射程 keyword there.
+		bool ranged = atk.TargetUnitId is int
+			? attacker != null && origin.DistanceTo(targetPos) > 210f
+			: AttackerHasRange(atk.AttackerEntityId);
+		Vector2 home = attacker?.Position ?? Vector2.Zero;
+
+		if (ranged)
+		{
+			_sfx.Play("shoot");
+			await FireProjectile(origin, targetPos);
+		}
+		else if (attacker != null)
+		{
+			await MeleeWindup(attacker, targetPos); // pull back, then charge 40% of the way in
+		}
+
+		// contact frame
+		_sfx.Play("attack");
+		ScreenShake(ranged ? 2f : 3f);
+
+		bool attackerDied = false;
+		int hits = 0;
+		foreach (var e in beat.Skip(1))
 			switch (e)
 			{
-				case CardPlayedEvent cp when _cards.TryGet(cp.CardId, out var pd) && pd.Type == CardType.Order:
-					// 教团 on-cast: casting an order lights up the caster's ally_order_played engines.
-					await FlashOnCastEngines(cp.Seat);
-					break;
-				case UnitDeployedEvent:
-					_sfx.Play("play");
-					await Delay(0.05);
-					break;
-				case UnitMovedEvent m when _standees.TryGetValue(m.UnitEntityId, out var node):
-					_sfx.Play("move");
-					await TweenTo(node, CellScreenPos(m.To) + new Vector2(7, 7), 0.16);
-					break;
-				case AttackedEvent a when _standees.TryGetValue(a.AttackerEntityId, out var atk):
-					_sfx.Play("attack");
-					await Thump(atk);
-					break;
-				case UnitDamagedEvent d when _standees.TryGetValue(d.UnitEntityId, out var tgt):
-					Flash(tgt, d.ShieldAbsorbed ? BattleTheme.CostColor : BattleTheme.DangerColor);
-					if (d.Amount > 0) FloatText(tgt.Position + new Vector2(50, 10), $"-{d.Amount}", BattleTheme.DangerColor);
-					await Delay(0.12);
-					break;
-				case UnitHealedEvent h when h.Amount > 0 && _standees.TryGetValue(h.UnitEntityId, out var hn):
-					Flash(hn, BattleTheme.HpColor);
-					FloatText(hn.Position + new Vector2(50, 10), $"+{h.Amount}", BattleTheme.HpColor);
-					await Delay(0.12);
-					break;
-				case UnitBuffedEvent b when _standees.TryGetValue(b.UnitEntityId, out var bn):
-					Flash(bn, BattleTheme.Accent);
-					await Delay(0.08);
-					break;
-				case PressureTideEvent tide:
-					// 压力潮汐: the bleeding is explained here; the follow-up LeaderDamagedEvent animates the HP hit.
-					FloatText(new Vector2(BattleTheme.ScreenW / 2f - 220, 430),
-						$"压力潮汐!{(tide.Seat == 0 ? "玩家1" : "玩家2")}未攻入敌方半场 -{tide.Amount}", BattleTheme.DangerColor);
-					await Delay(0.5);
+				case UnitDamagedEvent d:
+					if (hits++ > 0) await Delay(0.08);  // multi-hit stagger (item 4)
+					await ReactDamage(d, origin);
 					break;
 				case LeaderDamagedEvent ld:
-					_sfx.Play("leaderhit");
-					Flash(_oppLeaderBtn, BattleTheme.DangerColor);
-					FloatText(_oppLeaderBtn.Position + new Vector2(160, 40), $"-{ld.Amount}", BattleTheme.DangerColor);
-					await Delay(0.14);
+					await ReactLeaderDamage(ld, fromAttack: true);
 					break;
-				case UnitDiedEvent dd when _standees.TryGetValue(dd.UnitEntityId, out var dn):
-					await Fade(dn);
+				case UnitDiedEvent dd:
+					if (dd.UnitEntityId == atk.AttackerEntityId) attackerDied = true;
+					await ReactDeath(dd);
 					break;
-				default:
+				case UnitMovedEvent tm when _standees.TryGetValue(tm.UnitEntityId, out var mn):
+					await TweenTo(mn, CellScreenPos(tm.To) + new Vector2(7, 7), 0.14); // 践踏 advance after a kill
 					break;
 			}
+
+		if (!ranged && attacker != null && !attackerDied)
+			await SnapBack(attacker, home);
+	}
+
+	private async Task MeleeWindup(Control node, Vector2 targetCenter)
+	{
+		var home = node.Position;
+		Vector2 dir = targetCenter - Center(node);
+		Vector2 back = dir.LengthSquared() > 1f ? home - dir.Normalized() * 10f : home; // ~0.1s pull-back
+		Vector2 lunge = home + dir * 0.4f;                                              // 40% charge in
+		var t = CreateTween();
+		t.TweenProperty(node, "position", back, 0.10).SetTrans(Tween.TransitionType.Sine);
+		t.TweenProperty(node, "position", lunge, 0.12).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.In);
+		await ToSignal(t, Tween.SignalName.Finished);
+	}
+
+	private async Task SnapBack(Control node, Vector2 home)
+	{
+		var t = CreateTween();
+		t.TweenProperty(node, "position", home, 0.12).SetTrans(Tween.TransitionType.Sine);
+		await ToSignal(t, Tween.SignalName.Finished);
+	}
+
+	// Ranged shot: a glowing bolt flies from attacker to target; damage only resolves once it lands.
+	private async Task FireProjectile(Vector2 from, Vector2 to)
+	{
+		var proj = new Control { Size = new Vector2(22, 22), PivotOffset = new Vector2(11, 11), MouseFilter = MouseFilterEnum.Ignore };
+		proj.Position = from - proj.Size / 2f;
+		proj.Rotation = (to - from).Angle();
+		proj.AddChild(new ColorRect
+		{
+			Color = new Color(BattleTheme.Accent.R, BattleTheme.Accent.G, BattleTheme.Accent.B, 0.35f),
+			Size = new Vector2(22, 22), MouseFilter = MouseFilterEnum.Ignore,
+		});
+		proj.AddChild(new ColorRect
+		{
+			Color = BattleTheme.Accent.Lightened(0.4f), Position = new Vector2(5, 5),
+			Size = new Vector2(12, 12), MouseFilter = MouseFilterEnum.Ignore,
+		});
+		_overlayLayer.AddChild(proj);
+		var t = CreateTween();
+		t.TweenProperty(proj, "position", to - proj.Size / 2f, 0.25).SetTrans(Tween.TransitionType.Sine);
+		await ToSignal(t, Tween.SignalName.Finished);
+		proj.QueueFree();
+	}
+
+	// ---------- item 3/4/6: hit / death / face-damage reactions (shared by attacks and standalone events) ----------
+
+	// item 3: white flash + knockback away from the blow + hit sfx + damage number. Shield absorption
+	// reads blue with a 「盾」 float, clearly distinct from a real HP loss.
+	private async Task ReactDamage(UnitDamagedEvent d, Vector2? from)
+	{
+		if (!_standees.TryGetValue(d.UnitEntityId, out var node)) return;
+		if (d.ShieldAbsorbed)
+		{
+			_sfx.Play("attack");
+			Flash(node, BattleTheme.CostColor);
+			FloatText(Center(node) + new Vector2(0, -8), "盾", BattleTheme.CostColor);
+			await Delay(0.12);
+			return;
 		}
+		Flash(node, Colors.White);
+		Vector2 dir = from is { } f && (Center(node) - f).LengthSquared() > 1f ? (Center(node) - f).Normalized() : new Vector2(0, 1);
+		await Knockback(node, dir * 7f);
+		if (d.Amount > 0) FloatNumber(Center(node), $"-{d.Amount}", BattleTheme.DangerColor, d.Amount);
+	}
+
+	private async Task Knockback(Control node, Vector2 offset)
+	{
+		var home = node.Position;
+		var t = CreateTween();
+		t.TweenProperty(node, "position", home + offset, 0.05);
+		t.TweenProperty(node, "position", home, 0.07).SetTrans(Tween.TransitionType.Sine);
+		await ToSignal(t, Tween.SignalName.Finished);
+	}
+
+	// item 6: face damage. Breaking the ENEMY line (hitting their leader) is the reward beat — heavy shake +
+	// full-screen red edge pulse; damage to your own leader is a lighter warning.
+	private async Task ReactLeaderDamage(LeaderDamagedEvent ld, bool fromAttack)
+	{
+		_sfx.Play("leaderhit");
+		var plate = LeaderPlate(ld.Seat);
+		bool onOpponent = ld.Seat != ViewSeat;
+		Flash(plate, BattleTheme.DangerColor);
+		FloatNumber(Center(plate) + new Vector2(0, 24), $"-{ld.Amount}", BattleTheme.DangerColor, ld.Amount + 2);
+		LeaderShake(plate, onOpponent ? 10f : 7f);
+		if (fromAttack) EdgeFlash(onOpponent ? 0.85f : 0.55f); // 破线 red vignette pulse
+		else ScreenShake(3f);                                  // standalone (tide / fatigue) shakes on its own
+		await Delay(0.2);
+	}
+
+	// item 6: death — crumble (squash + spin + fade); the standee is then cleared by the next FullRender.
+	private async Task ReactDeath(UnitDiedEvent dd)
+	{
+		if (!_standees.TryGetValue(dd.UnitEntityId, out var node)) return;
+		_sfx.Play("death");
+		node.PivotOffset = node.Size / 2f;
+		var t = CreateTween();
+		t.SetParallel(true);
+		t.TweenProperty(node, "scale", new Vector2(1.15f, 0.55f), 0.22).SetTrans(Tween.TransitionType.Back);
+		t.TweenProperty(node, "rotation", 0.5f, 0.22);
+		t.TweenProperty(node, "modulate:a", 0.0f, 0.22);
+		await ToSignal(t, Tween.SignalName.Finished);
+	}
+
+	// ---------- item 6/8: screen-space effects ----------
+
+	private static Vector2 Center(Control c) => c.Position + c.Size / 2f;
+
+	private Control LeaderPlate(int seat) => seat == ViewSeat ? (Control)_selfAvatar! : _oppLeaderBtn;
+
+	private Vector2 AttackTargetCenter(AttackedEvent atk)
+	{
+		if (atk.TargetUnitId is int tid && _standees.TryGetValue(tid, out var tn))
+			return Center(tn);
+		if (atk.TargetLeaderSeat is int seat)
+			return Center(LeaderPlate(seat));
+		return new Vector2(BattleTheme.ScreenW / 2f, BattleTheme.ScreenH / 2f);
+	}
+
+	private bool AttackerHasRange(int entityId) =>
+		_host.GetView(ViewSeat).Units.FirstOrDefault(u => u.EntityId == entityId)?.Keywords
+			.Any(k => k.Keyword == Keyword.Range) ?? false;
+
+	// A brief camera-style shake of the whole scene. Kills any prior shake so overlapping hits don't fight.
+	private void ScreenShake(float px)
+	{
+		_shakeTween?.Kill();
+		Position = Vector2.Zero;
+		_shakeTween = CreateTween();
+		for (int i = 0; i < 4; i++)
+		{
+			float f = 1f - i / 4f;
+			_shakeTween.TweenProperty(this, "position", new Vector2((i % 2 == 0 ? px : -px) * f, (i % 2 == 0 ? -px : px) * f), 0.025);
+		}
+		_shakeTween.TweenProperty(this, "position", Vector2.Zero, 0.025);
+	}
+
+	private void LeaderShake(Control plate, float px)
+	{
+		var home = plate.Position;
+		var t = CreateTween();
+		for (int i = 0; i < 5; i++)
+			t.TweenProperty(plate, "position", home + new Vector2(i % 2 == 0 ? px : -px, 0), 0.03);
+		t.TweenProperty(plate, "position", home, 0.03);
+	}
+
+	// Full-screen red edge pulse — a vignette faked with a thick-bordered transparent frame (placeholder).
+	private void EdgeFlash(float intensity)
+	{
+		var frame = new Panel { MouseFilter = MouseFilterEnum.Ignore, Modulate = new Color(1, 1, 1, 0) };
+		frame.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		var style = new StyleBoxFlat { BgColor = new Color(0, 0, 0, 0), BorderColor = new Color(0.82f, 0.24f, 0.18f, intensity) };
+		style.BorderWidthLeft = style.BorderWidthRight = 120;
+		style.BorderWidthTop = style.BorderWidthBottom = 90;
+		frame.AddThemeStyleboxOverride("panel", style);
+		_overlayLayer.AddChild(frame);
+		var t = CreateTween();
+		t.TweenProperty(frame, "modulate:a", 1.0f, 0.10);
+		t.TweenProperty(frame, "modulate:a", 0.0f, 0.35);
+		t.TweenCallback(Callable.From(frame.QueueFree));
+	}
+
+	// ---------- item 5: opponent card reveal ----------
+
+	/// <summary>When the OPPONENT plays a card, show its face centre-screen (~1.2s, or click to skip) before
+	/// it lands — otherwise a networked opponent's play, an order especially, is invisible to you.</summary>
+	private async Task ShowOpponentCardReveal(CardPlayedEvent cp)
+	{
+		if (cp.Seat == ViewSeat || !_cards.TryGet(cp.CardId, out var def))
+			return;
+
+		var cardSize = new Vector2(360, 515);
+		var root = new Control { MouseFilter = MouseFilterEnum.Stop };
+		root.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		var dim = new ColorRect { Color = new Color(0, 0, 0, 0.42f), MouseFilter = MouseFilterEnum.Ignore };
+		dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		root.AddChild(dim);
+
+		var holder = new Control
+		{
+			Position = new Vector2((BattleTheme.ScreenW - cardSize.X) / 2f, (BattleTheme.ScreenH - cardSize.Y) / 2f - 30),
+			Size = cardSize,
+			PivotOffset = cardSize / 2f,
+			Scale = new Vector2(0.82f, 0.82f),
+			MouseFilter = MouseFilterEnum.Ignore,
+		};
+		holder.AddChild(BuildCardVisual(def, cardSize, compact: false, backing: true));
+		root.AddChild(holder);
+
+		var label = BattleTheme.MakeOutlinedLabel($"对手打出  {def.Name}", 30, BattleTheme.TextMain, HorizontalAlignment.Center);
+		label.Position = new Vector2(0, holder.Position.Y - 70);
+		label.Size = new Vector2(BattleTheme.ScreenW, 44);
+		root.AddChild(label);
+
+		_overlayLayer.AddChild(root);
+
+		var skip = new System.Threading.Tasks.TaskCompletionSource();
+		root.GuiInput += e => { if (e is InputEventMouseButton { Pressed: true }) skip.TrySetResult(); };
+
+		var pop = CreateTween();
+		pop.TweenProperty(holder, "scale", Vector2.One, 0.14).SetTrans(Tween.TransitionType.Back);
+
+		await System.Threading.Tasks.Task.WhenAny(Delay(1.2), skip.Task);
+
+		var outT = CreateTween();
+		outT.TweenProperty(root, "modulate:a", 0.0f, 0.14);
+		await ToSignal(outT, Tween.SignalName.Finished);
+		root.QueueFree();
+	}
+
+	// ---------- item 8: turn-switch banner ----------
+
+	// A turn-change banner sweeps in and fades. Fixed-view only — hotseat has the pass overlay already.
+	private async Task ShowTurnBanner(int seat)
+	{
+		_sfx.Play("turnstart");
+		bool mine = seat == ViewSeat;
+		var banner = new Panel { MouseFilter = MouseFilterEnum.Ignore, Size = new Vector2(BattleTheme.ScreenW, 120), Modulate = new Color(1, 1, 1, 0) };
+		banner.Position = new Vector2(0, BattleTheme.ScreenH / 2f - 60);
+		var style = new StyleBoxFlat { BgColor = new Color(0.04f, 0.04f, 0.05f, 0.72f) };
+		style.BorderColor = mine ? BattleTheme.Accent : BattleTheme.SeatColor1;
+		style.BorderWidthTop = style.BorderWidthBottom = 3;
+		banner.AddThemeStyleboxOverride("panel", style);
+		var label = BattleTheme.MakeOutlinedLabel(mine ? "你的回合" : "对手回合", 52,
+			mine ? BattleTheme.Accent : BattleTheme.TextMain, HorizontalAlignment.Center);
+		label.Size = new Vector2(BattleTheme.ScreenW, 120);
+		banner.AddChild(label);
+		_overlayLayer.AddChild(banner);
+
+		var t = CreateTween();
+		t.TweenProperty(banner, "modulate:a", 1.0f, 0.14);
+		t.TweenInterval(0.42);
+		t.TweenProperty(banner, "modulate:a", 0.0f, 0.18);
+		await ToSignal(t, Tween.SignalName.Finished);
+		banner.QueueFree();
 	}
 
 	// 教团 on-cast flash: after an order is cast, pulse each of the caster's ally_order_played engines ember-orange.
@@ -1318,6 +1653,9 @@ public partial class BattleScene : Control
 		else if (FixedView) { bool win = ended.WinnerSeat == _humanSeat; who = win ? "胜 利" : "败 北"; tint = win ? BattleTheme.Accent : BattleTheme.DangerColor; }
 		else { who = $"{LeaderName(_host.GetView(ended.WinnerSeat).Self.LeaderId)} 获胜"; tint = BattleTheme.Accent; }
 
+		// item 7: victory / defeat sting, in sync with the result screen. Hotseat always celebrates a winner.
+		_sfx.Play(ended.WinnerSeat >= 0 && (!FixedView || ended.WinnerSeat == _humanSeat) ? "victory" : "defeat");
+
 		// Result illustration behind the text (dimmed); a draw keeps the plain panel.
 		bool defeat = FixedView && ended.WinnerSeat >= 0 && ended.WinnerSeat != _humanSeat;
 		if (ended.WinnerSeat >= 0 &&
@@ -1357,7 +1695,7 @@ public partial class BattleScene : Control
 			var again = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2 - 320, 570), new Vector2(280, 80), BattleTheme.AccentSoft, BattleTheme.Accent, 2, 12);
 			again.Text = "再来一局";
 			again.AddThemeFontSizeOverride("font_size", 26);
-			again.Pressed += () => GetTree().ReloadCurrentScene();
+			again.Pressed += () => { _sfx.Play("button"); GetTree().ReloadCurrentScene(); };
 			panel.AddChild(again);
 		}
 
@@ -1365,7 +1703,7 @@ public partial class BattleScene : Control
 		var menu = BattleTheme.MakeButton(new Vector2(menuX, 570), new Vector2(280, 80), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12);
 		menu.Text = "返回菜单";
 		menu.AddThemeFontSizeOverride("font_size", 26);
-		menu.Pressed += () => GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn");
+		menu.Pressed += () => { _sfx.Play("button"); GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn"); };
 		panel.AddChild(menu);
 	}
 
@@ -1580,15 +1918,6 @@ public partial class BattleScene : Control
 		await ToSignal(t, Tween.SignalName.Finished);
 	}
 
-	private async Task Thump(Control node)
-	{
-		var home = node.Position;
-		var t = CreateTween();
-		t.TweenProperty(node, "position", home + new Vector2(0, -14), 0.06);
-		t.TweenProperty(node, "position", home, 0.06);
-		await ToSignal(t, Tween.SignalName.Finished);
-	}
-
 	private void Flash(Control node, Color color)
 	{
 		var t = CreateTween();
@@ -1596,24 +1925,39 @@ public partial class BattleScene : Control
 		t.TweenProperty(node, "modulate", Colors.White, 0.25);
 	}
 
-	private async Task Fade(Control node)
+	// A centred floating label (shield "盾", the 压力潮汐 line). `center` is the point to center on.
+	private void FloatText(Vector2 center, string text, Color color)
 	{
-		var t = CreateTween();
-		t.TweenProperty(node, "modulate:a", 0.0f, 0.2);
-		await ToSignal(t, Tween.SignalName.Finished);
-	}
-
-	private void FloatText(Vector2 pos, string text, Color color)
-	{
-		var label = BattleTheme.MakeLabel(text, 30, color, HorizontalAlignment.Center);
-		label.Position = pos;
-		label.Size = new Vector2(80, 40);
+		var label = BattleTheme.MakeOutlinedLabel(text, 30, color, HorizontalAlignment.Center);
+		label.Size = new Vector2(600, 44);
+		label.Position = center - label.Size / 2f;
 		_overlayLayer.AddChild(label);
+		var start = label.Position;
 		var t = CreateTween();
 		t.SetParallel(true);
-		t.TweenProperty(label, "position", pos + new Vector2(0, -60), 0.6);
+		t.TweenProperty(label, "position", start + new Vector2(0, -60), 0.6);
 		t.TweenProperty(label, "modulate:a", 0.0f, 0.6);
 		t.Chain().TweenCallback(Callable.From(label.QueueFree));
+	}
+
+	// item 4: a damage/heal number — pops in, floats up then settles (gravity), bigger for bigger hits.
+	private void FloatNumber(Vector2 center, string text, Color color, int amount)
+	{
+		int size = Mathf.Clamp(28 + amount * 4, 28, 60);
+		var label = BattleTheme.MakeOutlinedLabel(text, size, color, HorizontalAlignment.Center);
+		label.Size = new Vector2(140, size + 16);
+		label.Position = center - label.Size / 2f;
+		label.PivotOffset = label.Size / 2f;
+		label.Scale = new Vector2(0.5f, 0.5f);
+		_overlayLayer.AddChild(label);
+		var p0 = label.Position;
+		var t = CreateTween();
+		t.TweenProperty(label, "scale", new Vector2(1.15f, 1.15f), 0.10).SetTrans(Tween.TransitionType.Back);
+		t.Parallel().TweenProperty(label, "position", p0 + new Vector2(0, -24), 0.10);
+		t.TweenProperty(label, "scale", Vector2.One, 0.06);
+		t.TweenProperty(label, "position", p0 + new Vector2(0, -10), 0.35).SetTrans(Tween.TransitionType.Sine); // settle
+		t.Parallel().TweenProperty(label, "modulate:a", 0.0f, 0.35);
+		t.TweenCallback(Callable.From(label.QueueFree));
 	}
 
 	private async Task Delay(double sec) => await ToSignal(GetTree().CreateTimer(sec), Godot.Timer.SignalName.Timeout);
