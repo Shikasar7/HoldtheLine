@@ -6,6 +6,7 @@ using HoldTheLine.Rules.Commands;
 using HoldTheLine.Rules.Engine;
 using HoldTheLine.Rules.Events;
 using HoldTheLine.Rules.Hosting;
+using HoldTheLine.Rules.Serialization;
 using HoldTheLine.Server.Rooms;
 using Xunit;
 
@@ -192,6 +193,97 @@ public class NetworkedMatchTests
         var ended = await bEnded.Task.WaitAsync(TimeSpan.FromSeconds(10));
         Assert.Equal("abandon", ended.Reason);
         Assert.Equal(seatB, ended.WinnerSeat); // the player who stayed wins
+    }
+
+    [Fact]
+    public async Task Idle_players_time_out_and_the_first_seat_forfeits_after_two_expiries()
+    {
+        await using var server = await RunningServer.StartAsync(turnSeconds: 1);
+        await using var clientA = new GameServerClient(new WebSocketTransport());
+        await using var clientB = new GameServerClient(new WebSocketTransport());
+        var hostA = new RemoteGameHost(clientA);
+        var hostB = new RemoteGameHost(clientB);
+
+        var roomCode = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var timerSeen = new TaskCompletionSource<TurnTimer>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var ended = new TaskCompletionSource<MatchEnded>(TaskCreationOptions.RunContinuationsAsynchronously);
+        clientA.MessageReceived += m =>
+        {
+            if (m is RoomCreated rc) roomCode.TrySetResult(rc.Code);
+            if (m is TurnTimer tt) timerSeen.TrySetResult(tt);
+            if (m is MatchEnded me) ended.TrySetResult(me);
+        };
+
+        await clientA.ConnectAsync(server.Ws, NewHello("alice"));
+        await clientB.ConnectAsync(server.Ws, NewHello("bob"));
+        await clientA.SendAsync(new CreateRoom { DeckId = "iron_wall" });
+        var code = await roomCode.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await clientB.SendAsync(new JoinRoom { Code = code, DeckId = "wildpack_hunt" });
+
+        int seatA = await hostA.WaitForMatchAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        await hostB.WaitForMatchAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        // The server announces a turn clock…
+        var tt = await timerSeen.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(tt.SecondsLeft > 0);
+
+        // …and with nobody acting, the seat that opened (times out twice in a row) forfeits.
+        int firstSeat = hostA.GetView(seatA).ActiveSeat;
+        var end = await ended.Task.WaitAsync(TimeSpan.FromSeconds(15));
+        Assert.Equal("timeout", end.Reason);
+        Assert.Equal(1 - firstSeat, end.WinnerSeat);
+    }
+
+    [Fact]
+    public async Task Command_log_on_disk_replays_to_the_same_result()
+    {
+        var logDir = Path.Combine(Path.GetTempPath(), "htl-log-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            int serverWinner;
+            await using (var server = await RunningServer.StartAsync(commandLogDir: logDir))
+            {
+                await using var clientA = new GameServerClient(new WebSocketTransport());
+                await using var clientB = new GameServerClient(new WebSocketTransport());
+                var hostA = new RemoteGameHost(clientA);
+                var hostB = new RemoteGameHost(clientB);
+
+                var roomCode = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+                clientA.MessageReceived += m => { if (m is RoomCreated rc) roomCode.TrySetResult(rc.Code); };
+
+                await clientA.ConnectAsync(server.Ws, NewHello("alice"));
+                await clientB.ConnectAsync(server.Ws, NewHello("bob"));
+                await clientA.SendAsync(new CreateRoom { DeckId = "iron_wall" });
+                var code = await roomCode.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                await clientB.SendAsync(new JoinRoom { Code = code, DeckId = "wildpack_hunt" });
+                await hostA.WaitForMatchAsync().WaitAsync(TimeSpan.FromSeconds(5));
+                await hostB.WaitForMatchAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+                var winners = await Task.WhenAll(
+                    new NetworkBotDriver(hostA, NetworkBotDriver.RandomLegal(21)).RunAsync(cts.Token),
+                    new NetworkBotDriver(hostB, NetworkBotDriver.RandomLegal(22)).RunAsync(cts.Token));
+                serverWinner = winners[0];
+            }
+
+            // Replay config + logged commands through a fresh host → identical winner.
+            var file = Directory.EnumerateFiles(logDir, "match-*.jsonl").Single();
+            var lines = File.ReadAllLines(file);
+            var config = RulesJson.Deserialize<MatchConfig>(lines[0]);
+            var content = GameContent.Load();
+            var replay = new LocalGameHost(content.Cards, content.Leaders, config, loopbackSerialization: false);
+            foreach (var line in lines.Skip(1))
+            {
+                var cmd = RulesJson.Deserialize<Command>(line);
+                var r = await replay.SubmitCommandAsync(cmd.Seat, cmd);
+                Assert.True(r.Accepted, $"logged command rejected on replay: {r.Error?.Code}");
+            }
+            Assert.Equal(serverWinner, replay.GetView(0).Result?.WinnerSeat);
+        }
+        finally
+        {
+            if (Directory.Exists(logDir)) Directory.Delete(logDir, recursive: true);
+        }
     }
 
     [Fact]

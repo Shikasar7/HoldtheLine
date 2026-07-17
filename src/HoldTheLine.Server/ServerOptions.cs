@@ -18,6 +18,10 @@ public sealed class ServerOptions
     /// <summary>Optional explicit path to the card/leader/deck data root; auto-discovered when null.</summary>
     public string? DataRoot { get; set; }
 
+    /// <summary>Optional directory to write per-match command logs (JSONL: config header + one line per
+    /// accepted command) for deterministic replay / bug repro. Null disables logging.</summary>
+    public string? CommandLogDir { get; set; }
+
     /// <summary>Optional message-of-the-day returned in HelloOk.</summary>
     public string? Motd { get; set; }
 }

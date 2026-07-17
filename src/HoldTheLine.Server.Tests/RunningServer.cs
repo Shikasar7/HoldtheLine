@@ -20,11 +20,12 @@ public sealed class RunningServer : IAsyncDisposable
         Ws = ws;
     }
 
-    public static async Task<RunningServer> StartAsync(int? disconnectGraceSeconds = null, int? turnSeconds = null)
+    public static async Task<RunningServer> StartAsync(int? disconnectGraceSeconds = null, int? turnSeconds = null, string? commandLogDir = null)
     {
         var opts = new ServerOptions { Urls = "http://127.0.0.1:0" };
         if (disconnectGraceSeconds is { } g) opts.DisconnectGraceSeconds = g;
         if (turnSeconds is { } t) opts.TurnSeconds = t;
+        opts.CommandLogDir = commandLogDir;
         var app = ServerApp.Build(opts);
         await app.StartAsync();
 

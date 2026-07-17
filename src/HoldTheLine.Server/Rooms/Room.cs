@@ -47,6 +47,7 @@ public sealed class Room(string code, GameContent content, ServerOptions opts)
 
         Session = MatchSession.Create(content, opts, _host!, _hostDeck!, _guest!, _guestDeck!);
         await Session.SendMatchStartedAsync();
+        Session.Begin(); // start the first turn clock
     }
 
     /// <summary>Was this connection an occupant of this room?</summary>

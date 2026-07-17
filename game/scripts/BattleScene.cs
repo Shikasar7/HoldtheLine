@@ -57,6 +57,9 @@ public partial class BattleScene : Control
 	private readonly System.Collections.Concurrent.ConcurrentQueue<GameEvent> _eventQueue = new();
 	private bool _pumping;
 	private Label? _connLabel;   // connection / opponent status banner (online only)
+	private Label? _timerLabel;  // turn countdown (online only)
+	private double _turnSecondsLeft;
+	private int _turnActiveSeat = -1;
 
 	// A view is "fixed" (always the local seat, mirrored for seat 1) in vs-AI and online; hotseat flips.
 	private bool FixedView => _vsAi || _online;
@@ -987,6 +990,7 @@ public partial class BattleScene : Control
 		remote.ViewUpdated += _ => Callable.From(RefreshFromSnapshot).CallDeferred();
 		remote.ConnectionStateChanged += s => Callable.From(() => OnConnState(s)).CallDeferred();
 		remote.OpponentStatusChanged += (connected, grace) => Callable.From(() => OnOpponentStatus(connected)).CallDeferred();
+		remote.TurnTimerReceived += (seat, secs) => Callable.From(() => OnTurnTimer(seat, secs)).CallDeferred();
 
 		try
 		{
@@ -1059,6 +1063,41 @@ public partial class BattleScene : Control
 	private void OnOpponentStatus(bool connected)
 	{
 		SetConn(connected ? "" : "对手掉线,等待重连…");
+	}
+
+	/// <summary>New turn clock from the server; _Process counts it down locally (the server is authoritative).</summary>
+	private void OnTurnTimer(int seat, int secondsLeft)
+	{
+		_turnActiveSeat = seat;
+		_turnSecondsLeft = secondsLeft;
+	}
+
+	public override void _Process(double delta)
+	{
+		if (!_online || !_onlineReady || _turnActiveSeat < 0)
+			return;
+		if (_turnSecondsLeft > 0)
+			_turnSecondsLeft = System.Math.Max(0, _turnSecondsLeft - delta);
+
+		if (_timerLabel == null)
+		{
+			_timerLabel = BattleTheme.MakeOutlinedLabel("", 26, BattleTheme.TextMain, HorizontalAlignment.Center);
+			_timerLabel.Position = new Vector2(BattleTheme.ScreenW / 2f - 120, 96);
+			_timerLabel.Size = new Vector2(240, 36);
+			_hudLayer.AddChild(_timerLabel);
+		}
+
+		bool over = _remoteHost?.GetView(_humanSeat).Result != null;
+		if (over)
+		{
+			_timerLabel.Visible = false;
+			return;
+		}
+		int secs = (int)System.Math.Ceiling(_turnSecondsLeft);
+		bool mine = _turnActiveSeat == _humanSeat;
+		_timerLabel.Visible = true;
+		_timerLabel.Text = $"⏱ {(mine ? "你" : "对手")} {secs}s";
+		_timerLabel.AddThemeColorOverride("font_color", secs <= 10 ? BattleTheme.DangerColor : BattleTheme.TextDim);
 	}
 
 	/// <summary>Kick the single-consumer pump. Safe to call repeatedly; no-op while one is running or

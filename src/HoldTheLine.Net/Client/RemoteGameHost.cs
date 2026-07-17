@@ -53,6 +53,9 @@ public sealed class RemoteGameHost : IGameHost
     /// <summary>Opponent connectivity changes (N3 grace UI). connected, graceSeconds.</summary>
     public event Action<bool, int?>? OpponentStatusChanged;
 
+    /// <summary>Server-announced turn clock at each handover (activeSeat, secondsLeft) — for a countdown UI.</summary>
+    public event Action<int, int>? TurnTimerReceived;
+
     public RemoteGameHost(GameServerClient client)
     {
         _client = client;
@@ -149,6 +152,7 @@ public sealed class RemoteGameHost : IGameHost
             case ResyncOk rs: ApplySnapshot(rs.View, rs.EventIndex, rs.LegalCommands); break;
             case CommandResultMsg cr: CompletePending(cr); break;
             case OpponentStatus os: OpponentStatusChanged?.Invoke(os.Connected, os.GraceSeconds); break;
+            case TurnTimer tt: TurnTimerReceived?.Invoke(tt.Seat, tt.SecondsLeft); break;
             case ErrorMsg err when !_matchStarted.Task.IsCompleted:
                 _matchStarted.TrySetException(new InvalidOperationException($"server error: {err.Code}: {err.Message}"));
                 break;
