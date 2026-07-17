@@ -13,11 +13,16 @@ public sealed class GameContent
     public LeaderDatabase Leaders { get; }
     public IReadOnlyList<DeckList> Decks { get; }
 
+    /// <summary>Content fingerprint of this data (M3 B0), compared against the client's hello to reject a
+    /// client shipping different card data. See <see cref="HoldTheLine.Net.DataHash"/>.</summary>
+    public string DataHash { get; }
+
     private GameContent(CardDatabase cards, LeaderDatabase leaders, IReadOnlyList<DeckList> decks)
     {
         Cards = cards;
         Leaders = leaders;
         Decks = decks;
+        DataHash = HoldTheLine.Net.DataHash.Compute(cards, leaders, decks);
     }
 
     public static GameContent Load(string? explicitRoot = null)

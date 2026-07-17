@@ -1019,12 +1019,15 @@ public partial class BattleScene : Control
 
 		try
 		{
+			var (guestId, secret) = Identity.Get(); // M3 B0: stable device identity + secret
 			var hello = new Hello
 			{
-				GuestId = "",
+				GuestId = guestId,
+				Secret = secret,
 				Name = GameConfig.Nickname,
 				ProtocolVersion = ProtocolConstants.ProtocolVersion,
 				RulesVersion = HoldTheLine.Rules.RulesInfo.Version,
+				DataHash = HoldTheLine.Net.DataHash.Compute(_cards, _leaders, GameData.LoadDecks()),
 			};
 			await client.ConnectAsync(new System.Uri(GameConfig.ServerUrl), hello);
 

@@ -24,4 +24,8 @@ public sealed class ServerOptions
 
     /// <summary>Optional message-of-the-day returned in HelloOk.</summary>
     public string? Motd { get; set; }
+
+    /// <summary>SQLite database file (M3 B0). Null / empty opens a private in-memory db (tests, throwaway
+    /// runs); production sets <c>/var/lib/holdtheline/holdtheline.db</c> via HTL_Server__DbPath.</summary>
+    public string? DbPath { get; set; }
 }

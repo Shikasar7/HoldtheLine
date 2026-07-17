@@ -5,8 +5,9 @@ namespace HoldTheLine.Net.Protocol;
 
 public static class ProtocolConstants
 {
-    /// <summary>Wire-format version. Bump on any change to <see cref="ClientMessage"/>/<see cref="ServerMessage"/> shapes.</summary>
-    public const int ProtocolVersion = 1;
+    /// <summary>Wire-format version. Bump on any change to <see cref="ClientMessage"/>/<see cref="ServerMessage"/> shapes.
+    /// v2 (M3): persistent identity fields on hello + the §3.4 lobby/deck/queue/ladder message families.</summary>
+    public const int ProtocolVersion = 2;
 }
 
 /// <summary>

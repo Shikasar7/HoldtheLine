@@ -2,6 +2,7 @@ using System.Net.WebSockets;
 using HoldTheLine.Net;
 using HoldTheLine.Net.Protocol;
 using HoldTheLine.Rules;
+using HoldTheLine.Server.Data;
 using Microsoft.Extensions.Logging;
 
 namespace HoldTheLine.Server.Rooms;
@@ -21,11 +22,11 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
     public Room? Room { get; set; }
     public int Seat { get; set; }
 
-    public async Task RunAsync(RoomManager rooms, GameContent content, ServerOptions opts, CancellationToken ct)
+    public async Task RunAsync(RoomManager rooms, GameContent content, ServerOptions opts, AccountStore accounts, CancellationToken ct)
     {
         try
         {
-            if (!await HandshakeAsync(rooms, opts, ct).ConfigureAwait(false))
+            if (!await HandshakeAsync(rooms, content, opts, accounts, ct).ConfigureAwait(false))
                 return;
 
             while (!ct.IsCancellationRequested)
@@ -57,8 +58,10 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
     }
 
     /// <summary>First frame must be a version-matching hello; otherwise send an error and close. A hello
-    /// carrying a resume token re-attaches to an in-progress match instead of waiting for create/join.</summary>
-    private async Task<bool> HandshakeAsync(RoomManager rooms, ServerOptions opts, CancellationToken ct)
+    /// carrying a resume token re-attaches to an in-progress match instead of waiting for create/join.
+    /// M3 B0: also gates on the data hash and establishes / restores the persistent identity, then pushes
+    /// the account <see cref="Profile"/>.</summary>
+    private async Task<bool> HandshakeAsync(RoomManager rooms, GameContent content, ServerOptions opts, AccountStore accounts, CancellationToken ct)
     {
         if (await ReceiveAsync(ct).ConfigureAwait(false) is not Hello hello)
         {
@@ -78,8 +81,40 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
             return false;
         }
 
+        // Data gate (B0): only when the client sends a hash — closes the "version gate guards code, not
+        // card data" gap. Bots and legacy callers omit it and are unaffected.
+        if (!string.IsNullOrEmpty(hello.DataHash) && hello.DataHash != content.DataHash)
+        {
+            await SendAsync(new ErrorMsg
+            {
+                Code = "data_mismatch",
+                Message = "Your card data differs from the server's — please update the game.",
+                Seq = hello.Seq,
+            }, ct).ConfigureAwait(false);
+            return false;
+        }
+
         GuestId = string.IsNullOrWhiteSpace(hello.GuestId) ? SessionAuth.NewGuestId() : hello.GuestId;
         Name = string.IsNullOrWhiteSpace(hello.Name) ? GuestId : hello.Name;
+
+        // Persistent identity (B0): register on first sight, verify the secret thereafter. A hello without
+        // a secret is an anonymous/ephemeral session (bots, tests) — no db row, throwaway guest id.
+        if (!string.IsNullOrEmpty(hello.Secret) && !string.IsNullOrWhiteSpace(hello.GuestId))
+        {
+            var (outcome, account) = accounts.RegisterOrRestore(hello.GuestId, hello.Secret, Name);
+            if (outcome == AccountStore.Outcome.BadSecret)
+            {
+                await SendAsync(new ErrorMsg
+                {
+                    Code = "bad_identity",
+                    Message = "That guest id is taken by another device.",
+                    Seq = hello.Seq,
+                }, ct).ConfigureAwait(false);
+                return false;
+            }
+            Name = account.Name;
+        }
+
         await SendAsync(new HelloOk
         {
             ServerTimeUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
@@ -96,8 +131,22 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
                 .ConfigureAwait(false);
             return false;
         }
+
+        await SendAsync(BuildProfile(), ct).ConfigureAwait(false); // B0: name + Beta defaults; ratings/decks filled in B1/B2
         return true;
     }
+
+    /// <summary>The account snapshot pushed after hello_ok. B0 has only the name persisted; rating, W/L
+    /// and decks are Beta defaults here and get real values once LadderStore/DeckStore land (B1/B2).</summary>
+    private Profile BuildProfile() => new()
+    {
+        Name = Name,
+        Rating = 1000,
+        Wins = 0,
+        Losses = 0,
+        Decks = [],
+        CollectionMode = "unlock_all",
+    };
 
     private async Task DispatchAsync(ClientMessage msg, RoomManager rooms, GameContent content)
     {
@@ -123,6 +172,10 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
             case SubmitCommand or Resync:
                 var session = Room?.Session ?? throw new ProtocolError("not_in_match", "No active match on this connection.");
                 session.Enqueue(Seat, msg);
+                break;
+
+            case GetProfile:
+                await SendAsync(BuildProfile()).ConfigureAwait(false);
                 break;
 
             case Hello:

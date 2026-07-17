@@ -24,6 +24,15 @@ namespace HoldTheLine.Net.Protocol;
 [JsonDerivedType(typeof(SubmitCommand), "submit_command")]
 [JsonDerivedType(typeof(Resync), "resync")]
 [JsonDerivedType(typeof(Ping), "ping")]
+// --- protocol v2 (M3 plan §3.4): lobby / deck / queue / ladder. Frozen up front so later phases add
+//     only handlers, not new message shapes.
+[JsonDerivedType(typeof(SaveDeck), "save_deck")]
+[JsonDerivedType(typeof(DeleteDeck), "delete_deck")]
+[JsonDerivedType(typeof(GetProfile), "get_profile")]
+[JsonDerivedType(typeof(JoinQueue), "join_queue")]
+[JsonDerivedType(typeof(LeaveQueue), "leave_queue")]
+[JsonDerivedType(typeof(GetLadder), "get_ladder")]
+[JsonDerivedType(typeof(Rematch), "rematch")]
 public abstract record ClientMessage
 {
     /// <summary>Client-assigned, monotonic per connection. Server echoes it in the matching reply
@@ -39,6 +48,14 @@ public sealed record Hello : ClientMessage
     public required string RulesVersion { get; init; }
     /// <summary>Present only when re-attaching to an in-progress match after a drop.</summary>
     public string? ResumeToken { get; init; }
+    /// <summary>Persistent-identity credential (M3 B0): the random secret paired with a stable GuestId.
+    /// Null for an anonymous/ephemeral session — the server issues a throwaway guest id and skips
+    /// persistence. When present, the server registers on first sight and verifies it thereafter.</summary>
+    public string? Secret { get; init; }
+    /// <summary>Content fingerprint of the client's card/leader/deck data (see <see cref="DataHash"/>).
+    /// Null skips the check (e.g. bots); when present and unequal to the server's, the handshake is
+    /// rejected with a "data_mismatch" update prompt.</summary>
+    public string? DataHash { get; init; }
 }
 
 public sealed record CreateRoom : ClientMessage
@@ -67,6 +84,40 @@ public sealed record Resync : ClientMessage
 
 public sealed record Ping : ClientMessage;
 
+// --- protocol v2 client messages (M3 §3.4) -------------------------------------------------------
+
+/// <summary>Create or update a deck (server validates with DeckValidator). Null DeckId = create.</summary>
+public sealed record SaveDeck : ClientMessage
+{
+    public string? DeckId { get; init; }
+    public required string Name { get; init; }
+    public required string Leader { get; init; }
+    public required IReadOnlyList<string> CardIds { get; init; }
+}
+
+public sealed record DeleteDeck : ClientMessage
+{
+    public required string DeckId { get; init; }
+}
+
+/// <summary>Ask the server to (re)push the account <see cref="Profile"/>.</summary>
+public sealed record GetProfile : ClientMessage;
+
+public sealed record JoinQueue : ClientMessage
+{
+    public required string DeckId { get; init; }
+}
+
+public sealed record LeaveQueue : ClientMessage;
+
+public sealed record GetLadder : ClientMessage
+{
+    public int? Season { get; init; }
+}
+
+/// <summary>After a match ends, both players sending this re-opens the same room for another game.</summary>
+public sealed record Rematch : ClientMessage;
+
 // ---------------------------------------------------------------------------------------------
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "t")]
@@ -81,6 +132,14 @@ public sealed record Ping : ClientMessage;
 [JsonDerivedType(typeof(MatchEnded), "match_ended")]
 [JsonDerivedType(typeof(ErrorMsg), "error")]
 [JsonDerivedType(typeof(Pong), "pong")]
+// --- protocol v2 (M3 §3.4) ---
+[JsonDerivedType(typeof(Profile), "profile")]
+[JsonDerivedType(typeof(DeckSaved), "deck_saved")]
+[JsonDerivedType(typeof(DeckError), "deck_error")]
+[JsonDerivedType(typeof(QueueStatus), "queue_status")]
+[JsonDerivedType(typeof(Ladder), "ladder")]
+[JsonDerivedType(typeof(RematchStatus), "rematch_status")]
+[JsonDerivedType(typeof(RatingChange), "rating_change")]
 public abstract record ServerMessage
 {
     /// <summary>Echoes the client <see cref="ClientMessage.Seq"/> this is a direct reply to; 0 for
@@ -168,3 +227,73 @@ public sealed record ErrorMsg : ServerMessage
 }
 
 public sealed record Pong : ServerMessage;
+
+// --- protocol v2 server messages (M3 §3.4) -------------------------------------------------------
+
+/// <summary>Account snapshot, pushed right after hello_ok and on demand (get_profile).</summary>
+public sealed record Profile : ServerMessage
+{
+    public required string Name { get; init; }
+    public required int Rating { get; init; }
+    public required int Wins { get; init; }
+    public required int Losses { get; init; }
+    public required IReadOnlyList<DeckSummary> Decks { get; init; }
+    /// <summary>"unlock_all" during Beta (D-M3-2) — every card is available.</summary>
+    public required string CollectionMode { get; init; }
+}
+
+public sealed record DeckSummary
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+    public required string Faction { get; init; }
+}
+
+public sealed record DeckSaved : ServerMessage
+{
+    public required string DeckId { get; init; }
+}
+
+public sealed record DeckError : ServerMessage
+{
+    public required string Code { get; init; }
+    public required string Message { get; init; }
+}
+
+public sealed record QueueStatus : ServerMessage
+{
+    /// <summary>1-based place in line; null while it's being computed / not queued.</summary>
+    public int? Position { get; init; }
+    public required int WaitedSeconds { get; init; }
+    /// <summary>Seconds until the practice-bot fallback kicks in (D-M3-4); null if not applicable.</summary>
+    public int? BotFallbackIn { get; init; }
+}
+
+public sealed record Ladder : ServerMessage
+{
+    public required IReadOnlyList<LadderEntry> Entries { get; init; }
+    /// <summary>The requester's own rank (0 if unranked).</summary>
+    public required int MyRank { get; init; }
+}
+
+public sealed record LadderEntry
+{
+    public required int Rank { get; init; }
+    public required string Name { get; init; }
+    public required int Rating { get; init; }
+    public required int Wins { get; init; }
+    public required int Losses { get; init; }
+}
+
+public sealed record RematchStatus : ServerMessage
+{
+    public required bool YouReady { get; init; }
+    public required bool OpponentReady { get; init; }
+}
+
+public sealed record RatingChange : ServerMessage
+{
+    public required int Old { get; init; }
+    public required int New { get; init; }
+    public required int Season { get; init; }
+}

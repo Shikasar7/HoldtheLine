@@ -7,4 +7,7 @@
   <ItemGroup>
     <ProjectReference Include="..\HoldTheLine.Net\HoldTheLine.Net.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
+  </ItemGroup>
 </Project>
