@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>HoldTheLine.BotClient</RootNamespace>
+    <Description>Hold the Line — networked console bot. N0: connect / create / join. N1: plays a full match via GreedyAi over the wire.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\HoldTheLine.Net\HoldTheLine.Net.csproj" />
+  </ItemGroup>
+</Project>

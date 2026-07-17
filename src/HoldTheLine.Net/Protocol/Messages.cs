@@ -1,0 +1,166 @@
+using System.Text.Json.Serialization;
+using HoldTheLine.Rules.Commands;
+using HoldTheLine.Rules.Events;
+using HoldTheLine.Rules.Hosting;
+
+namespace HoldTheLine.Net.Protocol;
+
+/// <summary>
+/// The wire vocabulary (M2 plan §4). Two polymorphic families — client→server and server→client —
+/// each discriminated by a <c>t</c> tag, exactly like <see cref="Command"/>/<see cref="GameEvent"/>
+/// are by <c>$type</c>. The tag *is* the envelope: a frame is one JSON object carrying its type in
+/// <c>t</c>, its request id in <c>seq</c>, and its payload as sibling fields (this flat shape
+/// supersedes the illustrative {t,seq,p} nesting sketched in the plan — same information, no double
+/// tagging, and it round-trips through the same <see cref="Rules.Serialization.RulesJson"/> contract).
+///
+/// FROZEN like the rules shapes: adding/removing a message or field is a protocol change → Fable
+/// review (switch signal S2). Bump <see cref="ProtocolConstants.ProtocolVersion"/> when it happens.
+/// </summary>
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "t")]
+[JsonDerivedType(typeof(Hello), "hello")]
+[JsonDerivedType(typeof(CreateRoom), "create_room")]
+[JsonDerivedType(typeof(JoinRoom), "join_room")]
+[JsonDerivedType(typeof(LeaveRoom), "leave_room")]
+[JsonDerivedType(typeof(SubmitCommand), "submit_command")]
+[JsonDerivedType(typeof(Resync), "resync")]
+[JsonDerivedType(typeof(Ping), "ping")]
+public abstract record ClientMessage
+{
+    /// <summary>Client-assigned, monotonic per connection. Server echoes it in the matching reply
+    /// (e.g. <see cref="CommandResultMsg.AckSeq"/>) so requests and responses can be paired.</summary>
+    public int Seq { get; init; }
+}
+
+public sealed record Hello : ClientMessage
+{
+    public required string GuestId { get; init; }
+    public required string Name { get; init; }
+    public required int ProtocolVersion { get; init; }
+    public required string RulesVersion { get; init; }
+    /// <summary>Present only when re-attaching to an in-progress match after a drop.</summary>
+    public string? ResumeToken { get; init; }
+}
+
+public sealed record CreateRoom : ClientMessage
+{
+    public required string DeckId { get; init; }
+}
+
+public sealed record JoinRoom : ClientMessage
+{
+    public required string Code { get; init; }
+    public required string DeckId { get; init; }
+}
+
+public sealed record LeaveRoom : ClientMessage;
+
+/// <summary>The only in-match input. Carries a polymorphic <see cref="Command"/> (nested $type).</summary>
+public sealed record SubmitCommand : ClientMessage
+{
+    public required Command Command { get; init; }
+}
+
+public sealed record Resync : ClientMessage
+{
+    public required int SinceEventIndex { get; init; }
+}
+
+public sealed record Ping : ClientMessage;
+
+// ---------------------------------------------------------------------------------------------
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "t")]
+[JsonDerivedType(typeof(HelloOk), "hello_ok")]
+[JsonDerivedType(typeof(RoomCreated), "room_created")]
+[JsonDerivedType(typeof(MatchStarted), "match_started")]
+[JsonDerivedType(typeof(CommandResultMsg), "command_result")]
+[JsonDerivedType(typeof(EventsMsg), "events")]
+[JsonDerivedType(typeof(ResyncOk), "resync_ok")]
+[JsonDerivedType(typeof(OpponentStatus), "opponent_status")]
+[JsonDerivedType(typeof(TurnTimer), "turn_timer")]
+[JsonDerivedType(typeof(MatchEnded), "match_ended")]
+[JsonDerivedType(typeof(ErrorMsg), "error")]
+[JsonDerivedType(typeof(Pong), "pong")]
+public abstract record ServerMessage
+{
+    /// <summary>Echoes the client <see cref="ClientMessage.Seq"/> this is a direct reply to; 0 for
+    /// unsolicited pushes (events, timers, opponent status).</summary>
+    public int Seq { get; init; }
+}
+
+public sealed record HelloOk : ServerMessage
+{
+    public required long ServerTimeUnixMs { get; init; }
+    public string? Motd { get; init; }
+}
+
+public sealed record RoomCreated : ServerMessage
+{
+    public required string Code { get; init; }
+}
+
+public sealed record MatchStarted : ServerMessage
+{
+    public required int Seat { get; init; }
+    /// <summary>Opaque session credential; the only way to re-attach after a drop within the grace window.</summary>
+    public required string ResumeToken { get; init; }
+    public required PlayerView View { get; init; }
+    public required string OpponentName { get; init; }
+    /// <summary>Legal commands for the recipient — non-empty only if it is their turn.</summary>
+    public IReadOnlyList<Command>? LegalCommands { get; init; }
+}
+
+public sealed record CommandResultMsg : ServerMessage
+{
+    public required int AckSeq { get; init; }
+    public required bool Accepted { get; init; }
+    public string? ErrorCode { get; init; }
+    public string? ErrorMessage { get; init; }
+}
+
+/// <summary>A batch of already seat-redacted resolution events, in resolver order.</summary>
+public sealed record EventsMsg : ServerMessage
+{
+    public required IReadOnlyList<GameEvent> Batch { get; init; }
+    /// <summary>Running count of events dispatched to this seat *after* this batch — used to detect gaps.</summary>
+    public required int EventIndex { get; init; }
+    /// <summary>Present when this batch hands the turn to the recipient; their new legal moves.</summary>
+    public IReadOnlyList<Command>? LegalCommands { get; init; }
+}
+
+public sealed record ResyncOk : ServerMessage
+{
+    public required PlayerView View { get; init; }
+    public required IReadOnlyList<GameEvent> EventsSince { get; init; }
+    public required int EventIndex { get; init; }
+    public IReadOnlyList<Command>? LegalCommands { get; init; }
+}
+
+public sealed record OpponentStatus : ServerMessage
+{
+    public required bool Connected { get; init; }
+    /// <summary>Seconds left before the disconnected opponent forfeits; null when reconnected.</summary>
+    public int? GraceSeconds { get; init; }
+}
+
+public sealed record TurnTimer : ServerMessage
+{
+    public required int Seat { get; init; }
+    public required int SecondsLeft { get; init; }
+}
+
+public sealed record MatchEnded : ServerMessage
+{
+    /// <summary>-1 for a draw.</summary>
+    public required int WinnerSeat { get; init; }
+    /// <summary>normal | concede | timeout | abandon.</summary>
+    public required string Reason { get; init; }
+}
+
+public sealed record ErrorMsg : ServerMessage
+{
+    public required string Code { get; init; }
+    public required string Message { get; init; }
+}
+
+public sealed record Pong : ServerMessage;

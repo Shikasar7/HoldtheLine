@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>HoldTheLine.Net</RootNamespace>
+    <Description>Hold the Line — client/server wire protocol and transport abstraction. Shared by server, bot, and Godot client. No Godot / ASP.NET dependencies.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\HoldTheLine.Rules\HoldTheLine.Rules.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>HoldTheLine.Server</RootNamespace>
+    <Description>Hold the Line — authoritative battle server (ASP.NET Core + WebSocket). Hosts LocalGameHost per match; no Godot dependency.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\HoldTheLine.Net\HoldTheLine.Net.csproj" />
+  </ItemGroup>
+</Project>
