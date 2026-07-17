@@ -1040,60 +1040,99 @@ public partial class BattleScene : Control
 		float innerW = DetailW - pad * 2;
 		var faction = FactionColor(def.Faction);
 
-		// Card art: the real image once the AI-art pipeline ships it, else a faction-tinted placeholder.
-		const float artH = 196f;
+		// Card art (BattleTheme.Art keeps the ExpandMode-before-Size order — a raw initializer
+		// here once let the texture's min size blow the image out of the panel).
+		const float artH = 264f;
 		var artPath = $"{BattleTheme.ArtRoot}/cards/{def.Id}.png";
 		if (ResourceLoader.Exists(artPath))
 		{
-			_detailPanel.AddChild(new TextureRect
-			{
-				Texture = GD.Load<Texture2D>(artPath),
-				Position = new Vector2(pad, pad),
-				Size = new Vector2(innerW, artH),
-				MouseFilter = MouseFilterEnum.Ignore,
-				ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-				StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
-			});
+			_detailPanel.AddChild(BattleTheme.Art(GD.Load<Texture2D>(artPath), new Vector2(pad, pad), new Vector2(innerW, artH)));
 		}
 		else
 		{
 			_detailPanel.AddChild(new ColorRect { Color = faction.Darkened(0.2f), Position = new Vector2(pad, pad), Size = new Vector2(innerW, artH), MouseFilter = MouseFilterEnum.Ignore });
-			var ph = BattleTheme.MakeLabel(def.Name, 34, new Color(1, 1, 1, 0.85f), HorizontalAlignment.Center);
+			var ph = BattleTheme.MakeOutlinedLabel(def.Name, 34, new Color(1, 1, 1, 0.85f), HorizontalAlignment.Center);
+			ph.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
 			ph.Position = new Vector2(pad, pad);
 			ph.Size = new Vector2(innerW, artH);
-			ph.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 			_detailPanel.AddChild(ph);
-			var tag = BattleTheme.MakeLabel("〔插画占位〕", 14, new Color(1, 1, 1, 0.5f), HorizontalAlignment.Center);
-			tag.Position = new Vector2(pad, pad + artH - 26);
-			tag.Size = new Vector2(innerW, 20);
-			_detailPanel.AddChild(tag);
 		}
 
-		float y = pad + artH + 12;
-		void Add(string text, int size, Color color, float h, bool wrap = false)
+		// Name over the art's lower edge, on a soft dark strip.
+		var nameStrip = new ColorRect { Color = new Color(0.05f, 0.045f, 0.04f, 0.62f), Position = new Vector2(pad, pad + artH - 46), Size = new Vector2(innerW, 46), MouseFilter = MouseFilterEnum.Ignore };
+		_detailPanel.AddChild(nameStrip);
+		var nameL = BattleTheme.MakeOutlinedLabel(def.Name, 26, BattleTheme.TextMain);
+		nameL.Position = new Vector2(pad + 14, pad + artH - 44);
+		nameL.Size = new Vector2(innerW * 0.6f, 42);
+		_detailPanel.AddChild(nameL);
+		var metaL = BattleTheme.MakeOutlinedLabel($"{RarityName(def.Rarity)} · {FactionName(def.Faction)} · 随从", 14, BattleTheme.TextDim, HorizontalAlignment.Right);
+		metaL.Position = new Vector2(pad + innerW * 0.5f - 14, pad + artH - 42);
+		metaL.Size = new Vector2(innerW * 0.5f, 38);
+		_detailPanel.AddChild(metaL);
+
+		// Stats row: the same gems as the cards, with captions.
+		float y = pad + artH + 14;
+		var stats = new (string Num, string Caption, Color Color, Texture2D? Gem)[]
 		{
-			var label = BattleTheme.MakeLabel(text, size, color);
-			label.Position = new Vector2(pad, y);
-			label.Size = new Vector2(innerW, h);
-			if (wrap) label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-			_detailPanel.AddChild(label);
-			y += h + 6;
+			(def.Cost.ToString(), "辉尘", BattleTheme.CostColor, _gemCost),
+			(u.Atk.ToString(), "攻击", BattleTheme.AtkColor, _gemAtk),
+			(u.CurrentHp.ToString(), $"生命 {u.CurrentHp}/{u.MaxHp}", u.CurrentHp < u.MaxHp ? BattleTheme.DangerColor : BattleTheme.HpColor, _gemHp),
+		};
+		float sx = pad + 6;
+		foreach (var (num, caption, color, gemTex) in stats)
+		{
+			_detailPanel.AddChild(Pip(num, color, new Vector2(sx, y), gemTex, 46));
+			var cap = BattleTheme.MakeLabel(caption, 17, BattleTheme.TextMain);
+			cap.Position = new Vector2(sx + 54, y + 11);
+			cap.Size = new Vector2(110, 24);
+			_detailPanel.AddChild(cap);
+			sx += 158;
 		}
+		y += 46 + 16;
 
-		Add(def.Name, 30, BattleTheme.TextMain, 40);
-		Add($"{RarityName(def.Rarity)} · {FactionName(def.Faction)} · 随从", 16, BattleTheme.TextDim, 22);
-		Add($"辉尘 {def.Cost}      攻击 {u.Atk}      生命 {u.CurrentHp}/{u.MaxHp}", 20, BattleTheme.TextMain, 28);
+		// Rules text on the same dark plate style as the hand cards.
 		if (def.Text.Length > 0)
-			Add(BattleTheme.BodyText(def.Text), 16, BattleTheme.TextMain, 58, wrap: true);
+		{
+			string bodyText = BattleTheme.BodyText(def.Text);
+			float plateH = 26f + 26f * Mathf.Ceil(bodyText.Length / 26f);
+			var plate = new Panel { Position = new Vector2(pad, y), Size = new Vector2(innerW, plateH), MouseFilter = MouseFilterEnum.Ignore };
+			plate.AddThemeStyleboxOverride("panel", BattleTheme.Box(
+				new Color(0.07f, 0.06f, 0.05f, 0.7f), new Color(0.62f, 0.5f, 0.3f, 0.45f), 1, 8));
+			_detailPanel.AddChild(plate);
+			var body = BattleTheme.MakeLabel(bodyText, 17, new Color(0.93f, 0.89f, 0.8f), HorizontalAlignment.Center);
+			body.AddThemeFontOverride("font", BattleTheme.UiFontBold);
+			body.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+			body.VerticalAlignment = VerticalAlignment.Center;
+			body.ClipContents = true;
+			body.Position = new Vector2(pad + 12, y + 2);
+			body.Size = new Vector2(innerW - 24, plateH - 4);
+			_detailPanel.AddChild(body);
+			y += plateH + 12;
+		}
 
 		foreach (var k in u.Keywords)
-			Add($"【{KeywordDisplayName(k)}】{BattleTheme.BodyText(KeywordDesc(k.Keyword))}", 15, BattleTheme.Accent, 46, wrap: true);
+		{
+			var kwl = BattleTheme.MakeLabel($"【{KeywordDisplayName(k)}】{BattleTheme.BodyText(KeywordDesc(k.Keyword))}", 15, BattleTheme.Accent);
+			kwl.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+			kwl.VerticalAlignment = VerticalAlignment.Top;
+			kwl.ClipContents = true;
+			kwl.Position = new Vector2(pad + 4, y);
+			kwl.Size = new Vector2(innerW - 8, 44);
+			_detailPanel.AddChild(kwl);
+			y += 48;
+		}
 
-		var lore = BattleTheme.MakeLabel(FactionLore(def.Faction), 14, BattleTheme.TextDim);
-		lore.Position = new Vector2(pad, DetailH - 58);
-		lore.Size = new Vector2(innerW, 48);
-		lore.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-		_detailPanel.AddChild(lore);
+		// Faction lore pinned to the bottom — skipped when the content above needs the room.
+		if (y < DetailH - 76)
+		{
+			var lore = BattleTheme.MakeLabel(FactionLore(def.Faction), 13, BattleTheme.TextDim);
+			lore.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+			lore.VerticalAlignment = VerticalAlignment.Bottom;
+			lore.ClipContents = true;
+			lore.Position = new Vector2(pad, DetailH - 66);
+			lore.Size = new Vector2(innerW, 52);
+			_detailPanel.AddChild(lore);
+		}
 
 		// Close button added last so it sits on top of the art and is always clickable.
 		var close = BattleTheme.MakeButton(new Vector2(DetailW - 46, 10), new Vector2(36, 36), BattleTheme.PanelDark, BattleTheme.TextDim, 1, 8);
