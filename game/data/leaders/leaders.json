@@ -64,15 +64,14 @@
     "faction": "undervault",
     "skill_cost": 2,
     "skill_name": "加农校准",
-    "text": "加农校准(2费):一个友方随从获得射程 1,直到回合结束。",
+    "text": "加农校准(2费):一个友方随从本回合射程 +1(叠加到其当前射程上)。",
     "art_prompt": "a grizzled dwarf chief engineer with a brass monocle, soot-streaked beard, blueprints under one arm",
     "skill_effects": [
       {
         "trigger": "leader_skill",
-        "action": "grant_keyword",
+        "action": "boost_range",
         "target": "target_unit_ally",
-        "keyword": "range",
-        "keyword_value": 1,
+        "amount": 1,
         "duration": "end_of_turn"
       }
     ]

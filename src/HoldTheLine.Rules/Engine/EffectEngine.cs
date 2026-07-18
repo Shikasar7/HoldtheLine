@@ -117,6 +117,14 @@ internal static class EffectEngine
                     ctx.GrantKeyword(t, spec.GrantKeyword!.Value, spec.GrantKeywordValue, spec.Duration, ownerSeat);
                 break;
 
+            case "boost_range":
+                // 加农校准: +Amount range, ADDITIVE onto whatever range the unit already has (docs/00 §3 —
+                // restores the GDD "射程加法叠加" original). KeywordValue is a max across grants, so raising
+                // it means granting (current range + Amount): a melee unit → range Amount, a range-2 unit → 2+Amount.
+                foreach (var t in targets)
+                    ctx.GrantKeyword(t, Keyword.Range, t.KeywordValue(Keyword.Range) + spec.Amount, spec.Duration, ownerSeat);
+                break;
+
             case "move_bonus":
                 foreach (var t in targets)
                     ctx.AddMoveBonus(t, spec.Amount);

@@ -238,6 +238,7 @@ public static class GreedyAi
 
             case "grant_keyword":
             case "move_bonus":
+            case "boost_range": // 加农校准: +range on an ally — reach from safety, worth a small buff
                 if (e.Target is "target_unit" or "target_unit_ally")
                 {
                     if (target == null) return 0;

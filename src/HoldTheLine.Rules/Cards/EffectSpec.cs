@@ -45,7 +45,7 @@ public sealed record EffectSpec
         { "battlecry", "deathrattle", "play", "leader_skill", "ally_order_played" };
 
     public static readonly IReadOnlySet<string> KnownActions = new HashSet<string>
-        { "damage", "buff", "draw", "gain_mana", "heal", "grant_keyword", "summon", "move_bonus", "destroy", "recall_order" };
+        { "damage", "buff", "draw", "gain_mana", "heal", "grant_keyword", "boost_range", "summon", "move_bonus", "destroy", "recall_order" };
 
     public static readonly IReadOnlySet<string> KnownTargets = new HashSet<string>
         { "none", "self", "target_unit", "target_unit_own_half", "target_unit_ally",

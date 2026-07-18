@@ -29,15 +29,21 @@ public sealed class Room(string code, GameContent content, ServerOptions opts, D
     }
 
     /// <summary>Seat the joiner and kick off the match. Throws <see cref="ProtocolError"/> if the room
-    /// is already full or in progress.</summary>
-    public async Task JoinAndStartAsync(ClientConnection guest, string deckId, Func<int, string, Task>? onEnded = null)
+    /// is already full/in progress, or if either deck no longer resolves.</summary>
+    public async Task JoinAndStartAsync(ClientConnection guest, string deckId, Func<int, string, (Net.Protocol.ServerMessage?, Net.Protocol.ServerMessage?)>? onEnded = null)
     {
+        Data.ResolvedDeck host0, guest1;
         lock (_gate)
         {
             if (_started || _guest != null)
                 throw new ProtocolError("room_full", "That room is already full.");
             if (_host == null)
                 throw new ProtocolError("room_not_ready", "That room has no host.");
+            // Resolve BOTH decks while still "waiting": a deck deleted since create_room throws here,
+            // BEFORE the room is marked started, so a failed start can never zombify it as
+            // "started, no session" (C0-3).
+            host0 = deckSource.Resolve(_host.GuestId, _hostDeck!);
+            guest1 = deckSource.Resolve(guest.GuestId, deckId);
             _guest = guest;
             _guestDeck = deckId;
             _started = true;
@@ -45,12 +51,21 @@ public sealed class Room(string code, GameContent content, ServerOptions opts, D
         guest.Room = this;
         guest.Seat = 1;
 
-        // Resolve each side's deck (saved-or-built-in) now that both players + their picks are seated.
-        var host0 = deckSource.Resolve(_host!.GuestId, _hostDeck!);
-        var guest1 = deckSource.Resolve(_guest!.GuestId, _guestDeck!);
-        Session = MatchSession.Create(content, opts, _host!, host0, _guest!, guest1, onEnded);
-        await Session.SendMatchStartedAsync();
-        Session.Begin(); // start the first turn clock
+        try
+        {
+            Session = MatchSession.Create(content, opts, _host!, host0, _guest!, guest1, onEnded);
+            await Session.SendMatchStartedAsync();
+            Session.Begin(); // start the first turn clock
+        }
+        catch
+        {
+            // Roll back so a mid-start failure doesn't leave the room stuck (defence in depth).
+            Session?.Stop();
+            Session = null;
+            guest.Room = null;
+            lock (_gate) { _guest = null; _guestDeck = null; _started = false; }
+            throw;
+        }
     }
 
     /// <summary>Was this connection an occupant of this room?</summary>

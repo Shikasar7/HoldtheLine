@@ -41,7 +41,7 @@ public sealed class RoomManager(ServerOptions opts, GameContent content, DeckSou
 
     /// <summary>Start a ranked match directly from two queued connections (M3 B2). No shareable code —
     /// the room exists only to carry the reconnect/timer machinery. <paramref name="onEnded"/> settles ELO.</summary>
-    public async Task StartRankedMatchAsync(ClientConnection a, string deckA, ClientConnection b, string deckB, Func<int, string, Task> onEnded)
+    public async Task StartRankedMatchAsync(ClientConnection a, string deckA, ClientConnection b, string deckB, Func<int, string, (Net.Protocol.ServerMessage?, Net.Protocol.ServerMessage?)> onEnded)
     {
         Room? room = null;
         for (int attempt = 0; attempt < 8; attempt++)
@@ -53,7 +53,19 @@ public sealed class RoomManager(ServerOptions opts, GameContent content, DeckSou
             throw new ProtocolError("server_busy", "Could not allocate a match.");
 
         room.SetHost(a, deckA);
-        await room.JoinAndStartAsync(b, deckB, onEnded);
+        try
+        {
+            await room.JoinAndStartAsync(b, deckB, onEnded);
+        }
+        catch
+        {
+            // A start failure (e.g. a deck vanished) must not strand the players in a dead room — drop it
+            // and clear their room refs so the queue can re-seat the survivors (C0-3).
+            _rooms.TryRemove(room.Code, out _);
+            a.Room = null;
+            b.Room = null;
+            throw;
+        }
         IndexTokens(room);
     }
 
