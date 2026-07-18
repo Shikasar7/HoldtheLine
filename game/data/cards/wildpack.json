@@ -200,293 +200,293 @@
 	"art_prompt": "a horn-call summoning two wolf pups bounding out of the dust to the back line"
   },
   {
-    "id": "wp_trail_sniffer",
-    "name": "循迹幼兽",
-    "faction": "wildpack",
-    "type": "unit",
-    "rarity": "common",
-    "cost": 1,
-    "atk": 1,
-    "hp": 1,
-    "effects": [
-      {
-        "trigger": "self_moved",
-        "action": "buff",
-        "target": "self",
-        "atk": 1
-      }
-    ],
-    "text": "移动后:本随从 +1/+0。",
-    "art_prompt": "a young wolf-pup nose to the ground following a scent trail, ears perked"
+	"id": "wp_trail_sniffer",
+	"name": "循迹幼兽",
+	"faction": "wildpack",
+	"type": "unit",
+	"rarity": "common",
+	"cost": 1,
+	"atk": 1,
+	"hp": 1,
+	"effects": [
+	  {
+		"trigger": "self_moved",
+		"action": "buff",
+		"target": "self",
+		"atk": 1
+	  }
+	],
+	"text": "移动后:本随从 +1/+0。",
+	"art_prompt": "a young wolf-pup nose to the ground following a scent trail, ears perked"
   },
   {
-    "id": "wp_night_prowler",
-    "name": "夜巡狼",
-    "faction": "wildpack",
-    "type": "unit",
-    "rarity": "common",
-    "cost": 2,
-    "atk": 3,
-    "hp": 1,
-    "keywords": [
-      {
-        "keyword": "cheap_shot"
-      }
-    ],
-    "text": "偷袭。",
-    "art_prompt": "a lean black wolf slinking through night grass, eyes glinting, low and silent"
+	"id": "wp_night_prowler",
+	"name": "夜巡狼",
+	"faction": "wildpack",
+	"type": "unit",
+	"rarity": "common",
+	"cost": 2,
+	"atk": 3,
+	"hp": 1,
+	"keywords": [
+	  {
+		"keyword": "cheap_shot"
+	  }
+	],
+	"text": "偷袭。",
+	"art_prompt": "a lean black wolf slinking through night grass, eyes glinting, low and silent"
   },
   {
-    "id": "wp_bone_gnawer",
-    "name": "啃骨狼",
-    "faction": "wildpack",
-    "type": "unit",
-    "rarity": "common",
-    "cost": 3,
-    "atk": 4,
-    "hp": 2,
-    "keywords": [
-      {
-        "keyword": "pack_tactics"
-      }
-    ],
-    "text": "围猎。",
-    "art_prompt": "a heavy-jawed wolf gnawing a cracked bone, thick neck, hungry pack-hunter"
+	"id": "wp_bone_gnawer",
+	"name": "啃骨狼",
+	"faction": "wildpack",
+	"type": "unit",
+	"rarity": "common",
+	"cost": 3,
+	"atk": 4,
+	"hp": 2,
+	"keywords": [
+	  {
+		"keyword": "pack_tactics"
+	  }
+	],
+	"text": "围猎。",
+	"art_prompt": "a heavy-jawed wolf gnawing a cracked bone, thick neck, hungry pack-hunter"
   },
   {
-    "id": "wp_den_mother",
-    "name": "巢穴之母",
-    "faction": "wildpack",
-    "type": "unit",
-    "rarity": "common",
-    "cost": 4,
-    "atk": 3,
-    "hp": 4,
-    "effects": [
-      {
-        "trigger": "battlecry",
-        "action": "summon",
-        "amount": 1,
-        "summon_card_id": "wp_pup"
-      }
-    ],
-    "text": "战吼:在你的底线行召唤一只 1/1 掠群幼狼。",
-    "art_prompt": "a great she-wolf standing over her den, a single pup bounding out to her side"
+	"id": "wp_den_mother",
+	"name": "巢穴之母",
+	"faction": "wildpack",
+	"type": "unit",
+	"rarity": "common",
+	"cost": 4,
+	"atk": 3,
+	"hp": 4,
+	"effects": [
+	  {
+		"trigger": "battlecry",
+		"action": "summon",
+		"amount": 1,
+		"summon_card_id": "wp_pup"
+	  }
+	],
+	"text": "战吼:在你的底线行召唤一只 1/1 掠群幼狼。",
+	"art_prompt": "a great she-wolf standing over her den, a single pup bounding out to her side"
   },
   {
-    "id": "wp_hunt_matron",
-    "name": "猎母",
-    "faction": "wildpack",
-    "type": "unit",
-    "rarity": "common",
-    "cost": 4,
-    "atk": 3,
-    "hp": 4,
-    "keywords": [
-      {
-        "keyword": "pack_tactics"
-      },
-      {
-        "keyword": "swift",
-        "value": 2
-      }
-    ],
-    "text": "围猎,疾行 2。",
-    "art_prompt": "a swift matron wolf leading a flanking run across open ground, pack behind"
+	"id": "wp_hunt_matron",
+	"name": "猎母",
+	"faction": "wildpack",
+	"type": "unit",
+	"rarity": "common",
+	"cost": 4,
+	"atk": 3,
+	"hp": 4,
+	"keywords": [
+	  {
+		"keyword": "pack_tactics"
+	  },
+	  {
+		"keyword": "swift",
+		"value": 2
+	  }
+	],
+	"text": "围猎,疾行 2。",
+	"art_prompt": "a swift matron wolf leading a flanking run across open ground, pack behind"
   },
   {
-    "id": "wp_throat_ripper",
-    "name": "撕喉者",
-    "faction": "wildpack",
-    "type": "unit",
-    "rarity": "common",
-    "cost": 5,
-    "atk": 4,
-    "hp": 4,
-    "keywords": [
-      {
-        "keyword": "charge"
-      }
-    ],
-    "text": "冲锋。",
-    "art_prompt": "a snarling alpha wolf lunging straight for the throat, fur bristling, full charge"
+	"id": "wp_throat_ripper",
+	"name": "撕喉者",
+	"faction": "wildpack",
+	"type": "unit",
+	"rarity": "common",
+	"cost": 5,
+	"atk": 4,
+	"hp": 4,
+	"keywords": [
+	  {
+		"keyword": "charge"
+	  }
+	],
+	"text": "冲锋。",
+	"art_prompt": "a snarling alpha wolf lunging straight for the throat, fur bristling, full charge"
   },
   {
-    "id": "wp_wild_instinct",
-    "name": "野性本能",
-    "faction": "wildpack",
-    "type": "order",
-    "rarity": "common",
-    "cost": 1,
-    "effects": [
-      {
-        "trigger": "play",
-        "action": "grant_keyword",
-        "target": "target_unit_ally",
-        "keyword": "pack_tactics",
-        "duration": "permanent"
-      }
-    ],
-    "text": "使一个友方随从获得围猎。",
-    "art_prompt": "a wolf's eyes flaring with primal instinct, the pack scent-marking a target"
+	"id": "wp_wild_instinct",
+	"name": "野性本能",
+	"faction": "wildpack",
+	"type": "order",
+	"rarity": "common",
+	"cost": 1,
+	"effects": [
+	  {
+		"trigger": "play",
+		"action": "grant_keyword",
+		"target": "target_unit_ally",
+		"keyword": "pack_tactics",
+		"duration": "permanent"
+	  }
+	],
+	"text": "使一个友方随从获得围猎。",
+	"art_prompt": "a wolf's eyes flaring with primal instinct, the pack scent-marking a target"
   },
   {
-    "id": "wp_blood_tracker",
-    "name": "血迹追猎者",
-    "faction": "wildpack",
-    "type": "unit",
-    "rarity": "rare",
-    "cost": 3,
-    "atk": 2,
-    "hp": 3,
-    "effects": [
-      {
-        "trigger": "self_moved",
-        "action": "damage",
-        "target": "adjacent_enemies",
-        "amount": 1
-      }
-    ],
-    "text": "移动后:对相邻敌方随从造成 1 点伤害。",
-    "art_prompt": "a rangy wolf on a blood trail, snapping at foes as it lopes past, red-flecked muzzle"
+	"id": "wp_blood_tracker",
+	"name": "血迹追猎者",
+	"faction": "wildpack",
+	"type": "unit",
+	"rarity": "rare",
+	"cost": 3,
+	"atk": 2,
+	"hp": 3,
+	"effects": [
+	  {
+		"trigger": "self_moved",
+		"action": "damage",
+		"target": "adjacent_enemies",
+		"amount": 1
+	  }
+	],
+	"text": "移动后:对相邻敌方随从造成 1 点伤害。",
+	"art_prompt": "a rangy wolf on a blood trail, snapping at foes as it lopes past, red-flecked muzzle"
   },
   {
-    "id": "wp_encircle",
-    "name": "合围",
-    "faction": "wildpack",
-    "type": "order",
-    "rarity": "rare",
-    "cost": 2,
-    "effects": [
-      {
-        "trigger": "play",
-        "action": "move_bonus",
-        "target": "all_allies",
-        "amount": 1
-      }
-    ],
-    "text": "你的所有友方随从本回合移动力 +1。",
-    "art_prompt": "a wolf pack fanning out in a wide encircling arc across the plain, dust trails"
+	"id": "wp_encircle",
+	"name": "合围",
+	"faction": "wildpack",
+	"type": "order",
+	"rarity": "rare",
+	"cost": 2,
+	"effects": [
+	  {
+		"trigger": "play",
+		"action": "move_bonus",
+		"target": "all_allies",
+		"amount": 1
+	  }
+	],
+	"text": "你的所有友方随从本回合移动力 +1。",
+	"art_prompt": "a wolf pack fanning out in a wide encircling arc across the plain, dust trails"
   },
   {
-    "id": "wp_wild_heart",
-    "name": "野性之心",
-    "faction": "wildpack",
-    "type": "order",
-    "rarity": "rare",
-    "cost": 2,
-    "effects": [
-      {
-        "trigger": "play",
-        "action": "buff",
-        "target": "target_unit_ally",
-        "atk": 1,
-        "hp": 1
-      },
-      {
-        "trigger": "play",
-        "action": "grant_keyword",
-        "target": "target_unit_ally",
-        "keyword": "pack_tactics",
-        "duration": "permanent"
-      }
-    ],
-    "text": "一个友方随从 +1/+1 并获得围猎。",
-    "art_prompt": "a wolf's heart blazing with wild fire, muscles surging, feral empowerment"
+	"id": "wp_wild_heart",
+	"name": "野性之心",
+	"faction": "wildpack",
+	"type": "order",
+	"rarity": "rare",
+	"cost": 2,
+	"effects": [
+	  {
+		"trigger": "play",
+		"action": "buff",
+		"target": "target_unit_ally",
+		"atk": 1,
+		"hp": 1
+	  },
+	  {
+		"trigger": "play",
+		"action": "grant_keyword",
+		"target": "target_unit_ally",
+		"keyword": "pack_tactics",
+		"duration": "permanent"
+	  }
+	],
+	"text": "一个友方随从 +1/+1 并获得围猎。",
+	"art_prompt": "a wolf's heart blazing with wild fire, muscles surging, feral empowerment"
   },
   {
-    "id": "wp_shadow_pouncer",
-    "name": "掠喉潜袭者",
-    "faction": "wildpack",
-    "type": "unit",
-    "rarity": "rare",
-    "cost": 4,
-    "atk": 4,
-    "hp": 3,
-    "keywords": [
-      {
-        "keyword": "cheap_shot"
-      },
-      {
-        "keyword": "pack_tactics"
-      }
-    ],
-    "text": "偷袭,围猎。",
-    "art_prompt": "a wolf pouncing from ambush onto flanked prey, jaws wide, no warning"
+	"id": "wp_shadow_pouncer",
+	"name": "掠喉潜袭者",
+	"faction": "wildpack",
+	"type": "unit",
+	"rarity": "rare",
+	"cost": 4,
+	"atk": 4,
+	"hp": 3,
+	"keywords": [
+	  {
+		"keyword": "cheap_shot"
+	  },
+	  {
+		"keyword": "pack_tactics"
+	  }
+	],
+	"text": "偷袭,围猎。",
+	"art_prompt": "a wolf pouncing from ambush onto flanked prey, jaws wide, no warning"
   },
   {
-    "id": "wp_ghost_of_wilds",
-    "name": "荒野之魂",
-    "faction": "wildpack",
-    "type": "unit",
-    "rarity": "epic",
-    "cost": 5,
-    "atk": 4,
-    "hp": 4,
-    "keywords": [
-      {
-        "keyword": "swift",
-        "value": 3
-      }
-    ],
-    "effects": [
-      {
-        "trigger": "self_moved",
-        "action": "buff",
-        "target": "self",
-        "atk": 2
-      }
-    ],
-    "text": "疾行 3。移动后:本随从 +2/+0。",
-    "art_prompt": "a spectral pale wolf blurring across the wilds, half-mist, glowing eyes, impossibly fast"
+	"id": "wp_ghost_of_wilds",
+	"name": "荒野之魂",
+	"faction": "wildpack",
+	"type": "unit",
+	"rarity": "epic",
+	"cost": 5,
+	"atk": 4,
+	"hp": 4,
+	"keywords": [
+	  {
+		"keyword": "swift",
+		"value": 3
+	  }
+	],
+	"effects": [
+	  {
+		"trigger": "self_moved",
+		"action": "buff",
+		"target": "self",
+		"atk": 2
+	  }
+	],
+	"text": "疾行 3。移动后:本随从 +2/+0。",
+	"art_prompt": "a spectral pale wolf blurring across the wilds, half-mist, glowing eyes, impossibly fast"
   },
   {
-    "id": "wp_alpha_matriarch",
-    "name": "母狼王",
-    "faction": "wildpack",
-    "type": "unit",
-    "rarity": "epic",
-    "cost": 6,
-    "atk": 5,
-    "hp": 5,
-    "keywords": [
-      {
-        "keyword": "charge"
-      },
-      {
-        "keyword": "pack_tactics"
-      }
-    ],
-    "text": "冲锋,围猎。",
-    "art_prompt": "a towering alpha matriarch wolf leading the charge, the whole pack surging behind her"
+	"id": "wp_alpha_matriarch",
+	"name": "母狼王",
+	"faction": "wildpack",
+	"type": "unit",
+	"rarity": "epic",
+	"cost": 6,
+	"atk": 5,
+	"hp": 5,
+	"keywords": [
+	  {
+		"keyword": "charge"
+	  },
+	  {
+		"keyword": "pack_tactics"
+	  }
+	],
+	"text": "冲锋,围猎。",
+	"art_prompt": "a towering alpha matriarch wolf leading the charge, the whole pack surging behind her"
   },
   {
-    "id": "wp_moon_huntress",
-    "name": "月影猎后·祁莲",
-    "faction": "wildpack",
-    "type": "unit",
-    "rarity": "legendary",
-    "cost": 6,
-    "atk": 4,
-    "hp": 5,
-    "keywords": [
-      {
-        "keyword": "cheap_shot"
-      },
-      {
-        "keyword": "swift",
-        "value": 2
-      }
-    ],
-    "effects": [
-      {
-        "trigger": "self_moved",
-        "action": "buff",
-        "target": "self",
-        "atk": 2
-      }
-    ],
-    "text": "偷袭,疾行 2。移动后:本随从 +2/+0。月影之下,一击封喉。",
-    "art_prompt": "a moonlit huntress-wolf spirit with silver-tipped fur, leaping under a full moon, deadly grace"
+	"id": "wp_moon_huntress",
+	"name": "月影猎后·祁莲",
+	"faction": "wildpack",
+	"type": "unit",
+	"rarity": "legendary",
+	"cost": 6,
+	"atk": 4,
+	"hp": 5,
+	"keywords": [
+	  {
+		"keyword": "cheap_shot"
+	  },
+	  {
+		"keyword": "swift",
+		"value": 2
+	  }
+	],
+	"effects": [
+	  {
+		"trigger": "self_moved",
+		"action": "buff",
+		"target": "self",
+		"atk": 2
+	  }
+	],
+	"text": "偷袭,疾行 2。移动后:本随从 +2/+0。月影之下,一击封喉。",
+	"art_prompt": "a moonlit huntress-wolf spirit with silver-tipped fur, leaping under a full moon, deadly grace"
   }
 ]

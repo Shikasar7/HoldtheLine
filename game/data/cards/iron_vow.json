@@ -201,289 +201,289 @@
 	"art_prompt": "an executioner's greatsword slamming down on an intruder who crossed the line"
   },
   {
-    "id": "iv_gate_ward",
-    "name": "门岗新丁",
-    "faction": "iron_vow",
-    "type": "unit",
-    "rarity": "common",
-    "cost": 1,
-    "atk": 0,
-    "hp": 3,
-    "keywords": [
-      {
-        "keyword": "guard"
-      }
-    ],
-    "text": "守护。",
-    "art_prompt": "a nervous young gate guard raising a wooden shield, oath-flame badge, first watch"
+	"id": "iv_gate_ward",
+	"name": "门岗新丁",
+	"faction": "iron_vow",
+	"type": "unit",
+	"rarity": "common",
+	"cost": 1,
+	"atk": 0,
+	"hp": 3,
+	"keywords": [
+	  {
+		"keyword": "guard"
+	  }
+	],
+	"text": "守护。",
+	"art_prompt": "a nervous young gate guard raising a wooden shield, oath-flame badge, first watch"
   },
   {
-    "id": "iv_shield_brother",
-    "name": "盾誓兄弟",
-    "faction": "iron_vow",
-    "type": "unit",
-    "rarity": "common",
-    "cost": 2,
-    "atk": 2,
-    "hp": 3,
-    "keywords": [
-      {
-        "keyword": "hold_fast"
-      }
-    ],
-    "text": "坚守。",
-    "art_prompt": "two sworn shield-brothers standing back to back, plain iron oath sigil"
+	"id": "iv_shield_brother",
+	"name": "盾誓兄弟",
+	"faction": "iron_vow",
+	"type": "unit",
+	"rarity": "common",
+	"cost": 2,
+	"atk": 2,
+	"hp": 3,
+	"keywords": [
+	  {
+		"keyword": "hold_fast"
+	  }
+	],
+	"text": "坚守。",
+	"art_prompt": "two sworn shield-brothers standing back to back, plain iron oath sigil"
   },
   {
-    "id": "iv_garrison_captain",
-    "name": "驻防队长",
-    "faction": "iron_vow",
-    "type": "unit",
-    "rarity": "common",
-    "cost": 3,
-    "atk": 3,
-    "hp": 3,
-    "keywords": [
-      {
-        "keyword": "garrison"
-      }
-    ],
-    "text": "驻防(在己方底线行时 +1/+1)。",
-    "art_prompt": "a garrison captain directing the back-line defense from a fortified emplacement"
+	"id": "iv_garrison_captain",
+	"name": "驻防队长",
+	"faction": "iron_vow",
+	"type": "unit",
+	"rarity": "common",
+	"cost": 3,
+	"atk": 3,
+	"hp": 3,
+	"keywords": [
+	  {
+		"keyword": "garrison"
+	  }
+	],
+	"text": "驻防(在己方底线行时 +1/+1)。",
+	"art_prompt": "a garrison captain directing the back-line defense from a fortified emplacement"
   },
   {
-    "id": "iv_bulwark_smith",
-    "name": "修垒匠",
-    "faction": "iron_vow",
-    "type": "unit",
-    "rarity": "common",
-    "cost": 3,
-    "atk": 2,
-    "hp": 4,
-    "effects": [
-      {
-        "trigger": "battlecry",
-        "action": "buff",
-        "target": "target_unit_ally",
-        "hp": 2
-      }
-    ],
-    "text": "战吼:一个友方随从 +0/+2。",
-    "art_prompt": "an armorer hammering reinforcing plates onto a comrade's shield, sparks and rivets"
+	"id": "iv_bulwark_smith",
+	"name": "修垒匠",
+	"faction": "iron_vow",
+	"type": "unit",
+	"rarity": "common",
+	"cost": 3,
+	"atk": 2,
+	"hp": 4,
+	"effects": [
+	  {
+		"trigger": "battlecry",
+		"action": "buff",
+		"target": "target_unit_ally",
+		"hp": 2
+	  }
+	],
+	"text": "战吼:一个友方随从 +0/+2。",
+	"art_prompt": "an armorer hammering reinforcing plates onto a comrade's shield, sparks and rivets"
   },
   {
-    "id": "iv_wall_crossbow",
-    "name": "墙垛弩卫",
-    "faction": "iron_vow",
-    "type": "unit",
-    "rarity": "common",
-    "cost": 4,
-    "atk": 2,
-    "hp": 5,
-    "keywords": [
-      {
-        "keyword": "range",
-        "value": 2
-      }
-    ],
-    "text": "射程 2。",
-    "art_prompt": "a crossbowman set into a fortress crenellation, bolt loaded, steady over the wall"
+	"id": "iv_wall_crossbow",
+	"name": "墙垛弩卫",
+	"faction": "iron_vow",
+	"type": "unit",
+	"rarity": "common",
+	"cost": 4,
+	"atk": 2,
+	"hp": 5,
+	"keywords": [
+	  {
+		"keyword": "range",
+		"value": 2
+	  }
+	],
+	"text": "射程 2。",
+	"art_prompt": "a crossbowman set into a fortress crenellation, bolt loaded, steady over the wall"
   },
   {
-    "id": "iv_stone_sentinel",
-    "name": "磐石哨卫",
-    "faction": "iron_vow",
-    "type": "unit",
-    "rarity": "common",
-    "cost": 5,
-    "atk": 3,
-    "hp": 7,
-    "keywords": [
-      {
-        "keyword": "hold_fast"
-      }
-    ],
-    "text": "坚守。",
-    "art_prompt": "a stone-grey sentinel in heavy layered plate, standing like a boulder that won't budge"
+	"id": "iv_stone_sentinel",
+	"name": "磐石哨卫",
+	"faction": "iron_vow",
+	"type": "unit",
+	"rarity": "common",
+	"cost": 5,
+	"atk": 3,
+	"hp": 7,
+	"keywords": [
+	  {
+		"keyword": "hold_fast"
+	  }
+	],
+	"text": "坚守。",
+	"art_prompt": "a stone-grey sentinel in heavy layered plate, standing like a boulder that won't budge"
   },
   {
-    "id": "iv_fortify",
-    "name": "加固",
-    "faction": "iron_vow",
-    "type": "order",
-    "rarity": "common",
-    "cost": 1,
-    "effects": [
-      {
-        "trigger": "play",
-        "action": "grant_keyword",
-        "target": "target_unit_ally",
-        "keyword": "hold_fast",
-        "duration": "permanent"
-      }
-    ],
-    "text": "使一个友方随从获得坚守。",
-    "art_prompt": "masons driving braces and sandbags around a defensive line, dust rising"
+	"id": "iv_fortify",
+	"name": "加固",
+	"faction": "iron_vow",
+	"type": "order",
+	"rarity": "common",
+	"cost": 1,
+	"effects": [
+	  {
+		"trigger": "play",
+		"action": "grant_keyword",
+		"target": "target_unit_ally",
+		"keyword": "hold_fast",
+		"duration": "permanent"
+	  }
+	],
+	"text": "使一个友方随从获得坚守。",
+	"art_prompt": "masons driving braces and sandbags around a defensive line, dust rising"
   },
   {
-    "id": "iv_oath_banner",
-    "name": "誓约军旗",
-    "faction": "iron_vow",
-    "type": "order",
-    "rarity": "rare",
-    "cost": 2,
-    "effects": [
-      {
-        "trigger": "play",
-        "action": "buff",
-        "target": "allies_home_row",
-        "hp": 2
-      }
-    ],
-    "text": "你底线行的所有友方随从 +0/+2。",
-    "art_prompt": "a great oath-banner planted in the back trench, soldiers steadied beneath it"
+	"id": "iv_oath_banner",
+	"name": "誓约军旗",
+	"faction": "iron_vow",
+	"type": "order",
+	"rarity": "rare",
+	"cost": 2,
+	"effects": [
+	  {
+		"trigger": "play",
+		"action": "buff",
+		"target": "allies_home_row",
+		"hp": 2
+	  }
+	],
+	"text": "你底线行的所有友方随从 +0/+2。",
+	"art_prompt": "a great oath-banner planted in the back trench, soldiers steadied beneath it"
   },
   {
-    "id": "iv_siege_anchor",
-    "name": "拒城锚卫",
-    "faction": "iron_vow",
-    "type": "unit",
-    "rarity": "rare",
-    "cost": 4,
-    "atk": 3,
-    "hp": 5,
-    "keywords": [
-      {
-        "keyword": "garrison"
-      }
-    ],
-    "text": "驻防(在己方底线行时 +1/+1)。",
-    "art_prompt": "a defender driving a huge anchor-stake into the ground at the back line, chains taut"
+	"id": "iv_siege_anchor",
+	"name": "拒城锚卫",
+	"faction": "iron_vow",
+	"type": "unit",
+	"rarity": "rare",
+	"cost": 4,
+	"atk": 3,
+	"hp": 5,
+	"keywords": [
+	  {
+		"keyword": "garrison"
+	  }
+	],
+	"text": "驻防(在己方底线行时 +1/+1)。",
+	"art_prompt": "a defender driving a huge anchor-stake into the ground at the back line, chains taut"
   },
   {
-    "id": "iv_aegis_sergeant",
-    "name": "圣盾军士",
-    "faction": "iron_vow",
-    "type": "unit",
-    "rarity": "rare",
-    "cost": 5,
-    "atk": 3,
-    "hp": 5,
-    "keywords": [
-      {
-        "keyword": "shield"
-      }
-    ],
-    "effects": [
-      {
-        "trigger": "battlecry",
-        "action": "grant_keyword",
-        "target": "target_unit_ally",
-        "keyword": "shield",
-        "duration": "permanent"
-      }
-    ],
-    "text": "持盾。战吼:一个友方随从获得持盾。",
-    "art_prompt": "a sergeant of the aegis order, one glowing shield on their arm and passing another to a comrade"
+	"id": "iv_aegis_sergeant",
+	"name": "圣盾军士",
+	"faction": "iron_vow",
+	"type": "unit",
+	"rarity": "rare",
+	"cost": 5,
+	"atk": 3,
+	"hp": 5,
+	"keywords": [
+	  {
+		"keyword": "shield"
+	  }
+	],
+	"effects": [
+	  {
+		"trigger": "battlecry",
+		"action": "grant_keyword",
+		"target": "target_unit_ally",
+		"keyword": "shield",
+		"duration": "permanent"
+	  }
+	],
+	"text": "持盾。战吼:一个友方随从获得持盾。",
+	"art_prompt": "a sergeant of the aegis order, one glowing shield on their arm and passing another to a comrade"
   },
   {
-    "id": "iv_overline_judge",
-    "name": "越线惩戒官",
-    "faction": "iron_vow",
-    "type": "unit",
-    "rarity": "rare",
-    "cost": 5,
-    "atk": 4,
-    "hp": 4,
-    "keywords": [
-      {
-        "keyword": "hold_fast"
-      }
-    ],
-    "effects": [
-      {
-        "trigger": "battlecry",
-        "action": "damage",
-        "target": "target_unit_own_half",
-        "amount": 2
-      }
-    ],
-    "text": "坚守。战吼:对你半场内的一个敌方随从造成 2 点伤害。",
-    "art_prompt": "an armored judge slamming a verdict-hammer down on an intruder who crossed the line"
+	"id": "iv_overline_judge",
+	"name": "越线惩戒官",
+	"faction": "iron_vow",
+	"type": "unit",
+	"rarity": "rare",
+	"cost": 5,
+	"atk": 4,
+	"hp": 4,
+	"keywords": [
+	  {
+		"keyword": "hold_fast"
+	  }
+	],
+	"effects": [
+	  {
+		"trigger": "battlecry",
+		"action": "damage",
+		"target": "target_unit_own_half",
+		"amount": 2
+	  }
+	],
+	"text": "坚守。战吼:对你半场内的一个敌方随从造成 2 点伤害。",
+	"art_prompt": "an armored judge slamming a verdict-hammer down on an intruder who crossed the line"
   },
   {
-    "id": "iv_adamant_colossus",
-    "name": "磐石巨像",
-    "faction": "iron_vow",
-    "type": "unit",
-    "rarity": "epic",
-    "cost": 7,
-    "atk": 5,
-    "hp": 9,
-    "keywords": [
-      {
-        "keyword": "guard"
-      },
-      {
-        "keyword": "hold_fast"
-      }
-    ],
-    "text": "守护,坚守。",
-    "art_prompt": "a colossal adamant guardian statue come alive, immense shield, cracks glowing faintly"
+	"id": "iv_adamant_colossus",
+	"name": "磐石巨像",
+	"faction": "iron_vow",
+	"type": "unit",
+	"rarity": "epic",
+	"cost": 7,
+	"atk": 5,
+	"hp": 9,
+	"keywords": [
+	  {
+		"keyword": "guard"
+	  },
+	  {
+		"keyword": "hold_fast"
+	  }
+	],
+	"text": "守护,坚守。",
+	"art_prompt": "a colossal adamant guardian statue come alive, immense shield, cracks glowing faintly"
   },
   {
-    "id": "iv_last_bastion",
-    "name": "最后壁垒",
-    "faction": "iron_vow",
-    "type": "order",
-    "rarity": "epic",
-    "cost": 4,
-    "effects": [
-      {
-        "trigger": "play",
-        "action": "buff",
-        "target": "allies_home_row",
-        "atk": 1,
-        "hp": 1
-      },
-      {
-        "trigger": "play",
-        "action": "grant_keyword",
-        "target": "allies_home_row",
-        "keyword": "hold_fast",
-        "duration": "permanent"
-      }
-    ],
-    "text": "你底线行的所有友方随从 +1/+1 并获得坚守。",
-    "art_prompt": "a last-stand line of defenders locking shields as dawn light breaks over the rampart"
+	"id": "iv_last_bastion",
+	"name": "最后壁垒",
+	"faction": "iron_vow",
+	"type": "order",
+	"rarity": "epic",
+	"cost": 4,
+	"effects": [
+	  {
+		"trigger": "play",
+		"action": "buff",
+		"target": "allies_home_row",
+		"atk": 1,
+		"hp": 1
+	  },
+	  {
+		"trigger": "play",
+		"action": "grant_keyword",
+		"target": "allies_home_row",
+		"keyword": "hold_fast",
+		"duration": "permanent"
+	  }
+	],
+	"text": "你底线行的所有友方随从 +1/+1 并获得坚守。",
+	"art_prompt": "a last-stand line of defenders locking shields as dawn light breaks over the rampart"
   },
   {
-    "id": "iv_saint_warden",
-    "name": "铁誓圣壁·薇兰蒂",
-    "faction": "iron_vow",
-    "type": "unit",
-    "rarity": "legendary",
-    "cost": 7,
-    "atk": 4,
-    "hp": 8,
-    "keywords": [
-      {
-        "keyword": "guard"
-      },
-      {
-        "keyword": "shield"
-      }
-    ],
-    "effects": [
-      {
-        "trigger": "deathrattle",
-        "action": "grant_keyword",
-        "target": "adjacent_allies",
-        "keyword": "guard",
-        "duration": "permanent"
-      }
-    ],
-    "text": "守护,持盾。亡语:相邻友方随从获得守护。壁倒,而墙不倒。",
-    "art_prompt": "a saintly warden-woman with a radiant greatshield, halo of oath-light, resolute even in falling"
+	"id": "iv_saint_warden",
+	"name": "铁誓圣壁·薇兰蒂",
+	"faction": "iron_vow",
+	"type": "unit",
+	"rarity": "legendary",
+	"cost": 7,
+	"atk": 4,
+	"hp": 8,
+	"keywords": [
+	  {
+		"keyword": "guard"
+	  },
+	  {
+		"keyword": "shield"
+	  }
+	],
+	"effects": [
+	  {
+		"trigger": "deathrattle",
+		"action": "grant_keyword",
+		"target": "adjacent_allies",
+		"keyword": "guard",
+		"duration": "permanent"
+	  }
+	],
+	"text": "守护,持盾。亡语:相邻友方随从获得守护。壁倒,而墙不倒。",
+	"art_prompt": "a saintly warden-woman with a radiant greatshield, halo of oath-light, resolute even in falling"
   }
 ]
