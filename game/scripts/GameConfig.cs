@@ -43,6 +43,15 @@ public static class GameConfig
         Configured = true;
     }
 
+    /// <summary>Online via the shared <see cref="Session"/> (M3 C1 lobby): the connection + match are
+    /// already established, so BattleScene attaches to Session.Remote rather than dialing out itself.</summary>
+    public static void SetOnlineAttached()
+    {
+        VsAi = false;
+        Online = true;
+        Configured = true;
+    }
+
     public static void SetOnline(string serverUrl, string nickname, bool createRoom, string roomCode, string deck)
     {
         VsAi = false;

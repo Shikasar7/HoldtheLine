@@ -62,6 +62,10 @@ public sealed class RemoteGameHost : IGameHost
         _client.MessageReceived += OnMessage;
     }
 
+    /// <summary>Stop consuming the client's message stream. Call when retiring a finished match's host so a
+    /// long-lived client (M3 lobby: one socket across many matches) doesn't accumulate dead subscribers.</summary>
+    public void Detach() => _client.MessageReceived -= OnMessage;
+
     /// <summary>Completes with the local seat once the server's match_started snapshot has been applied.</summary>
     public Task<int> WaitForMatchAsync() => _matchStarted.Task;
 

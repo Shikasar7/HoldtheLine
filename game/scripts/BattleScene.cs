@@ -24,6 +24,8 @@ public partial class BattleScene : Control
 	private GameServerClient? _client;   // set for online
 	private RemoteGameHost? _remoteHost; // set for online
 	private bool _onlineReady;           // match_started applied and local seat known
+	private bool _onlineAttached;        // true = using the shared Session connection (lobby); don't dispose on exit
+	private System.Action<ConnectionState>? _connHandler; // stored so it can be unhooked from the persistent client
 
 	private Control _boardLayer = null!, _standeeLayer = null!, _handLayer = null!, _hudLayer = null!, _overlayLayer = null!;
 	private readonly Button[,] _cellButtons = new Button[BattleTheme.Cols, BattleTheme.Rows];
@@ -1023,7 +1025,30 @@ public partial class BattleScene : Control
 	/// marshalled via Callable.CallDeferred.</summary>
 	private async Task SetupOnline()
 	{
-		SetConn("连接服务器…");
+		SetConn("连接对局…");
+
+		// C1 lobby model: the lobby already connected and started the match on the shared Session — just
+		// attach to its RemoteGameHost. (Legacy direct-launch, below, still connects on its own.)
+		if (Session.Remote is { } shared)
+		{
+			_onlineAttached = true;
+			_client = Session.Client;
+			_remoteHost = shared;
+			_host = shared;
+			WireRemoteEvents(shared);
+			try
+			{
+				int seat = await shared.WaitForMatchAsync(); // already applied → returns the seat immediately
+				Session.EnableReconnect();
+				Callable.From(() => OnMatchReady(seat)).CallDeferred();
+			}
+			catch (System.Exception ex)
+			{
+				var m = ex.Message;
+				Callable.From(() => SetConn($"连接失败:{m}")).CallDeferred();
+			}
+			return;
+		}
 
 		var client = new GameServerClient(new WebSocketTransport());
 		var remote = new RemoteGameHost(client);
@@ -1042,14 +1067,7 @@ public partial class BattleScene : Control
 					{ var m = $"{em.Code}:{em.Message}"; Callable.From(() => SetConn($"错误:{m}")).CallDeferred(); break; }
 			}
 		};
-
-		// Events arrive on the WS receive thread → queue + wake the main-thread pump.
-		remote.Subscribe(0, e => { _playQueue.Enqueue(e); Callable.From(KickPlayback).CallDeferred(); });
-		// A resync (reconnect) updates the view without events — re-render off ViewUpdated when idle.
-		remote.ViewUpdated += _ => Callable.From(RefreshFromSnapshot).CallDeferred();
-		remote.ConnectionStateChanged += s => Callable.From(() => OnConnState(s)).CallDeferred();
-		remote.OpponentStatusChanged += (connected, grace) => Callable.From(() => OnOpponentStatus(connected)).CallDeferred();
-		remote.TurnTimerReceived += (seat, secs) => Callable.From(() => OnTurnTimer(seat, secs)).CallDeferred();
+		WireRemoteEvents(remote);
 
 		try
 		{
@@ -1079,6 +1097,19 @@ public partial class BattleScene : Control
 			var m = ex.Message;
 			Callable.From(() => SetConn($"连接失败:{m}")).CallDeferred();
 		}
+	}
+
+	/// <summary>Subscribe the battle-specific handlers to a match host (shared or self-owned). Events arrive
+	/// on the WS thread, so each hop marshals to the main thread. The conn handler is stored so it can be
+	/// unhooked from a persistent (shared) client on exit.</summary>
+	private void WireRemoteEvents(RemoteGameHost remote)
+	{
+		remote.Subscribe(0, e => { _playQueue.Enqueue(e); Callable.From(KickPlayback).CallDeferred(); });
+		remote.ViewUpdated += _ => Callable.From(RefreshFromSnapshot).CallDeferred();
+		_connHandler = s => Callable.From(() => OnConnState(s)).CallDeferred();
+		remote.ConnectionStateChanged += _connHandler;
+		remote.OpponentStatusChanged += (connected, grace) => Callable.From(() => OnOpponentStatus(connected)).CallDeferred();
+		remote.TurnTimerReceived += (seat, secs) => Callable.From(() => OnTurnTimer(seat, secs)).CallDeferred();
 	}
 
 	/// <summary>Main-thread handoff once the server's match_started is in. Sets the local seat and
@@ -1289,8 +1320,18 @@ public partial class BattleScene : Control
 
 	public override void _ExitTree()
 	{
-		if (_client != null)
-			_ = _client.DisposeAsync().AsTask(); // closes the socket → server tears the match down
+		if (_onlineAttached)
+		{
+			// Shared Session connection (lobby): unhook our conn handler from the persistent client and
+			// arm a fresh host for the next match; DON'T close the socket — the lobby owns it.
+			if (_remoteHost is { } r && _connHandler is { } h)
+				r.ConnectionStateChanged -= h;
+			Session.ArmMatchHost();
+		}
+		else if (_client != null)
+		{
+			_ = _client.DisposeAsync().AsTask(); // legacy: battle owns the socket → closing tears the match down
+		}
 	}
 
 	private async Task AnimateEvents(IReadOnlyList<GameEvent> beat)
