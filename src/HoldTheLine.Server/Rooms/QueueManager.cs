@@ -68,17 +68,21 @@ public sealed class QueueManager : IDisposable
         Waiter? a = null, b = null;
         lock (_gate)
         {
-            if (_waiting.Count >= 2)
-            {
-                var sorted = _waiting.OrderBy(w => w.Rating).ToList();
-                int bestGap = int.MaxValue, bestI = 0;
-                for (int i = 0; i + 1 < sorted.Count; i++)
+            // Closest-rated pair among DIFFERENT guests. Two windows sharing one identity.json (local
+            // double-window testing) must never self-match — it would record a player beating themselves
+            // and corrupt ELO (C0-2). Full scan is fine at Beta queue sizes.
+            var sorted = _waiting.OrderBy(w => w.Rating).ToList();
+            int bestGap = int.MaxValue;
+            for (int i = 0; i < sorted.Count; i++)
+                for (int j = i + 1; j < sorted.Count; j++)
                 {
-                    int gap = sorted[i + 1].Rating - sorted[i].Rating;
-                    if (gap < bestGap) { bestGap = gap; bestI = i; }
+                    if (string.Equals(sorted[i].Conn.GuestId, sorted[j].Conn.GuestId, StringComparison.Ordinal))
+                        continue;
+                    int gap = sorted[j].Rating - sorted[i].Rating; // ascending → non-negative
+                    if (gap < bestGap) { bestGap = gap; a = sorted[i]; b = sorted[j]; }
                 }
-                a = sorted[bestI];
-                b = sorted[bestI + 1];
+            if (a is not null && b is not null)
+            {
                 _waiting.Remove(a);
                 _waiting.Remove(b);
             }
@@ -90,24 +94,36 @@ public sealed class QueueManager : IDisposable
 
     private async Task StartAsync(Waiter a, Waiter b)
     {
+        string g0 = a.Conn.GuestId, g1 = b.Conn.GuestId;
         try
         {
-            string g0 = a.Conn.GuestId, g1 = b.Conn.GuestId;
-            ClientConnection c0 = a.Conn, c1 = b.Conn;
-            await _rooms.StartRankedMatchAsync(a.Conn, a.DeckId, b.Conn, b.DeckId, async (winnerSeat, reason) =>
+            // The settlement RETURNS the per-seat rating_change; MatchSession delivers each to the LIVE
+            // seat connection, so a player who reconnected mid-match still sees their ±rating (C0-1).
+            await _rooms.StartRankedMatchAsync(a.Conn, a.DeckId, b.Conn, b.DeckId, (winnerSeat, reason) =>
             {
                 var (d0, d1) = _ladder.RecordResult(g0, g1, winnerSeat, reason);
-                await c0.SendAsync(new RatingChange { Old = d0.Old, New = d0.New, Season = LadderStore.DefaultSeason }).ConfigureAwait(false);
-                await c1.SendAsync(new RatingChange { Old = d1.Old, New = d1.New, Season = LadderStore.DefaultSeason }).ConfigureAwait(false);
+                return (
+                    new RatingChange { Old = d0.Old, New = d0.New, Season = LadderStore.DefaultSeason },
+                    new RatingChange { Old = d1.Old, New = d1.New, Season = LadderStore.DefaultSeason });
             }).ConfigureAwait(false);
         }
         catch
         {
-            // Pairing failed to start (e.g. a peer dropped between dequeue and start): put the survivors
-            // back so they can be rematched rather than stranded.
+            // Start failed (a peer dropped, or a deck vanished between dequeue and start). Re-seat each
+            // survivor whose connection is free AND whose deck still resolves — re-validating avoids a
+            // pair→fail→requeue loop when a deck is the cause; otherwise drop them with a notice.
             foreach (var w in new[] { a, b })
-                if (w.Conn.Room is null)
-                    lock (_gate) _waiting.Add(w with { Since = DateTimeOffset.UtcNow });
+            {
+                if (w.Conn.Room is not null)
+                    continue;
+                try { _deckSource.Resolve(w.Conn.GuestId, w.DeckId); }
+                catch
+                {
+                    _ = w.Conn.SendAsync(new ErrorMsg { Code = "queue_deck_gone", Message = "Your queued deck is no longer available." });
+                    continue;
+                }
+                lock (_gate) _waiting.Add(w with { Since = DateTimeOffset.UtcNow });
+            }
         }
     }
 

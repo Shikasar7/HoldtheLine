@@ -44,12 +44,16 @@ public sealed class MatchSession
     private bool _over;
     private string? _endReasonOverride;
     private readonly string? _logPath;   // per-match JSONL command log (null = disabled)
-    private readonly Func<int, string, Task>? _onEnded;   // ranked settlement hook (winnerSeat, reason); null for friend rooms
+    // Ranked settlement hook (winnerSeat, reason) → the per-seat follow-up to deliver (rating_change).
+    // Returning the messages (rather than sending them itself) lets the session route them to the LIVE
+    // _conns[seat] — a player who reconnected mid-match has a swapped-in connection, and the closure that
+    // built this hook captured the *old* one. Null for friend rooms (unranked).
+    private readonly Func<int, string, (ServerMessage? Seat0, ServerMessage? Seat1)>? _onEnded;
 
     private enum Signal { Client, Dropped, Reattach, Forfeit, TurnBegin, TurnTimeout }
     private readonly record struct Envelope(Signal Kind, int Seat, ClientMessage? Message, ClientConnection? Conn, string? Reason, int Gen);
 
-    private MatchSession(LocalGameHost host, ClientConnection[] conns, string[] resumeTokens, int graceSeconds, int turnSeconds, string? logDir, Func<int, string, Task>? onEnded)
+    private MatchSession(LocalGameHost host, ClientConnection[] conns, string[] resumeTokens, int graceSeconds, int turnSeconds, string? logDir, Func<int, string, (ServerMessage?, ServerMessage?)>? onEnded)
     {
         Host = host;
         _conns = conns;
@@ -77,7 +81,7 @@ public sealed class MatchSession
         GameContent content, ServerOptions opts,
         ClientConnection seat0, Data.ResolvedDeck deck0,
         ClientConnection seat1, Data.ResolvedDeck deck1,
-        Func<int, string, Task>? onEnded = null)
+        Func<int, string, (ServerMessage?, ServerMessage?)>? onEnded = null)
     {
         var config = new MatchConfig
         {
@@ -243,8 +247,15 @@ public sealed class MatchSession
             await _conns[s].SendAsync(new MatchEnded { WinnerSeat = outcome.WinnerSeat, Reason = reason });
 
         if (_onEnded is not null)
-            try { await _onEnded(outcome.WinnerSeat, reason); }
+        {
+            try
+            {
+                var (m0, m1) = _onEnded(outcome.WinnerSeat, reason); // settle ELO, get each seat's rating_change
+                if (m0 is not null) await _conns[0].SendAsync(m0);   // deliver to the LIVE connection (post-reconnect)
+                if (m1 is not null) await _conns[1].SendAsync(m1);
+            }
             catch { /* ranked settlement is best-effort; a match must never fail to end because of it */ }
+        }
     }
 
     private async Task HandleResyncAsync(int seat)
