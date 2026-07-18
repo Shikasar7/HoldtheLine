@@ -1440,24 +1440,61 @@ public partial class BattleScene : Control
 	// Ranged shot: a glowing bolt flies from attacker to target; damage only resolves once it lands.
 	private async Task FireProjectile(Vector2 from, Vector2 to)
 	{
-		var proj = new Control { Size = new Vector2(22, 22), PivotOffset = new Vector2(11, 11), MouseFilter = MouseFilterEnum.Ignore };
-		proj.Position = from - proj.Size / 2f;
-		proj.Rotation = (to - from).Angle();
-		proj.AddChild(new ColorRect
+		var size = new Vector2(52, 26);
+		var proj = new Control { Size = size, PivotOffset = size / 2f, MouseFilter = MouseFilterEnum.Ignore };
+		proj.Position = from - size / 2f;
+		proj.Rotation = (to - from).Angle(); // the bolt art points right; align it to the flight direction
+		if (BattleTheme.Tex("fx/projectile_bolt.png") is { } bolt)
 		{
-			Color = new Color(BattleTheme.Accent.R, BattleTheme.Accent.G, BattleTheme.Accent.B, 0.35f),
-			Size = new Vector2(22, 22), MouseFilter = MouseFilterEnum.Ignore,
-		});
-		proj.AddChild(new ColorRect
+			proj.AddChild(BattleTheme.Art(bolt, Vector2.Zero, size, TextureRect.StretchModeEnum.KeepAspectCentered));
+		}
+		else // placeholder fallback (halo + core)
 		{
-			Color = BattleTheme.Accent.Lightened(0.4f), Position = new Vector2(5, 5),
-			Size = new Vector2(12, 12), MouseFilter = MouseFilterEnum.Ignore,
-		});
+			proj.AddChild(new ColorRect { Color = new Color(BattleTheme.Accent.R, BattleTheme.Accent.G, BattleTheme.Accent.B, 0.35f), Size = size, MouseFilter = MouseFilterEnum.Ignore });
+			proj.AddChild(new ColorRect { Color = BattleTheme.Accent.Lightened(0.4f), Position = new Vector2(size.X * 0.35f, size.Y * 0.25f), Size = size * 0.35f, MouseFilter = MouseFilterEnum.Ignore });
+		}
 		_overlayLayer.AddChild(proj);
 		var t = CreateTween();
-		t.TweenProperty(proj, "position", to - proj.Size / 2f, 0.25).SetTrans(Tween.TransitionType.Sine);
+		t.TweenProperty(proj, "position", to - size / 2f, 0.25).SetTrans(Tween.TransitionType.Sine);
 		await ToSignal(t, Tween.SignalName.Finished);
 		proj.QueueFree();
+	}
+
+	// item 3 art: a warm impact spark at the hit point (additive-ish glow).
+	private void HitSpark(Vector2 center)
+	{
+		if (BattleTheme.Tex("fx/hit_spark.png") is not { } tex) return;
+		var size = new Vector2(96, 96);
+		var spark = BattleTheme.Art(tex, center - size / 2f, size, TextureRect.StretchModeEnum.KeepAspectCentered);
+		spark.PivotOffset = size / 2f;
+		spark.Scale = new Vector2(0.5f, 0.5f);
+		spark.Rotation = (GetInstanceId() % 8) * 0.4f; // vary orientation per spawn so repeats don't look stamped
+		_overlayLayer.AddChild(spark);
+		var t = CreateTween();
+		t.TweenProperty(spark, "scale", new Vector2(1.25f, 1.25f), 0.18).SetTrans(Tween.TransitionType.Cubic);
+		t.Parallel().TweenProperty(spark, "modulate:a", 0.0f, 0.18);
+		t.TweenCallback(Callable.From(spark.QueueFree));
+	}
+
+	// item 3 art: 持盾吸收 marker — the shield sigil pops and drifts up, distinct from a real HP loss.
+	private void ShieldPop(Vector2 center)
+	{
+		if (BattleTheme.Tex("fx/shield_glyph.png") is not { } tex)
+		{
+			FloatText(center + new Vector2(0, -8), "盾", BattleTheme.CostColor); // placeholder fallback
+			return;
+		}
+		var size = new Vector2(68, 68);
+		var glyph = BattleTheme.Art(tex, center - size / 2f, size, TextureRect.StretchModeEnum.KeepAspectCentered);
+		glyph.PivotOffset = size / 2f;
+		glyph.Scale = new Vector2(0.4f, 0.4f);
+		var start = glyph.Position;
+		_overlayLayer.AddChild(glyph);
+		var t = CreateTween();
+		t.TweenProperty(glyph, "scale", new Vector2(1.1f, 1.1f), 0.12).SetTrans(Tween.TransitionType.Back);
+		t.TweenProperty(glyph, "position", start + new Vector2(0, -34), 0.4).SetTrans(Tween.TransitionType.Sine);
+		t.Parallel().TweenProperty(glyph, "modulate:a", 0.0f, 0.4);
+		t.TweenCallback(Callable.From(glyph.QueueFree));
 	}
 
 	// ---------- item 3/4/6: hit / death / face-damage reactions (shared by attacks and standalone events) ----------
@@ -1471,11 +1508,12 @@ public partial class BattleScene : Control
 		{
 			_sfx.Play("attack");
 			Flash(node, BattleTheme.CostColor);
-			FloatText(Center(node) + new Vector2(0, -8), "盾", BattleTheme.CostColor);
+			ShieldPop(Center(node)); // 蓝闪 + 盾纹章,与真实掉血区分
 			await Delay(0.12);
 			return;
 		}
 		Flash(node, Colors.White);
+		HitSpark(Center(node));
 		Vector2 dir = from is { } f && (Center(node) - f).LengthSquared() > 1f ? (Center(node) - f).Normalized() : new Vector2(0, 1);
 		await Knockback(node, dir * 7f);
 		if (d.Amount > 0) FloatNumber(Center(node), $"-{d.Amount}", BattleTheme.DangerColor, d.Amount);
