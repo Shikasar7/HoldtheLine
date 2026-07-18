@@ -26,6 +26,9 @@ public partial class BattleScene : Control
 	private bool _onlineReady;           // match_started applied and local seat known
 	private bool _onlineAttached;        // true = using the shared Session connection (lobby); don't dispose on exit
 	private System.Action<ConnectionState>? _connHandler; // stored so it can be unhooked from the persistent client
+	private System.Action<RatingChange>? _ratingHandler;  // ranked ELO delta pushed post-match (C3); unhooked on exit
+	private RatingChange? _ratingChange; // latest rating_change (may arrive before or after the win overlay)
+	private Label? _ratingLabel;         // rating line on the result screen, filled/animated once the delta is known
 
 	private Control _boardLayer = null!, _standeeLayer = null!, _handLayer = null!, _hudLayer = null!, _overlayLayer = null!;
 	private readonly Button[,] _cellButtons = new Button[BattleTheme.Cols, BattleTheme.Rows];
@@ -1036,6 +1039,10 @@ public partial class BattleScene : Control
 			_remoteHost = shared;
 			_host = shared;
 			WireRemoteEvents(shared);
+			// Ranked ELO result (C3): the server pushes rating_change post-match on the shared Session socket.
+			// Only ranked-queue matches send it — casual friend rooms never do, so the label just stays blank.
+			_ratingHandler = rc => Callable.From(() => OnRatingChange(rc)).CallDeferred();
+			Session.RatingChanged += _ratingHandler;
 			try
 			{
 				int seat = await shared.WaitForMatchAsync(); // already applied → returns the seat immediately
@@ -1326,6 +1333,8 @@ public partial class BattleScene : Control
 			// arm a fresh host for the next match; DON'T close the socket — the lobby owns it.
 			if (_remoteHost is { } r && _connHandler is { } h)
 				r.ConnectionStateChanged -= h;
+			if (_ratingHandler is { } rh)
+				Session.RatingChanged -= rh; // static event → must detach or it pins this freed scene
 			Session.ArmMatchHost();
 		}
 		else if (_client != null)
@@ -1800,9 +1809,20 @@ public partial class BattleScene : Control
 			l.Size = new Vector2(BattleTheme.ScreenW, 40);
 			panel.AddChild(l);
 		}
-		StatLine($"本 局 {rounds} 回 合", 392, 30, BattleTheme.TextMain);
-		StatLine($"破线打脸    {Side(a)} {_lineBreaks[a]} 次        {Side(b)} {_lineBreaks[b]} 次", 446, 26, BattleTheme.Accent);
-		StatLine($"领袖受创    {Side(a)} {_leaderDmg[a]}        {Side(b)} {_leaderDmg[b]}", 490, 26, BattleTheme.TextDim);
+		StatLine($"本 局 {rounds} 回 合", 380, 30, BattleTheme.TextMain);
+		StatLine($"破线打脸    {Side(a)} {_lineBreaks[a]} 次        {Side(b)} {_lineBreaks[b]} 次", 432, 26, BattleTheme.Accent);
+		StatLine($"领袖受创    {Side(a)} {_leaderDmg[a]}        {Side(b)} {_leaderDmg[b]}", 474, 26, BattleTheme.TextDim);
+
+		// Ranked ELO line (C3): shown for online matches once rating_change is in. If the delta already
+		// arrived (common — playback pacing lags the wire), animate now; otherwise OnRatingChange fills it.
+		if (_online)
+		{
+			_ratingLabel = BattleTheme.MakeOutlinedLabel("", 34, BattleTheme.Accent, HorizontalAlignment.Center);
+			_ratingLabel.Position = new Vector2(0, 520);
+			_ratingLabel.Size = new Vector2(BattleTheme.ScreenW, 44);
+			panel.AddChild(_ratingLabel);
+			if (_ratingChange is { } rc) AnimateRating(_ratingLabel, rc);
+		}
 
 		// Rematch reloads the scene locally; online can't (it would reconnect / create a new room —
 		// same-room rematch is N3), so online shows only "return to menu", centered.
@@ -1821,6 +1841,32 @@ public partial class BattleScene : Control
 		menu.AddThemeFontSizeOverride("font_size", 26);
 		menu.Pressed += () => { _sfx.Play("button"); GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn"); };
 		panel.AddChild(menu);
+	}
+
+	/// <summary>rating_change from the shared Session (WS thread already marshalled here). Stash it, and if the
+	/// result screen is already up, animate the line in — otherwise ShowWinOverlay picks it up on creation.</summary>
+	private void OnRatingChange(RatingChange rc)
+	{
+		_ratingChange = rc;
+		if (_ratingLabel is { } lbl && GodotObject.IsInstanceValid(lbl))
+			AnimateRating(lbl, rc);
+	}
+
+	/// <summary>Count the rating up/down from Old to New over ~0.7s, color-coded by the sign of the delta.</summary>
+	private void AnimateRating(Label label, RatingChange rc)
+	{
+		int delta = rc.New - rc.Old;
+		string sign = delta >= 0 ? "+" : "";
+		label.AddThemeColorOverride("font_color", delta >= 0 ? BattleTheme.HpColor : BattleTheme.DangerColor);
+		label.Modulate = new Color(1, 1, 1, 0);
+		var fade = CreateTween();
+		fade.TweenProperty(label, "modulate:a", 1f, 0.3f);
+		var count = CreateTween();
+		count.TweenMethod(Callable.From<float>(v =>
+		{
+			if (GodotObject.IsInstanceValid(label))
+				label.Text = $"排位评分  {Mathf.RoundToInt(v)}    {sign}{delta}";
+		}), (float)rc.Old, (float)rc.New, 0.7f).SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
 	}
 
 	private void AccumulateStat(GameEvent e)

@@ -162,7 +162,8 @@ public partial class MenuScene : Control
         float y = 334 + ((options.Count + 1) / 2) * 66 + 16;
         p.AddChild(Btn("排位匹配", new Vector2(Cx, y), new Vector2(600, 76), StartQueue));
         p.AddChild(Btn("好友房间", new Vector2(Cx, y + 88), new Vector2(600, 68), ShowFriendRoom));
-        p.AddChild(Btn("卡组编辑", new Vector2(Cx, y + 164), new Vector2(600, 60), OpenDeckEditor));
+        p.AddChild(Btn("卡组编辑", new Vector2(Cx, y + 164), new Vector2(290, 60), OpenDeckEditor));
+        p.AddChild(Btn("天梯排行", new Vector2(Cx + 310, y + 164), new Vector2(290, 60), ShowLadder));
         p.AddChild(Btn("断开连接", new Vector2(Cx, y + 236), new Vector2(290, 60), async () => { await Session.DisconnectAsync(); CloseOverlay(); }));
         p.AddChild(Btn("返回", new Vector2(Cx + 310, y + 236), new Vector2(290, 60), CloseOverlay));
     }
@@ -276,6 +277,73 @@ public partial class MenuScene : Control
         "undervault" => Color.FromHtml("b5883f"),
         _ => BattleTheme.AccentSoft,
     };
+
+    // ---------- ladder (M3 C3): Top-N + my rank ----------
+
+    private const float LadderX = Cx - 40f; // scroll/header left edge
+    private static readonly (float X, float W, HorizontalAlignment Align)[] LadderCols =
+        [(16, 80, HorizontalAlignment.Center), (110, 300, HorizontalAlignment.Left), (410, 110, HorizontalAlignment.Right), (530, 116, HorizontalAlignment.Right)];
+
+    private void ShowLadder()
+    {
+        var p = NewPanel();
+        PanelLabel(p, "天 梯 排 行", 90, 52, BattleTheme.TextMain);
+        var status = PanelLabel(p, "加载中…", 168, 24, BattleTheme.Accent);
+
+        // Column header, aligned to the same x-grid the rows use.
+        string[] heads = ["排名", "玩家", "评分", "战绩"];
+        Color[] headCol = [BattleTheme.TextDim, BattleTheme.TextDim, BattleTheme.TextDim, BattleTheme.TextDim];
+        for (int i = 0; i < heads.Length; i++)
+        {
+            var h = BattleTheme.MakeLabel(heads[i], 22, headCol[i], LadderCols[i].Align);
+            Positioned(h, new Vector2(LadderX + LadderCols[i].X, 224), new Vector2(LadderCols[i].W, 30));
+            p.AddChild(h);
+        }
+
+        var scroll = new ScrollContainer { Position = new Vector2(LadderX, 268), Size = new Vector2(680, 640) };
+        scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        p.AddChild(scroll);
+        var list = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        list.AddThemeConstantOverride("separation", 4);
+        scroll.AddChild(list);
+
+        void OnLadder(Ladder l) => Callable.From(() =>
+        {
+            if (!GodotObject.IsInstanceValid(status)) return;
+            status.Text = l.MyRank > 0 ? $"我的排名  #{l.MyRank}" : "尚未上榜(打一场排位即可上榜)";
+            foreach (Node c in list.GetChildren()) c.QueueFree();
+            foreach (var e in l.Entries) list.AddChild(LadderRow(e, l.MyRank));
+            if (l.Entries.Count == 0)
+            {
+                var empty = BattleTheme.MakeLabel("暂无排名数据", 24, BattleTheme.TextDim, HorizontalAlignment.Center);
+                empty.CustomMinimumSize = new Vector2(660, 120);
+                list.AddChild(empty);
+            }
+        }).CallDeferred();
+        Session.LadderReceived += OnLadder;
+
+        p.AddChild(Btn("返回", new Vector2(Cx, 936), new Vector2(600, 64), () => { Session.LadderReceived -= OnLadder; ShowLobby(); }));
+        _ = Session.SendAsync(new GetLadder());
+    }
+
+    private static Control LadderRow(LadderEntry e, int myRank)
+    {
+        bool me = myRank > 0 && e.Rank == myRank;
+        var row = new Panel { CustomMinimumSize = new Vector2(660, 46) };
+        row.AddThemeStyleboxOverride("panel", BattleTheme.Box(me ? BattleTheme.AccentSoft : BattleTheme.PanelDark, me ? BattleTheme.Accent : null, me ? 2 : 0, 8));
+        void Cell(string text, int col, Color color)
+        {
+            var l = BattleTheme.MakeLabel(text, 24, color, LadderCols[col].Align);
+            Positioned(l, new Vector2(LadderCols[col].X, 0), new Vector2(LadderCols[col].W, 46));
+            l.ClipText = true;
+            row.AddChild(l);
+        }
+        Cell($"#{e.Rank}", 0, e.Rank <= 3 ? BattleTheme.AtkColor : BattleTheme.TextDim);
+        Cell(e.Name, 1, BattleTheme.TextMain);
+        Cell(e.Rating.ToString(), 2, BattleTheme.Accent);
+        Cell($"{e.Wins}胜 {e.Losses}负", 3, BattleTheme.TextDim);
+        return row;
+    }
 
     private LineEdit Field(string text, string placeholder, Vector2 pos, float width)
     {
