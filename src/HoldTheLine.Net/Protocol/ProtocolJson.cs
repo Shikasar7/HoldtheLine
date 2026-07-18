@@ -7,8 +7,10 @@ public static class ProtocolConstants
 {
     /// <summary>Wire-format version. Bump on any change to <see cref="ClientMessage"/>/<see cref="ServerMessage"/> shapes.
     /// v2 (M3): persistent identity fields on hello + the §3.4 lobby/deck/queue/ladder message families.
-    /// v3 (M3 收尾): <see cref="DeckSummary"/> carries leader + card_ids so saved decks are editable client-side.</summary>
-    public const int ProtocolVersion = 3;
+    /// v3 (M3 收尾): <see cref="DeckSummary"/> carries leader + card_ids so saved decks are editable client-side.
+    /// v4 (docs/11): 起手重抽 — MulliganCommand rides SubmitCommand (no new C→S message); match_started /
+    /// resync_ok carry MulliganSecondsLeft.</summary>
+    public const int ProtocolVersion = 4;
 }
 
 /// <summary>

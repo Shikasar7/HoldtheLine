@@ -167,6 +167,10 @@ public sealed record MatchStarted : ServerMessage
     public required string OpponentName { get; init; }
     /// <summary>Legal commands for the recipient — non-empty only if it is their turn.</summary>
     public IReadOnlyList<Command>? LegalCommands { get; init; }
+    /// <summary>起手重抽 (docs/11): seconds left on the shared mulligan clock when the match opens with a
+    /// mulligan phase; null when there is none (or it has already passed). Whether THIS seat still owes a
+    /// mulligan is in <see cref="View"/>.MulliganPending.</summary>
+    public int? MulliganSecondsLeft { get; init; }
 }
 
 public sealed record CommandResultMsg : ServerMessage
@@ -197,6 +201,9 @@ public sealed record ResyncOk : ServerMessage
     public required IReadOnlyList<GameEvent> EventsSince { get; init; }
     public required int EventIndex { get; init; }
     public IReadOnlyList<Command>? LegalCommands { get; init; }
+    /// <summary>起手重抽 (docs/11): seconds left on the mulligan clock when reconnecting mid-phase; null
+    /// otherwise. Pairs with <see cref="View"/>.MulliganPending to rebuild the mulligan UI on resume.</summary>
+    public int? MulliganSecondsLeft { get; init; }
 }
 
 public sealed record OpponentStatus : ServerMessage

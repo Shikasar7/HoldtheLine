@@ -34,9 +34,17 @@ public sealed class RemoteGameHost : IGameHost
     private PlayerView? _view;
     private IReadOnlyList<Command> _legal = NoCommands;
     private int _eventIndex;
+    private int? _mulliganSecondsLeft;
 
     public string ResumeToken { get; private set; } = "";
     public int Seat => _seat;
+
+    /// <summary>起手重抽 (docs/11): seconds left on the mulligan clock from the last match_started / resync,
+    /// or null when not in a mulligan phase. Whether this seat still owes a mulligan is on GetView().MulliganPending.</summary>
+    public int? MulliganSecondsLeft
+    {
+        get { lock (_gate) return _mulliganSecondsLeft; }
+    }
 
     /// <summary>Monotonic count of events applied for this seat. Advances by ≥1 after every accepted
     /// command, so a caller can tell "my action's result has landed" from "some unrelated poke" —
@@ -55,6 +63,10 @@ public sealed class RemoteGameHost : IGameHost
 
     /// <summary>Server-announced turn clock at each handover (activeSeat, secondsLeft) — for a countdown UI.</summary>
     public event Action<int, int>? TurnTimerReceived;
+
+    /// <summary>起手重抽 clock (docs/11): fires with the seconds left whenever a match_started / resync carries
+    /// a mulligan countdown. There is no separate mulligan-timer message — it rides the snapshot.</summary>
+    public event Action<int>? MulliganTimerReceived;
 
     public RemoteGameHost(GameServerClient client)
     {
@@ -153,7 +165,7 @@ public sealed class RemoteGameHost : IGameHost
         {
             case MatchStarted ms: ApplyMatchStarted(ms); break;
             case EventsMsg ev: ApplyEvents(ev); break;
-            case ResyncOk rs: ApplySnapshot(rs.View, rs.EventIndex, rs.LegalCommands); break;
+            case ResyncOk rs: ApplySnapshot(rs.View, rs.EventIndex, rs.LegalCommands, rs.MulliganSecondsLeft); break;
             case CommandResultMsg cr: CompletePending(cr); break;
             case OpponentStatus os: OpponentStatusChanged?.Invoke(os.Connected, os.GraceSeconds); break;
             case TurnTimer tt: TurnTimerReceived?.Invoke(tt.Seat, tt.SecondsLeft); break;
@@ -171,10 +183,13 @@ public sealed class RemoteGameHost : IGameHost
             _view = ms.View;
             _legal = ms.LegalCommands ?? NoCommands;
             _eventIndex = 0;
+            _mulliganSecondsLeft = ms.MulliganSecondsLeft;
             ResumeToken = ms.ResumeToken;
         }
         _matchStarted.TrySetResult(ms.Seat);
         ViewUpdated?.Invoke(ms.View);
+        if (ms.MulliganSecondsLeft is { } secs)
+            MulliganTimerReceived?.Invoke(secs);
     }
 
     private void ApplyEvents(EventsMsg ev)
@@ -200,15 +215,18 @@ public sealed class RemoteGameHost : IGameHost
             _ = RequestResyncAsync(); // self-heal: a batch was missed (shouldn't happen over TCP loopback)
     }
 
-    private void ApplySnapshot(PlayerView view, int eventIndex, IReadOnlyList<Command>? legal)
+    private void ApplySnapshot(PlayerView view, int eventIndex, IReadOnlyList<Command>? legal, int? mulliganSecondsLeft = null)
     {
         lock (_gate)
         {
             _view = view;
             _eventIndex = eventIndex;
             _legal = legal ?? NoCommands;
+            _mulliganSecondsLeft = mulliganSecondsLeft;
         }
         ViewUpdated?.Invoke(view);
+        if (mulliganSecondsLeft is { } secs)
+            MulliganTimerReceived?.Invoke(secs);
     }
 
     private void CompletePending(CommandResultMsg cr)

@@ -56,6 +56,30 @@ public class ProtocolSerializationTests
     }
 
     [Fact]
+    public void Mulligan_protocol_shapes_round_trip()
+    {
+        // C→S: MulliganCommand rides SubmitCommand — no new message type, inner $type "mulligan" (protocol v4).
+        RoundTripsClient(new SubmitCommand { Command = new MulliganCommand { Seat = 0, ReplacedEntityIds = [3, 5] } });
+        Assert.Contains("\"$type\":\"mulligan\"",
+            ProtocolJson.Encode(new SubmitCommand { Command = new MulliganCommand { Seat = 0, ReplacedEntityIds = [3] } }));
+
+        // S→C: the mulligan countdown rides match_started / resync_ok.
+        RoundTripsServer(new MatchStarted { Seat = 0, ResumeToken = "tok", View = MinimalView(), OpponentName = "Bob", MulliganSecondsLeft = 45 });
+        RoundTripsServer(new ResyncOk { View = MinimalView(), EventsSince = [], EventIndex = 0, MulliganSecondsLeft = 30 });
+
+        // S→C: the new event shapes in a batch.
+        RoundTripsServer(new EventsMsg
+        {
+            Batch = [
+                new MulliganResolvedEvent { Seat = 0, ReplacedEntityIds = [3, 5], ReplacedCount = 2 },
+                new MulliganCompletedEvent(),
+            ],
+            View = MinimalView(),
+            EventIndex = 2,
+        });
+    }
+
+    [Fact]
     public void Server_messages_round_trip()
     {
         RoundTripsServer(new HelloOk { ServerTimeUnixMs = 1_700_000_000_000, Seq = 1 });
