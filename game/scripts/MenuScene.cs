@@ -1,7 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using HoldTheLine.Net;
 using HoldTheLine.Net.Protocol;
+using HoldTheLine.Rules;
+using HoldTheLine.Rules.Cards;
 
 namespace HoldTheLine.Game;
 
@@ -308,10 +311,12 @@ public partial class MenuScene : Control
     {
         var p = NewPanel();
         PanelLabel(p, "卡 组 管 理", 66, 52, BattleTheme.TextMain);
-        PanelLabel(p, "本地卡组:编辑 / 改名 / 复制 / 删除,或直接用于人机对战", 144, 22, BattleTheme.TextDim);
+        PanelLabel(p, "本地卡组:编辑 / 改名 / 复制 / 口令 / 删除,或直接用于人机对战", 144, 22, BattleTheme.TextDim);
+        // Transient status line under the title (口令 copy / import feedback), reused by the 口令 row buttons.
+        var status = PanelLabel(p, "", 192, 22, BattleTheme.Accent);
 
         var decks = DeckStorage.LoadAll();
-        var scroll = new ScrollContainer { Position = new Vector2(380, 206), Size = new Vector2(1160, 690) };
+        var scroll = new ScrollContainer { Position = new Vector2(380, 224), Size = new Vector2(1160, 672) };
         scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         p.AddChild(scroll);
         var list = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -326,13 +331,14 @@ public partial class MenuScene : Control
         }
         else
             foreach (var d in decks)
-                list.AddChild(DeckManagerRow(d));
+                list.AddChild(DeckManagerRow(d, status));
 
-        p.AddChild(Btn("新建卡组", new Vector2(Cx, 920), new Vector2(290, 60), () => { DeckEditContext.Editing = null; GetTree().ChangeSceneToFile("res://scenes/menu/Deck.tscn"); }));
-        p.AddChild(Btn("返回", new Vector2(Cx + 310, 920), new Vector2(290, 60), CloseOverlay));
+        p.AddChild(Btn("新建卡组", new Vector2(Cx, 912), new Vector2(290, 60), () => { DeckEditContext.Editing = null; GetTree().ChangeSceneToFile("res://scenes/menu/Deck.tscn"); }));
+        p.AddChild(Btn("导入口令", new Vector2(970, 912), new Vector2(290, 60), ShowImportDeckCode));
+        p.AddChild(Btn("返回", new Vector2(Cx, 982), new Vector2(600, 56), CloseOverlay));
     }
 
-    private Control DeckManagerRow(StoredDeck d)
+    private Control DeckManagerRow(StoredDeck d, Label status)
     {
         var row = new Panel { CustomMinimumSize = new Vector2(1140, 72) };
         row.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.PanelDark, FactionTint(d.Faction), 2, 10));
@@ -363,8 +369,82 @@ public partial class MenuScene : Control
             DeckStorage.Save(d with { Id = DeckStorage.NewId(), Name = d.Name + " 副本", ServerId = null });
             ShowDeckManager();
         });
+        Act("口令", 110, BattleTheme.PanelDark, () =>
+        {
+            DisplayServer.ClipboardSet(DeckCode.Encode(d.Leader, d.CardIds, RulesInfo.Version, ClientDataHash()));
+            if (GodotObject.IsInstanceValid(status))
+            {
+                status.Text = $"「{d.Name}」的口令已复制到剪贴板";
+                status.AddThemeColorOverride("font_color", BattleTheme.Accent);
+            }
+        });
         Act("删除", 110, BattleTheme.DangerColor, () => ConfirmDelete(d));
         return row;
+    }
+
+    // Content fingerprint of the loaded card/leader/deck data — the same value hello sends to the server
+    // (Session.cs), so a code exported here validates against a matching build anywhere. Computed once.
+    private static string? _clientDataHash;
+    private static string ClientDataHash() =>
+        _clientDataHash ??= DataHash.Compute(GameData.LoadCards(), GameData.LoadLeaders(), GameData.LoadDecks());
+
+    // ---------- deck-code import (docs/12 A1.2): paste a HTL1- code → validate → save a local deck ----------
+
+    private void ShowImportDeckCode()
+    {
+        var p = NewPanel();
+        PanelLabel(p, "导入卡组口令", 300, 48, BattleTheme.TextMain);
+        PanelLabel(p, "把朋友分享的 HTL1- 口令粘贴到下面", 372, 22, BattleTheme.TextDim);
+        var field = Field("", "HTL1-…", new Vector2(Cx, 452), 600);
+        p.AddChild(field);
+        var status = PanelLabel(p, "", 540, 24, BattleTheme.DangerColor);
+
+        p.AddChild(Btn("导入", new Vector2(Cx, 616), new Vector2(290, 64), () =>
+        {
+            void Fail(string msg)
+            {
+                status.Text = msg;
+                status.AddThemeColorOverride("font_color", BattleTheme.DangerColor);
+            }
+
+            var (err, payload) = DeckCode.Decode((field.Text ?? "").Trim());
+            switch (err)
+            {
+                case DeckCodeError.BadFormat: Fail("口令格式不对或已损坏"); return;
+                case DeckCodeError.UnsupportedVersion: Fail("口令版本过新,请更新游戏"); return;
+            }
+            var p2 = payload!;
+            // Never silently import a code from a different card table — values would mismatch mid-match.
+            if (DeckCode.Check(p2, RulesInfo.Version, ClientDataHash()) == DeckCodeError.DataMismatch)
+            {
+                Fail($"口令来自不同的卡表版本(对方 {p2.Rules},本机 {RulesInfo.Version})");
+                return;
+            }
+
+            var db = GameData.LoadCards();
+            var invalid = DeckValidator.Validate(p2.Cards, db);
+            if (invalid != null) { Fail(invalid.Message); return; }
+
+            var leaders = GameData.LoadLeaders();
+            if (!leaders.TryGet(p2.Leader, out var leaderDef)) { Fail("口令中的领袖不存在"); return; }
+
+            // Faction = the deck's first non-neutral card faction; all-neutral falls back to the leader's.
+            string faction = p2.Cards
+                .Select(id => db.TryGet(id, out var def) ? def.Faction : DeckValidator.NeutralFaction)
+                .FirstOrDefault(f => f != DeckValidator.NeutralFaction) ?? leaderDef.Faction;
+
+            DeckStorage.Save(new StoredDeck
+            {
+                Id = DeckStorage.NewId(),
+                Name = "导入的卡组",
+                Faction = faction,
+                Leader = p2.Leader,
+                CardIds = p2.Cards.ToList(),
+                ServerId = null,
+            });
+            ShowDeckManager();
+        }));
+        p.AddChild(Btn("取消", new Vector2(Cx + 310, 616), new Vector2(290, 64), ShowDeckManager));
     }
 
     private void StartVsAiWithDeck(StoredDeck d)

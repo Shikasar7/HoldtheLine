@@ -4,4 +4,7 @@
     <RootNamespace>HoldTheLine.Rules</RootNamespace>
     <Description>Hold the Line — deterministic, engine-agnostic rules engine. No Godot/IO/time dependencies allowed.</Description>
   </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="HoldTheLine.Rules.Tests" />
+  </ItemGroup>
 </Project>
