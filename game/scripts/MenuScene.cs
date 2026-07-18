@@ -4,6 +4,7 @@ using Godot;
 using HoldTheLine.Net;
 using HoldTheLine.Net.Protocol;
 using HoldTheLine.Rules;
+using HoldTheLine.Rules.Ai;
 using HoldTheLine.Rules.Cards;
 
 namespace HoldTheLine.Game;
@@ -39,29 +40,12 @@ public partial class MenuScene : Control
         subtitle.Size = new Vector2(BattleTheme.ScreenW, 44);
         AddChild(subtitle);
 
-        var sectionAi = BattleTheme.MakeLabel("人机对战 — 选择你的卡组", 26, BattleTheme.TextDim, HorizontalAlignment.Center);
-        sectionAi.Position = new Vector2(0, 400);
-        sectionAi.Size = new Vector2(BattleTheme.ScreenW, 36);
-        AddChild(sectionAi);
-
-        AddButton("以【铁壁】出战  (铁誓军团 · 防守)", new Vector2(660, 456), BattleTheme.SeatColor0,
-            () => StartVsAi("iron_wall", "wildpack_hunt"));
-        AddButton("以【狂猎】出战  (荒野游群 · 快攻)", new Vector2(660, 542), BattleTheme.SeatColor1,
-            () => StartVsAi("wildpack_hunt", "iron_wall"));
-        AddButton("以【晚祷】出战  (黄昏教团 · 法术连锁)", new Vector2(660, 628), BattleTheme.SeatColor1,
-            () => StartVsAi("duskweaver_vesper", "undervault_sunline"));
-        AddButton("以【贯日阵列】出战  (掘世匠会 · 后排火力)", new Vector2(660, 714), BattleTheme.SeatColor0,
-            () => StartVsAi("undervault_sunline", "iron_wall"));
-        // Faction emblems (art lands in X4; Tex() returns null until then, so these are no-ops meanwhile).
-        Emblem("ui/emblem_iron_vow.png", 456);
-        Emblem("ui/emblem_wildpack.png", 542);
-        Emblem("ui/emblem_duskweaver.png", 628);
-        Emblem("ui/emblem_undervault.png", 714);
-
-        AddButton("双人热座对战", new Vector2(660, 806), BattleTheme.AccentSoft, StartHotseat);
-        AddButtonSized("联机对战", new Vector2(660, 888), new Vector2(290, 72), BattleTheme.SeatColor0, ShowOnlinePanel);
-        AddButtonSized("卡组管理", new Vector2(970, 888), new Vector2(290, 72), Color.FromHtml("8b5fa6"), ShowDeckManager);
-        AddButton("退出", new Vector2(660, 970), BattleTheme.PanelDark, () => GetTree().Quit());
+        // Main menu (docs/12 C1): one entry per mode. Deck/difficulty/opponent for vs-AI are chosen in the panel.
+        AddButton("人机对战", new Vector2(660, 456), BattleTheme.SeatColor0, () => ShowVsAiPanel());
+        AddButton("双人热座", new Vector2(660, 542), BattleTheme.AccentSoft, StartHotseat);
+        AddButton("联机对战", new Vector2(660, 628), BattleTheme.SeatColor1, ShowOnlinePanel);
+        AddButton("卡组管理", new Vector2(660, 714), Color.FromHtml("8b5fa6"), ShowDeckManager);
+        AddButton("退出", new Vector2(660, 806), BattleTheme.PanelDark, () => GetTree().Quit());
     }
 
     // ---------- online lobby (M3 C1): connect → profile → ranked queue / friend rooms ----------
@@ -387,6 +371,105 @@ public partial class MenuScene : Control
         p.AddChild(Btn("返回", new Vector2(Cx, 712), new Vector2(600, 60), ShowLobby));
     }
 
+    // ---------- vs-AI setup (docs/12 C1+C3): my deck × difficulty × opponent, one panel ----------
+
+    private string _vsAiMyDeck = "iron_wall";               // built-in id, or "local:<StoredDeck.Id>"
+    private AiLevel _vsAiLevel = AiLevel.Hard;
+    private string _vsAiOppDeck = "random";                 // "random", a built-in id, or "local:<id>"
+
+    /// <summary>Options for a deck grid: the four built-ins then the player's local decks.</summary>
+    private static List<(string Key, string Label, Color Color)> DeckGridOptions(bool withRandom)
+    {
+        var opts = new List<(string Key, string Label, Color Color)>();
+        if (withRandom) opts.Add(("random", "随机对手", BattleTheme.Accent));
+        foreach (var d in DeckOptions) opts.Add((d.Id, d.Label, d.Color));
+        foreach (var d in DeckStorage.LoadAll()) opts.Add(($"local:{d.Id}", d.Name, FactionTint(d.Faction)));
+        return opts;
+    }
+
+    private void ShowVsAiPanel(StoredDeck? preselect = null)
+    {
+        if (preselect != null) _vsAiMyDeck = $"local:{preselect.Id}";
+
+        var p = NewPanel();
+        PanelLabel(p, "人 机 对 战", 48, 48, BattleTheme.TextMain);
+
+        // 1) my deck
+        PanelLabel(p, "我的卡组", 112, 22, BattleTheme.Accent);
+        var myOpts = DeckGridOptions(withRandom: false);
+        if (myOpts.All(o => o.Key != _vsAiMyDeck)) _vsAiMyDeck = myOpts[0].Key; // preselect deleted → fall back
+        DeckGrid(p, new Vector2(Cx, 146), new Vector2(620, 150), myOpts, () => _vsAiMyDeck, k => _vsAiMyDeck = k);
+
+        // 2) difficulty
+        PanelLabel(p, "难度", 306, 22, BattleTheme.Accent);
+        var levels = new (AiLevel L, string Label)[] { (AiLevel.Easy, "简单"), (AiLevel.Normal, "普通"), (AiLevel.Hard, "困难") };
+        var lvlBtns = new Button[levels.Length];
+        void RepaintLevel() { for (int i = 0; i < levels.Length; i++) BattleTheme.SetButtonBg(lvlBtns[i], _vsAiLevel == levels[i].L ? BattleTheme.AccentSoft : BattleTheme.PanelDark); }
+        for (int i = 0; i < levels.Length; i++)
+        {
+            var lv = levels[i];
+            var b = Btn(lv.Label, new Vector2(Cx + i * 205, 340), new Vector2(190, 58), () => { _vsAiLevel = lv.L; RepaintLevel(); });
+            lvlBtns[i] = b;
+            p.AddChild(b);
+        }
+        RepaintLevel();
+
+        // 3) opponent (random + built-ins + local, one grid)
+        PanelLabel(p, "对手", 414, 22, BattleTheme.Accent);
+        var oppOpts = DeckGridOptions(withRandom: true);
+        if (oppOpts.All(o => o.Key != _vsAiOppDeck)) _vsAiOppDeck = "random";
+        DeckGrid(p, new Vector2(Cx, 448), new Vector2(620, 150), oppOpts, () => _vsAiOppDeck, k => _vsAiOppDeck = k);
+
+        p.AddChild(Btn("开  战", new Vector2(Cx, 616), new Vector2(600, 76), StartVsAiMatch));
+        p.AddChild(Btn("返回", new Vector2(Cx, 704), new Vector2(600, 56), CloseOverlay));
+    }
+
+    /// <summary>A scrollable two-column grid of selectable deck buttons; the selected key highlights.</summary>
+    private void DeckGrid(Control parent, Vector2 pos, Vector2 size,
+        List<(string Key, string Label, Color Color)> opts, System.Func<string> get, System.Action<string> set)
+    {
+        var scroll = new ScrollContainer { Position = pos, Size = size };
+        scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        parent.AddChild(scroll);
+        var inner = new Control { CustomMinimumSize = new Vector2(size.X - 24, ((opts.Count + 1) / 2) * 66) };
+        scroll.AddChild(inner);
+
+        var btns = new Button[opts.Count];
+        System.Action repaint = null!;
+        repaint = () => { for (int i = 0; i < opts.Count; i++) BattleTheme.SetButtonBg(btns[i], get() == opts[i].Key ? opts[i].Color : BattleTheme.PanelDark); };
+        for (int i = 0; i < opts.Count; i++)
+        {
+            var o = opts[i];
+            var b = BattleTheme.MakeButton(new Vector2((i % 2) * 300, (i / 2) * 66), new Vector2(288, 58), BattleTheme.PanelDark, BattleTheme.Accent, 1, 8);
+            b.Text = o.Label; b.AddThemeFontSizeOverride("font_size", 20); b.ClipText = true;
+            b.Pressed += () => { set(o.Key); repaint(); };
+            inner.AddChild(b);
+            btns[i] = b;
+        }
+        repaint();
+    }
+
+    /// <summary>Resolve a grid key to a seat deck: a built-in id (cards null) or a local card list + leader.</summary>
+    private static (string? Builtin, IReadOnlyList<string>? Cards, string? Leader) ResolveVsAiDeck(string key)
+    {
+        if (key.StartsWith("local:"))
+        {
+            var d = DeckStorage.Get(key["local:".Length..]);
+            return d is null ? (null, null, null) : (null, d.CardIds, d.Leader);
+        }
+        return (key, null, null);
+    }
+
+    private void StartVsAiMatch()
+    {
+        var (hb, hc, hl) = ResolveVsAiDeck(_vsAiMyDeck);
+        // Random opponent is resolved to a concrete built-in now (the panel doesn't reveal which — you see it in-match).
+        string oppKey = _vsAiOppDeck == "random" ? AiDeckPool.PickRandom(_vsAiLevel) : _vsAiOppDeck;
+        var (ab, ac, al) = ResolveVsAiDeck(oppKey);
+        GameConfig.SetVsAiMatch(hb, hc, hl, ab, ac, al, _vsAiLevel);
+        GetTree().ChangeSceneToFile(BattlePath);
+    }
+
     // ---------- deck manager (local storage: multiple decks, edit / rename / copy / delete / vs-AI) ----------
 
     private void ShowDeckManager()
@@ -439,7 +522,7 @@ public partial class MenuScene : Control
             b.Text = t; b.AddThemeFontSizeOverride("font_size", 20);
             b.Pressed += a; row.AddChild(b); bx += w + 10;
         }
-        Act("人机对战", 150, BattleTheme.AccentSoft, () => StartVsAiWithDeck(d));
+        Act("人机对战", 150, BattleTheme.AccentSoft, () => ShowVsAiPanel(preselect: d));
         Act("编辑", 110, BattleTheme.PanelDark, () =>
         {
             DeckEditContext.Editing = new DeckEditContext.Deck(d.Id, d.Name, d.Faction, d.CardIds, d.ServerId);
@@ -527,14 +610,6 @@ public partial class MenuScene : Control
             ShowDeckManager();
         }));
         p.AddChild(Btn("取消", new Vector2(Cx + 310, 616), new Vector2(290, 64), ShowDeckManager));
-    }
-
-    private void StartVsAiWithDeck(StoredDeck d)
-    {
-        var builtins = GameData.LoadDecks();
-        var ai = builtins[(int)(GD.Randi() % (uint)builtins.Count)]; // AI plays a random preconstructed deck
-        GameConfig.SetVsAiCustom(d.CardIds, d.Leader, ai.Id);
-        GetTree().ChangeSceneToFile(BattlePath);
     }
 
     private void PromptRename(StoredDeck d)
@@ -674,12 +749,6 @@ public partial class MenuScene : Control
         return c;
     }
 
-    private void Emblem(string texPath, float y)
-    {
-        if (BattleTheme.Tex(texPath) is { } tex)
-            AddChild(BattleTheme.Art(tex, new Vector2(572, y), new Vector2(72, 72), TextureRect.StretchModeEnum.KeepAspectCentered));
-    }
-
     private void AddButton(string text, Vector2 pos, Color color, System.Action onPressed) =>
         AddButtonSized(text, pos, new Vector2(600, 72), color, onPressed);
 
@@ -690,12 +759,6 @@ public partial class MenuScene : Control
         btn.AddThemeFontSizeOverride("font_size", 26);
         btn.Pressed += onPressed;
         AddChild(btn);
-    }
-
-    private void StartVsAi(string humanDeck, string aiDeck)
-    {
-        GameConfig.SetVsAi(humanDeck, aiDeck);
-        GetTree().ChangeSceneToFile(BattlePath);
     }
 
     private void StartHotseat()

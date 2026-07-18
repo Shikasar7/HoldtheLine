@@ -1,9 +1,11 @@
+using HoldTheLine.Rules.Ai;
+
 namespace HoldTheLine.Game;
 
 /// <summary>
 /// Match setup chosen on the menu and read by BattleScene after the scene change. Static so it
 /// survives ChangeSceneToFile. In vs-AI mode the human is <see cref="HumanSeat"/> and the other
-/// seat is driven by the greedy AI (via LocalGameHost.SuggestCommand).
+/// seat is driven by the AI (via LocalGameHost.SuggestCommand) at <see cref="VsAiLevel"/>.
 /// </summary>
 public static class GameConfig
 {
@@ -11,6 +13,8 @@ public static class GameConfig
     public static int HumanSeat;      // seat the local player controls in vs-AI mode
     public static string Deck0 = "iron_wall";
     public static string Deck1 = "wildpack_hunt";
+    /// <summary>vs-AI difficulty tier (docs/12 C). Read by BattleScene to build the LocalGameHost's AiProfile.</summary>
+    public static AiLevel VsAiLevel = AiLevel.Hard;
     public static bool Configured;
 
     // Custom decks (from local DeckStorage): when set, these explicit card lists + leaders override the
@@ -40,27 +44,22 @@ public static class GameConfig
         LocalDeckCards = null;
     }
 
-    public static void SetVsAi(string humanDeck, string aiDeck)
+    /// <summary>The single vs-AI entry (docs/12 C1). Each seat is EITHER a built-in deck id OR an explicit
+    /// card list + leader (built-in null); the menu is the only caller, so this replaces the old
+    /// SetVsAi / SetVsAiCustom pair. Seat 0 is the human, seat 1 the AI, matching
+    /// <see cref="Deck0"/>/<see cref="Deck1"/> and BattleScene.ResolveOfflineDeck's priority.</summary>
+    public static void SetVsAiMatch(
+        string? humanBuiltin, IReadOnlyList<string>? humanCards, string? humanLeader,
+        string? aiBuiltin, IReadOnlyList<string>? aiCards, string? aiLeader,
+        AiLevel level)
     {
         Online = false;
         VsAi = true;
         HumanSeat = 0;
-        Deck0 = humanDeck;
-        Deck1 = aiDeck;
-        ClearCustomDecks();
-        Configured = true;
-    }
-
-    /// <summary>vs-AI with a custom human deck (explicit card list + leader from local storage); the AI
-    /// still plays a built-in preconstructed deck.</summary>
-    public static void SetVsAiCustom(IReadOnlyList<string> humanCards, string humanLeader, string aiDeck)
-    {
-        Online = false;
-        VsAi = true;
-        HumanSeat = 0;
-        Deck0 = ""; Deck1 = aiDeck;
-        ClearCustomDecks();
-        Deck0CardIds = humanCards; Deck0Leader = humanLeader;
+        VsAiLevel = level;
+        ClearCustomDecks(); // clear first — the explicit lists below override the built-in id lookup
+        Deck0 = humanBuiltin ?? ""; Deck0CardIds = humanCards; Deck0Leader = humanLeader;
+        Deck1 = aiBuiltin ?? ""; Deck1CardIds = aiCards; Deck1Leader = aiLeader;
         Configured = true;
     }
 

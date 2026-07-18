@@ -1,6 +1,7 @@
 using Godot;
 using HoldTheLine.Net.Client;
 using HoldTheLine.Net.Protocol;
+using HoldTheLine.Rules.Ai;
 using HoldTheLine.Rules.Cards;
 using HoldTheLine.Rules.Commands;
 using HoldTheLine.Rules.Engine;
@@ -169,7 +170,8 @@ public partial class BattleScene : Control
 			Deck1 = cards1, Leader1 = leader1,
 			MulliganEnabled = true, // 起手重抽 (docs/11)
 		};
-		var local = new LocalGameHost(_cards, _leaders, config);
+		// vs-AI tier (docs/12 C2); hotseat ignores the profile (no seat consumes SuggestCommand) — harmless to pass.
+		var local = new LocalGameHost(_cards, _leaders, config, aiProfile: AiProfile.For(GameConfig.VsAiLevel));
 		_localHost = local;
 		_host = local;
 		_host.Subscribe(0, e => _playQueue.Enqueue(e)); // seat-0 public stream → presentation queue (RunPlayback animates + tallies)
