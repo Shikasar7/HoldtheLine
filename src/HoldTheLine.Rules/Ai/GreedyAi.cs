@@ -262,7 +262,12 @@ public static class GreedyAi
                 if (e.Target is "target_unit" or "target_unit_ally")
                 {
                     if (target == null) return 0;
-                    return targetIsAlly ? 2 + cost : -100;
+                    if (!targetIsAlly) return -100;
+                    // 重新部署 (Mobilized) only matters on an 架设 unit — repositioning a bolted-down turret;
+                    // granting it to a mobile unit is inert, so don't waste the card there.
+                    if (e.GrantKeyword == Keyword.Mobilized)
+                        return target.HasKeyword(Keyword.Emplacement) ? 2 + cost : 0.2;
+                    return 2 + cost;
                 }
                 return 1;
 

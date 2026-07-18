@@ -54,6 +54,12 @@ public enum Keyword
     /// <summary>贯穿 — on a ranged attack aligned with the target (same row/col), the cell one step directly
     /// behind the target (away from the attacker) takes equal damage — friend or foe, no retaliation.</summary>
     Pierce,
+
+    /// <summary>重新部署 — a transient permission (granted, never innate; end_of_turn) that lets an 架设
+    /// (Emplacement) unit take one normal move this turn. Inert on a non-emplacement unit, which can already
+    /// move. Lifts only the emplacement move-block; ordinary movement rules (one step, MovementPerTurn) apply,
+    /// so a bolted-down gun repositions exactly one cell and is immovable again next turn (docs/10 §11).</summary>
+    Mobilized,
 }
 
 /// <summary>A keyword plus its numeric parameter (used by Swift/Range; 0 for the rest).</summary>

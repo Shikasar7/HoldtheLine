@@ -143,6 +143,86 @@ public class AllyEmplacementSelectorTests
     }
 }
 
+public class RedeployTests
+{
+    [Fact]
+    public void Mobilized_emplacement_can_take_one_step()
+    {
+        var state = TestKit.NewGame();
+        state.Player(0).Mana = 5;
+        var turret = TestKit.Place(state, 0, "t_turret", new Cell(2, 1)); // 架设, pinned by default
+        int order = TestKit.GiveCard(state, 0, "t_redeploy");
+        var resolver = TestKit.NewResolver();
+
+        state = resolver.Execute(state, new PlayCardCommand
+        { Seat = 0, CardEntityId = order, TargetUnitId = turret.EntityId }).State!;
+        var moved = resolver.Execute(state, new MoveUnitCommand
+        { Seat = 0, UnitEntityId = turret.EntityId, To = new Cell(2, 2) });
+
+        Assert.True(moved.Success, moved.Error?.Message);
+        Assert.Equal(new Cell(2, 2), moved.State!.FindUnit(turret.EntityId)!.Cell);
+    }
+
+    [Fact]
+    public void Mobilized_emplacement_still_moves_only_one_cell()
+    {
+        var state = TestKit.NewGame();
+        state.Player(0).Mana = 5;
+        var turret = TestKit.Place(state, 0, "t_turret", new Cell(2, 1));
+        int order = TestKit.GiveCard(state, 0, "t_redeploy");
+        var resolver = TestKit.NewResolver();
+        state = resolver.Execute(state, new PlayCardCommand { Seat = 0, CardEntityId = order, TargetUnitId = turret.EntityId }).State!;
+        state = resolver.Execute(state, new MoveUnitCommand { Seat = 0, UnitEntityId = turret.EntityId, To = new Cell(2, 2) }).State!;
+
+        var second = resolver.Execute(state, new MoveUnitCommand { Seat = 0, UnitEntityId = turret.EntityId, To = new Cell(2, 3) });
+
+        Assert.Equal(RuleErrorCode.NoMovementLeft, second.Error!.Code); // one step only, MovementPerTurn = 1
+    }
+
+    [Fact]
+    public void Emplacement_without_redeploy_is_still_pinned()
+    {
+        var state = TestKit.NewGame();
+        var turret = TestKit.Place(state, 0, "t_turret", new Cell(2, 1));
+
+        var result = TestKit.NewResolver().Execute(state, new MoveUnitCommand
+        { Seat = 0, UnitEntityId = turret.EntityId, To = new Cell(2, 2) });
+
+        Assert.Equal(RuleErrorCode.Emplaced, result.Error!.Code);
+    }
+
+    [Fact]
+    public void Enumerator_offers_a_move_for_a_mobilized_emplacement()
+    {
+        var state = TestKit.NewGame();
+        state.Player(0).Mana = 5;
+        var turret = TestKit.Place(state, 0, "t_turret", new Cell(2, 1));
+        int order = TestKit.GiveCard(state, 0, "t_redeploy");
+        var resolver = TestKit.NewResolver();
+        state = resolver.Execute(state, new PlayCardCommand { Seat = 0, CardEntityId = order, TargetUnitId = turret.EntityId }).State!;
+
+        var legal = CommandEnumerator.LegalCommands(state, TestKit.Db, TestKit.Leaders);
+
+        Assert.Contains(legal, c => c is MoveUnitCommand m && m.UnitEntityId == turret.EntityId);
+    }
+
+    [Fact]
+    public void Redeploy_grant_expires_at_end_of_turn()
+    {
+        var state = TestKit.NewGame();
+        state.Player(0).Mana = 5;
+        var turret = TestKit.Place(state, 0, "t_turret", new Cell(2, 1));
+        int order = TestKit.GiveCard(state, 0, "t_redeploy");
+        var resolver = TestKit.NewResolver();
+        state = resolver.Execute(state, new PlayCardCommand { Seat = 0, CardEntityId = order, TargetUnitId = turret.EntityId }).State!;
+        Assert.True(state.FindUnit(turret.EntityId)!.HasKeyword(Keyword.Mobilized));
+
+        state = resolver.Execute(state, new EndTurnCommand { Seat = 0 }).State!;
+
+        Assert.False(state.FindUnit(turret.EntityId)!.HasKeyword(Keyword.Mobilized)); // bolted down again next turn
+    }
+}
+
 public class SecondBatchValidationTests
 {
     [Fact]

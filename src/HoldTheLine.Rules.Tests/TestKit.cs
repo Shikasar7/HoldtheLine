@@ -235,6 +235,13 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "buff", Target = "all_ally_emplacements", Hp = 2 }],
     };
 
+    /// <summary>Order: grant 重新部署 (Mobilized, end_of_turn) to a friendly unit — the 校准指令→重新部署 pattern.</summary>
+    public static readonly CardDefinition RedeployOrder = new()
+    {
+        Id = "t_redeploy", Name = "Redeploy", Type = CardType.Order, Cost = 1,
+        Effects = [new EffectSpec { Trigger = "play", Action = "grant_keyword", Target = "target_unit_ally", GrantKeyword = Keyword.Mobilized, Duration = "end_of_turn" }],
+    };
+
     public static CardDatabase Db { get; } = new([
         Vanilla, BigVanilla, Charger, Assaulter, Scout, Archer, GuardUnit, Holder,
         Trampler, Sneak, Shielded, BattlecryBuffer, Bomber, Coin, ZapOrder, DrawOrder,
@@ -243,7 +250,7 @@ public static class TestKit
         PackHunter, PackArcher,
         Turret, Barricade, Piercer, SacrificeOrder, RowBlastOrder, CrossBlastOrder,
         ColumnAllyBuffOrder, OnCastGrower, OnCastPinger, Recaller,
-        SearOrder, SelfMovedGrower, SelfMovedPinger, EmplacementBuffOrder,
+        SearOrder, SelfMovedGrower, SelfMovedPinger, EmplacementBuffOrder, RedeployOrder,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.

@@ -124,8 +124,8 @@ public static class CommandEnumerator
 
     private static IEnumerable<Cell> MoveDestinations(UnitInstance unit)
     {
-        if (unit.HasKeyword(Keyword.Emplacement))
-            yield break; // 架设: pinned to its cell — never enumerate a move for it.
+        if (unit.HasKeyword(Keyword.Emplacement) && !unit.HasKeyword(Keyword.Mobilized))
+            yield break; // 架设: pinned to its cell — never enumerate a move (unless 重新部署 lifted the block).
 
         foreach (var c in BoardGeometry.AdjacentCells(unit.Cell))
             yield return c;

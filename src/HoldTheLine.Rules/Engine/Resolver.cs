@@ -157,8 +157,10 @@ public sealed class Resolver
             return new RuleError(RuleErrorCode.UnknownEntity, $"Unit {cmd.UnitEntityId} does not exist.");
         if (unit.OwnerSeat != cmd.Seat)
             return new RuleError(RuleErrorCode.NotYourUnit, "That unit is not yours.");
-        if (unit.HasKeyword(Keyword.Emplacement))
-            return new RuleError(RuleErrorCode.Emplaced, "架设单位不能移动。"); // Leap / move_bonus can't help — there is no movement to spend.
+        // 架设 is pinned — UNLESS 重新部署 (Mobilized) has been granted this turn, which lifts the block for
+        // one ordinary move (docs/10 §11). Without it, Leap / move_bonus can't help: there is no movement to spend.
+        if (unit.HasKeyword(Keyword.Emplacement) && !unit.HasKeyword(Keyword.Mobilized))
+            return new RuleError(RuleErrorCode.Emplaced, "架设单位不能移动(需重新部署)。");
         if (IsSummoningSick(ctx.State, unit) && !unit.HasKeyword(Keyword.Charge))
             return new RuleError(RuleErrorCode.SummoningSickness, "This unit is still mustering (集结中).");
         if (unit.MovementUsed >= unit.MovementPerTurn)

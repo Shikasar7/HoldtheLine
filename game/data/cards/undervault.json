@@ -222,7 +222,7 @@
   },
   {
     "id": "uv_calibrate",
-    "name": "校准指令",
+    "name": "重新部署",
     "faction": "undervault",
     "type": "order",
     "rarity": "common",
@@ -232,13 +232,12 @@
         "trigger": "play",
         "action": "grant_keyword",
         "target": "target_unit_ally",
-        "keyword": "range",
-        "keyword_value": 1,
+        "keyword": "mobilized",
         "duration": "end_of_turn"
       }
     ],
-    "text": "一个友方随从获得射程 1,直到回合结束。",
-    "art_prompt": "a dwarf hand adjusting a brass targeting dial, etched range markings glowing"
+    "text": "一个友方架设随从本回合可移动一格。",
+    "art_prompt": "a dwarf crew unbolting a turret from its mount and rolling it to a new firing position, sparks and chains"
   },
   {
     "id": "uv_emergency_repair",
