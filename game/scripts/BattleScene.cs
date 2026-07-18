@@ -620,7 +620,13 @@ public partial class BattleScene : Control
 		if (_busy || !_crossPreview || _selKind != SelKind.Card) return;
 		var center = ScreenToBoard(scol, srow);
 		if (!_candidates.Any(c => CellOf(c) is { } cc && cc == center)) return; // not a legal center
+		ShowCrossFootprint(center);
+	}
 
+	/// <summary>Highlight the 十字 blast centred on <paramref name="center"/>: cyan on empty/enemy cells,
+	/// a red frame on any FRIENDLY unit caught in it (友伤确认). Shared by tap-hover and drag-hover.</summary>
+	private void ShowCrossFootprint(Cell center)
+	{
 		ClearHighlights();
 		var view = _host.GetView(ViewSeat);
 		foreach (var cell in BoardGeometry.AdjacentCells(center).Append(center))
@@ -719,8 +725,8 @@ public partial class BattleScene : Control
 		if (_busy) return;
 		int seat = ActiveSeat;
 
-		// If we're mid-target-pick, treat as a target first.
-		if (_selKind is SelKind.Card or SelKind.Leader && TryPickUnitTarget(entityId)) return;
+		// If we're mid-target-pick, treat as a target first (a unit target, or the unit's cell for an AOE).
+		if (_selKind is SelKind.Card or SelKind.Leader && TryPickUnitOrItsCell(entityId)) return;
 
 		if (unit is null) return;
 
@@ -758,6 +764,21 @@ public partial class BattleScene : Control
 		ClearHighlights();
 		HighlightCardCandidates();
 		return true;
+	}
+
+	/// <summary>A click landing on a unit while aiming: first try it as a unit target, otherwise (a
+	/// row/column/十字 AOE order or leader skill) treat it as picking that unit's CELL — a click on an
+	/// occupied cell must aim the AOE there, not fizzle (the standee sits on top of the cell button).</summary>
+	private bool TryPickUnitOrItsCell(int unitId)
+	{
+		if (TryPickUnitTarget(unitId)) return true;
+		var u = _host.GetView(ViewSeat).Units.FirstOrDefault(x => x.EntityId == unitId);
+		if (u != null && _candidates.Any(c => CellOf(c) is { } cc && cc == u.Cell))
+		{
+			PickCell(u.Cell);
+			return true;
+		}
+		return false;
 	}
 
 	private void OnCellClicked(int scol, int srow)
@@ -868,9 +889,22 @@ public partial class BattleScene : Control
 	{
 		if (_selKind != SelKind.Card) return;
 		var hit = HitTest(mousePos);
-		Cell? cell = hit is { Kind: HitKind.Cell } h ? h.Cell : null;
+		Cell? cell = hit switch
+		{
+			{ Kind: HitKind.Cell } h => h.Cell,
+			// Over a standee: resolve to its cell so occupied cells light up for AOE aiming.
+			{ Kind: HitKind.Unit } h => _host.GetView(ViewSeat).Units.FirstOrDefault(u => u.EntityId == h.UnitId)?.Cell,
+			_ => null,
+		};
 		if (Nullable.Equals(cell, _dragHoverCell)) return;
 		_dragHoverCell = cell;
+
+		// 十字 AOE: show the full blast footprint (friendly-fire in red) while dragging over a legal cell.
+		if (_crossPreview && cell is { } center && _candidates.Any(c => CellOf(c) is { } x && x == center))
+		{
+			ShowCrossFootprint(center);
+			return;
+		}
 
 		HighlightCardCandidates();
 		if (cell is { } cc && _candidates.Any(c => CellOf(c) is { } x && x.Col == cc.Col && x.Row == cc.Row))
@@ -892,7 +926,7 @@ public partial class BattleScene : Control
 		switch (hit.Value.Kind)
 		{
 			case HitKind.Cell: PickCell(hit.Value.Cell); break;
-			case HitKind.Unit: TryPickUnitTarget(hit.Value.UnitId); break;
+			case HitKind.Unit: TryPickUnitOrItsCell(hit.Value.UnitId); break;
 			case HitKind.Leader: PickLeader(); break;
 		}
 	}

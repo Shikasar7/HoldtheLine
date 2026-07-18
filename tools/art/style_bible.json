@@ -17,7 +17,9 @@
     "ui_button": "game UI asset: wide landscape button plate, flat front view, perfectly symmetrical, isolated on plain neutral dark background, crisp clean edges suitable for nine-slice scaling, plain uninterrupted center surface for programmatic text, simple uniform side rails and corners, restrained decoration only at the four corners, no crest, no wings, no protruding side ornaments, no text",
     "ui_icon": "game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text",
     "ui_texture": "seamless flat surface texture filling the whole frame, even lighting, subtle low-contrast detail, no objects, no figures, no text",
-    "prop": "square canvas game asset, single game prop object, centered, slight top-down angle, isolated on plain neutral dark background, generous even padding on all sides, even soft lighting, no text"
+    "prop": "square canvas game asset, single game prop object, centered, slight top-down angle, isolated on plain neutral dark background, generous even padding on all sides, even soft lighting, no text",
+    "screen_bg": "wide 16:9 game interface background, environment-only composition, low contrast and darkened center-safe lighting so foreground UI remains readable, atmospheric depth, no people, no text, no interface elements",
+    "fx": "game visual-effect sprite, single centered effect with a bold readable silhouette, isolated with generous transparent safety padding, no text, no border, no interface elements"
   },
 
   "factions": {
@@ -163,6 +165,84 @@
       "type": "order",
       "faction": null,
       "art_prompt": "a shattered shield half-buried in mud beside a fallen banner, cold grey dusk, embers dying out"
+    },
+    {
+      "id": "deck_editor_bg",
+      "type": "screen_bg",
+      "faction": null,
+      "art_prompt": "war-room strategy table with scattered blank card parchments, quill and ink, candle-lit workshop, top-down oblique view"
+    },
+    {
+      "id": "ladder_bg",
+      "type": "screen_bg",
+      "faction": null,
+      "art_prompt": "grand hall of war banners and ranked trophy pedestals, shafts of dusty light, empty of people"
+    },
+    {
+      "id": "deck_list_plate",
+      "type": "ui_frame",
+      "faction": null,
+      "art_prompt": "tall dark leather-bound ledger panel with brass corners, restrained ornate border, plain uninterrupted center, stretch-safe textured edges"
+    },
+    {
+      "id": "ladder_row",
+      "type": "ui_button",
+      "faction": null,
+      "art_prompt": "very wide horizontal dark wood-and-iron nameplate strip, subtle engraved border, plain uninterrupted center, stretch-safe textured edges"
+    },
+    {
+      "id": "rank_badge",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "circular military rank medallion with a restrained laurel and sword motif, dark bronze, empty center disc"
+    },
+    {
+      "id": "medal_gold",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "gold war medal with a short dark ribbon, flat front view"
+    },
+    {
+      "id": "medal_silver",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "silver war medal with a short dark ribbon, flat front view"
+    },
+    {
+      "id": "medal_bronze",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "bronze war medal with a short dark ribbon, flat front view"
+    },
+    {
+      "id": "queue_seal",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "circular arcane wax seal with a crossed-banners emblem and engraved outer ring"
+    },
+    {
+      "id": "projectile_bolt",
+      "type": "fx",
+      "faction": null,
+      "art_prompt": "glowing faded-teal energy bolt pointing exactly right with a short horizontal motion trail"
+    },
+    {
+      "id": "hit_spark",
+      "type": "fx",
+      "faction": null,
+      "art_prompt": "radial melee impact spark burst, warm orange-white, compact center and sharp rays"
+    },
+    {
+      "id": "shield_glyph",
+      "type": "fx",
+      "faction": null,
+      "art_prompt": "small round shield sigil glowing cool blue, flat front view"
+    },
+    {
+      "id": "emblem_neutral",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "neutral grey heraldic emblem combining a crossed banner and coin motif, bold silhouette"
     }
   ],
 
