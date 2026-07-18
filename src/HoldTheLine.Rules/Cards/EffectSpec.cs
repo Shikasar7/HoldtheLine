@@ -57,9 +57,10 @@ public sealed record EffectSpec
         { "permanent", "end_of_turn", "your_next_turn" };
 
     /// <summary>Targets the reactive triggers (ally_order_played, self_moved) may use — they fire without a
-    /// player prompt, so their targeting must be implicit around the source unit (docs/06 §3.1, docs/10 §6#1).</summary>
+    /// player prompt, so their targeting must be implicit: either around the source unit (self/adjacent_*)
+    /// or targetless (none, e.g. a recall/draw/summon that reads ownerSeat). docs/06 §3.1, docs/10 §6#1.</summary>
     public static readonly IReadOnlySet<string> OnCastTargets = new HashSet<string>
-        { "self", "adjacent_allies", "adjacent_enemies" };
+        { "none", "self", "adjacent_allies", "adjacent_enemies" };
 
     /// <summary>Targets the caller must supply an explicit unit for.</summary>
     public bool NeedsUnitTarget => Target is "target_unit" or "target_unit_own_half" or "target_unit_ally" or "unit_cross_all";
