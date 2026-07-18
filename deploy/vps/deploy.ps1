@@ -64,7 +64,7 @@ if ($LASTEXITCODE -ne 0) { throw "服务器端切换/启动失败,查看:ssh $Se
 Remove-Item $tgz -ErrorAction SilentlyContinue
 Write-Host "[5/5] 完成!" -ForegroundColor Green
 Write-Host ""
-Write-Host "  客户端服务器地址:ws://212.64.21.174:5210/ws" -ForegroundColor Green
-Write-Host "  ※ 首次部署需在腾讯云控制台【安全组】放行 TCP 5210 入站,否则外网连不上。" -ForegroundColor Yellow
-Write-Host "  验证:浏览器打开 http://212.64.21.174:5210/healthz 应显示 ok" -ForegroundColor DarkGray
+Write-Host "  客户端服务器地址:wss://htl.cicala.chat/ws  (TLS 反代见 deploy\vps\setup-tls.ps1 / docs/12 B0)" -ForegroundColor Green
+Write-Host "  ※ 明文 ws://212.64.21.174:5210/ws 暂仍可用(收口在 docs/12 B2.3);首次部署需安全组放行 TCP 5210 入站。" -ForegroundColor Yellow
+Write-Host "  验证:浏览器打开 https://htl.cicala.chat/healthz 应显示 ok" -ForegroundColor DarkGray
 Write-Host "  日常运维:ssh $Server 'systemctl status holdtheline' / 'journalctl -u holdtheline -f'" -ForegroundColor DarkGray

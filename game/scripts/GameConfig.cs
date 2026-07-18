@@ -27,9 +27,10 @@ public static class GameConfig
     // Online (M2 N2). When Online is set, BattleScene connects to a server instead of running a
     // LocalGameHost; the local seat is assigned by the server's match_started, not chosen here.
     public static bool Online;
-    /// <summary>Default = the public battle server on the cicala.chat VPS (docs/08 §4). Friends just
-    /// open the online panel and create/join — no address typing. Editable for LAN/local testing.</summary>
-    public static string ServerUrl = "ws://212.64.21.174:5210/ws";
+    /// <summary>Default = the public battle server over TLS (docs/12 B0: Caddy reverse-proxies
+    /// htl.cicala.chat → 127.0.0.1:5210, Let's Encrypt cert). Friends just open the online panel and
+    /// create/join — no address typing. Editable for LAN/local testing (ws:// still allowed there).</summary>
+    public static string ServerUrl = "wss://htl.cicala.chat/ws";
     public static string Nickname = "玩家";
 
     private static void ClearCustomDecks()
