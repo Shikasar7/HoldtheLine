@@ -54,6 +54,9 @@ rm -rf /opt/holdtheline/new /tmp/holdtheline-server.tgz
 systemctl start holdtheline
 sleep 2
 systemctl is-active holdtheline
+# docs/12 B2.2: tighten data-dir / db-file permissions (|| true — db is created on first start)
+chmod 700 /var/lib/holdtheline || true
+chmod 600 /var/lib/holdtheline/holdtheline.db || true
 # 注意:此 here-string 经 PS5.1 → ssh 传输会丢内嵌双引号,这里只能用无引号无重定向符的写法
 curl -sf http://127.0.0.1:5210/healthz
 echo

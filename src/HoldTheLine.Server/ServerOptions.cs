@@ -36,4 +36,9 @@ public sealed class ServerOptions
     /// <summary>SQLite database file (M3 B0). Null / empty opens a private in-memory db (tests, throwaway
     /// runs); production sets <c>/var/lib/holdtheline/holdtheline.db</c> via HTL_Server__DbPath.</summary>
     public string? DbPath { get; set; }
+
+    /// <summary>Optional directory for daily online SQLite backups (docs/12 B2). Null disables backups —
+    /// the default, so tests and local runs don't spawn the service. Production sets
+    /// <c>/var/lib/holdtheline/backups</c> via HTL_Server__BackupDir.</summary>
+    public string? BackupDir { get; set; }
 }

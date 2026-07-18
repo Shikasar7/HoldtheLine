@@ -28,6 +28,12 @@ public static class ServerApp
         builder.Services.AddSingleton<ServerStats>();
         builder.Services.AddSingleton<AuthThrottle>();
 
+        // Daily online backups (docs/12 B2) — only with a real file db AND a target dir (never for the
+        // in-memory db that tests / throwaway runs use).
+        if (!string.IsNullOrWhiteSpace(options.BackupDir)
+            && !string.IsNullOrWhiteSpace(options.DbPath) && options.DbPath != ":memory:")
+            builder.Services.AddHostedService<BackupService>();
+
         var app = builder.Build();
         app.UseWebSockets();
 

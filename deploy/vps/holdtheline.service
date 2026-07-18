@@ -16,6 +16,8 @@ Environment=HTL_Server__DataRoot=/opt/holdtheline/data
 Environment=HTL_Server__CommandLogDir=/var/lib/holdtheline/match-logs
 # M3 B0: without DbPath the server runs an in-memory database and accounts/decks/ladder vanish on restart.
 Environment=HTL_Server__DbPath=/var/lib/holdtheline/holdtheline.db
+# docs/12 B2: daily online SQLite backup (keeps newest 14). Unset = disabled.
+Environment=HTL_Server__BackupDir=/var/lib/holdtheline/backups
 Environment=HTL_Server__TurnSeconds=90
 Environment=HTL_Server__DisconnectGraceSeconds=120
 

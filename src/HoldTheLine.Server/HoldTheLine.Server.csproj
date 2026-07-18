@@ -8,6 +8,9 @@
     <ProjectReference Include="..\HoldTheLine.Net\HoldTheLine.Net.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="HoldTheLine.Server.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
   </ItemGroup>
 </Project>
