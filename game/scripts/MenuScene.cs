@@ -216,7 +216,9 @@ public partial class MenuScene : Control
         code.AddThemeFontSizeOverride("font_size", 26);
         p.AddChild(code);
         p.AddChild(Btn("加入", new Vector2(Cx + 400, 464), new Vector2(200, 60), () => JoinRoomCode(code.Text, status)));
-        p.AddChild(Btn("返回", new Vector2(Cx, 600), new Vector2(600, 60), ShowLobby));
+        // leave_room: a room created here would otherwise stay open after backing out — the friend joining
+        // later would start a match no one is waiting on (stale WaitForMatchAsync continuation fires).
+        p.AddChild(Btn("返回", new Vector2(Cx, 600), new Vector2(600, 60), () => { _ = Session.SendAsync(new LeaveRoom()); ShowLobby(); }));
     }
 
     private async void HostRoom(Label status)

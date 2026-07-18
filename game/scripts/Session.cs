@@ -74,6 +74,7 @@ public static class Session
             Client = null;
             Remote = null;
             _hello = null;
+            try { await client.DisposeAsync(); } catch { /* best-effort cleanup of the failed dial */ }
             return ex.Message;
         }
     }

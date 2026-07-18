@@ -10,7 +10,7 @@ namespace HoldTheLine.Game;
 /// Deck editor (M3 C2): browse the (Beta: fully-unlocked) collection filtered by faction, build a 30-card
 /// deck under the rarity/faction rules, watch the cost curve + a live DeckValidator verdict, and save it to
 /// the server (save_deck). The leader is derived from the deck's faction. Reached from the lobby; on save
-/// it returns there. Presentation-only — talks to the server via <see cref="Session"/>, never GameState.
+/// it returns there. Presentation-only — talks to the server via <see cref="Session"/>, never the authoritative rules internals.
 /// </summary>
 public partial class DeckScene : Control
 {
