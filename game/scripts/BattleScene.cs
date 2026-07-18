@@ -60,6 +60,8 @@ public partial class BattleScene : Control
 	private Control? _mulliganPanel;     // 起手重抽 overlay (docs/11 §6), offline + online
 	private int _mulliganMode;           // online only: 0 none, 1 selecting, 2 waiting-for-opponent
 	private int _mulliganShownSeat = -1; // offline hotseat: seat whose panel is currently up
+	private Label? _mulliganTimerLabel;  // countdown label on the online panel; freed with the panel
+	private int _mulliganTimerSecs;      // ticks down locally, re-synced by MulliganTimerReceived
 
 	// Presentation queue (plan §10 item 9). Every public event — whether the in-process host dispatched
 	// it on the main thread or the RemoteGameHost received it on the WebSocket thread — lands in this
@@ -90,6 +92,10 @@ public partial class BattleScene : Control
 	// Hover preview (enlarged card, full rules text).
 	private static readonly Vector2 PreviewSize = new(320, 458);
 	private Control? _cardPreview;
+
+	// Leader-skill hover tooltip (both leaders): mouse over a skill plate → its full effect text.
+	private Control? _leaderTooltip;
+	private string _selfLeaderId = "", _oppLeaderId = ""; // latest ids, read by the hover handlers
 
 	// Card drag-to-play.
 	private static readonly Vector2 GhostSize = new(150, 214);
@@ -253,6 +259,8 @@ public partial class BattleScene : Control
 
 		_oppLeaderBtn = BattleTheme.MakeButton(new Vector2(1500, 40), new Vector2(360, 96), BattleTheme.PanelDark, BattleTheme.SeatColor1, 3, 10);
 		_oppLeaderBtn.Pressed += () => OnLeaderClicked(1);
+		_oppLeaderBtn.MouseEntered += () => ShowLeaderTooltip(_oppLeaderId, _oppLeaderBtn.GetRect(), below: true);
+		_oppLeaderBtn.MouseExited += HideLeaderTooltip;
 		_oppAvatar = new TextureRect
 		{
 			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
@@ -280,6 +288,8 @@ public partial class BattleScene : Control
 
 		_leaderPowerBtn = BattleTheme.MakeButton(new Vector2(24, 916), new Vector2(336, 68), BattleTheme.PanelDark, BattleTheme.SeatColor0, 2, 10);
 		_leaderPowerBtn.Pressed += OnLeaderPower;
+		_leaderPowerBtn.MouseEntered += () => ShowLeaderTooltip(_selfLeaderId, _leaderPowerBtn.GetRect(), below: false);
+		_leaderPowerBtn.MouseExited += HideLeaderTooltip;
 		_hudLayer.AddChild(_leaderPowerBtn);
 
 		_endTurnBtn = BattleTheme.MakeButton(new Vector2(1600, 844), new Vector2(260, 90), BattleTheme.AccentSoft, BattleTheme.Accent, 2, 12);
@@ -589,6 +599,64 @@ public partial class BattleScene : Control
 		_cardPreview = null;
 	}
 
+	// ---------- leader-skill hover tooltip ----------
+
+	/// <summary>Themed panel explaining a leader's skill, anchored to the hovered plate (below the
+	/// top-right opponent plate, above the bottom-left own power button).</summary>
+	private void ShowLeaderTooltip(string leaderId, Rect2 anchor, bool below)
+	{
+		HideLeaderTooltip();
+		if (_dragCardId != null) return; // don't cover the board mid-drag
+		if (!_leaders.TryGet(leaderId, out var l) || l.SkillEffects.Count == 0) return;
+
+		var accent = FactionColor(l.Faction);
+		string body = SkillEffectText(l);
+
+		const float w = 420f, pad = 16f, headerH = 28f, lineH = 28f;
+		int lines = Mathf.Max(1, Mathf.CeilToInt(body.Length / 17f)); // ~17 CJK glyphs per wrapped line
+		float bodyH = lines * lineH;
+		float h = pad + headerH + 6f + bodyH + pad;
+
+		float x = Mathf.Clamp(anchor.Position.X + anchor.Size.X / 2f - w / 2f, 10f, BattleTheme.ScreenW - w - 10f);
+		float y = below ? anchor.Position.Y + anchor.Size.Y + 10f : anchor.Position.Y - h - 10f;
+
+		var root = new Control { Position = new Vector2(x, y), Size = new Vector2(w, h), MouseFilter = MouseFilterEnum.Ignore };
+
+		var panel = new Panel { Size = new Vector2(w, h), MouseFilter = MouseFilterEnum.Ignore };
+		panel.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.PanelDark, accent, 2, 12));
+		root.AddChild(panel);
+
+		var header = BattleTheme.MakeOutlinedLabel($"{l.SkillName} · {l.SkillCost} 费", 22, accent);
+		header.Position = new Vector2(pad, pad - 4);
+		header.Size = new Vector2(w - 2 * pad, headerH);
+		root.AddChild(header);
+
+		var text = BattleTheme.MakeLabel(body, 20, BattleTheme.TextMain);
+		text.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+		text.VerticalAlignment = VerticalAlignment.Top;
+		text.Position = new Vector2(pad, pad + headerH + 4);
+		text.Size = new Vector2(w - 2 * pad, bodyH + 4);
+		root.AddChild(text);
+
+		_overlayLayer.AddChild(root);
+		_leaderTooltip = root;
+	}
+
+	private void HideLeaderTooltip()
+	{
+		_leaderTooltip?.QueueFree();
+		_leaderTooltip = null;
+	}
+
+	// The one-liner text is "技能名(N费):效果"; the header already carries name+cost, so drop that prefix
+	// for the body and fall back to the whole line when the pattern isn't present.
+	private static string SkillEffectText(LeaderDefinition l)
+	{
+		string body = BattleTheme.BodyText(l.Text);
+		int colon = body.IndexOfAny(['：', ':']);
+		return colon >= 0 && colon < body.Length - 1 ? body[(colon + 1)..].TrimStart() : body;
+	}
+
 	private void RenderHud(PlayerView view)
 	{
 		bool viewerActive = view.ActiveSeat == ViewSeat;
@@ -599,6 +667,8 @@ public partial class BattleScene : Control
 
 		var self = view.Self;
 		var opp = view.Opponent;
+		_selfLeaderId = self.LeaderId;
+		_oppLeaderId = opp.LeaderId;
 		_oppInfo.Text = $"手牌 {opp.HandCount}   牌库 {opp.DeckCount}   辉尘 {opp.Mana}/{opp.ManaMax}";
 		_oppLeaderBtn.Text = $"{LeaderName(opp.LeaderId)}\n♥ {opp.LeaderHp}";
 		_oppLeaderBtn.AddThemeFontSizeOverride("font_size", 24);
@@ -1087,6 +1157,7 @@ public partial class BattleScene : Control
 		remote.ConnectionStateChanged += _connHandler;
 		remote.OpponentStatusChanged += (connected, grace) => Callable.From(() => OnOpponentStatus(connected)).CallDeferred();
 		remote.TurnTimerReceived += (seat, secs) => Callable.From(() => OnTurnTimer(seat, secs)).CallDeferred();
+		remote.MulliganTimerReceived += secs => Callable.From(() => OnMulliganTimer(secs)).CallDeferred();
 	}
 
 	/// <summary>Main-thread handoff once the server's match_started is in. Sets the local seat and
@@ -1811,7 +1882,7 @@ public partial class BattleScene : Control
 		var q = BattleTheme.MakeOutlinedLabel("确认投降?", 40, BattleTheme.DangerColor, HorizontalAlignment.Center);
 		q.Position = new Vector2(0, 60); q.Size = new Vector2(480, 60);
 		panel.AddChild(q);
-		var sub = BattleTheme.MakeLabel(FixedView ? "本局将判负" : "当前行动方判负", 22, BattleTheme.TextDim, HorizontalAlignment.Center);
+		var sub = BattleTheme.MakeLabel(FixedView ? "本局将判负" : $"玩家{OfflineConcedeSeat() + 1} 判负", 22, BattleTheme.TextDim, HorizontalAlignment.Center);
 		sub.Position = new Vector2(0, 132); sub.Size = new Vector2(480, 36);
 		panel.AddChild(sub);
 
@@ -1825,13 +1896,25 @@ public partial class BattleScene : Control
 		panel.AddChild(no);
 	}
 
-	/// <summary>Submit a concede for the surrendering seat (online → the human; hotseat → the active player).
-	/// The resulting GameEnded flows through the pump to the win overlay.</summary>
+	/// <summary>Submit a concede for the surrendering seat (online → the human; hotseat → the player at
+	/// the device). The resulting GameEnded flows through the pump to the win overlay.</summary>
 	private void ConcedeMatch()
 	{
 		if (_online) { ConcedeOnline(); return; }
-		int seat = FixedView ? _humanSeat : ActiveSeat;
-		Submit(new ConcedeCommand { Seat = seat }); // offline: routes through Apply → RunPlayback → win overlay
+		Submit(new ConcedeCommand { Seat = OfflineConcedeSeat() }); // offline: routes through Apply → RunPlayback → win overlay
+	}
+
+	/// <summary>The seat that surrenders offline. Hotseat during 起手重抽 needs care: ActiveSeat stays
+	/// FirstSeat all phase, but the player at the device is the one whose mulligan panel is up (or, on the
+	/// pass overlay, the seat still owing a mulligan).</summary>
+	private int OfflineConcedeSeat()
+	{
+		if (FixedView)
+			return _humanSeat;
+		if (InMulliganPhase())
+			return _mulliganShownSeat >= 0 && MullPending(_mulliganShownSeat) ? _mulliganShownSeat
+				: MullPending(ActiveSeat) ? ActiveSeat : 1 - ActiveSeat;
+		return ActiveSeat;
 	}
 
 	/// <summary>查看牌组: the full deck the local viewer brought this match, grouped by card with copy counts.
@@ -1862,8 +1945,8 @@ public partial class BattleScene : Control
 
 			var faceSize = new Vector2(180, 252);
 			foreach (var g in cards.GroupBy(id => id)
-				         .Select(g => (Def: _cards.Get(g.Key), Count: g.Count()))
-				         .OrderBy(x => x.Def.Cost).ThenBy(x => x.Def.Name, System.StringComparer.Ordinal))
+						 .Select(g => (Def: _cards.Get(g.Key), Count: g.Count()))
+						 .OrderBy(x => x.Def.Cost).ThenBy(x => x.Def.Name, System.StringComparer.Ordinal))
 			{
 				var def = g.Def;
 				var holder = new Button { CustomMinimumSize = faceSize, Size = faceSize, Flat = true };
@@ -1905,6 +1988,15 @@ public partial class BattleScene : Control
 	{
 		if (_mulliganPanel is { } p && GodotObject.IsInstanceValid(p)) p.QueueFree();
 		_mulliganPanel = null;
+		_mulliganTimerLabel = null; // owned by the panel; freed with it
+	}
+
+	/// <summary>Server re-announced the mulligan clock (match_started / resync after a reconnect):
+	/// adopt its count so the local 1s tick can't drift.</summary>
+	private void OnMulliganTimer(int secs)
+	{
+		_mulliganTimerSecs = secs;
+		if (_mulliganTimerLabel is { } l && GodotObject.IsInstanceValid(l)) l.Text = $"限时 {secs} 秒";
 	}
 
 	// --- offline (hotseat / vs-AI) ---
@@ -1920,10 +2012,11 @@ public partial class BattleScene : Control
 	{
 		if (!InMulliganPhase()) { EndMulliganOffline(); return; }
 
-		// vs-AI: the AI keeps its whole hand (a heuristic pick lands in M-5).
+		// vs-AI: the host's MulliganAi heuristic picks the swaps (docs/11 §7); keep-all only as fallback.
 		if (_vsAi && MullPending(_aiSeat))
 		{
-			_ = SubmitMulliganOffline(_aiSeat, System.Array.Empty<int>());
+			var pick = _localHost?.SuggestCommand(_aiSeat) as MulliganCommand;
+			_ = SubmitMulliganOffline(_aiSeat, (IReadOnlyList<int>?)pick?.ReplacedEntityIds ?? System.Array.Empty<int>());
 			return;
 		}
 
@@ -2051,9 +2144,21 @@ public partial class BattleScene : Control
 		dim.AddChild(sub);
 		if (secondsLeft is { } s)
 		{
-			var timer = BattleTheme.MakeOutlinedLabel($"限时 {s} 秒", 24, BattleTheme.Accent, HorizontalAlignment.Center);
-			timer.Position = new Vector2(0, 206); timer.Size = new Vector2(BattleTheme.ScreenW, 34);
-			dim.AddChild(timer);
+			var label = BattleTheme.MakeOutlinedLabel($"限时 {s} 秒", 24, BattleTheme.Accent, HorizontalAlignment.Center);
+			label.Position = new Vector2(0, 206); label.Size = new Vector2(BattleTheme.ScreenW, 34);
+			dim.AddChild(label);
+			_mulliganTimerLabel = label;
+			_mulliganTimerSecs = s;
+			// Local 1s tick; the server clock stays authoritative (expiry auto-submits keep-all server-side,
+			// and MulliganTimerReceived re-syncs the count after a reconnect).
+			var tick = new Godot.Timer { WaitTime = 1.0, Autostart = true };
+			tick.Timeout += () =>
+			{
+				_mulliganTimerSecs = Mathf.Max(0, _mulliganTimerSecs - 1);
+				if (GodotObject.IsInstanceValid(label)) label.Text = $"限时 {_mulliganTimerSecs} 秒";
+				if (_mulliganTimerSecs == 0) tick.Stop();
+			};
+			dim.AddChild(tick); // freed with the panel — the countdown dies with it
 		}
 
 		var faceSize = new Vector2(206, 288);

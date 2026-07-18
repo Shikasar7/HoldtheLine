@@ -61,8 +61,8 @@ public static class DeckStorage
         Persist(all);
     }
 
-    /// <summary>Record the server id for a local deck once it has been saved online (matched by name +
-    /// leader, since offline-created decks have no server id yet).</summary>
+    /// <summary>Record the server id for a local deck once it has been saved online (matched by the local
+    /// id the editor noted before pushing to the server).</summary>
     public static void SetServerId(string localId, string serverId)
     {
         var all = LoadAll();

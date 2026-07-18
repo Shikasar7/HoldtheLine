@@ -292,6 +292,7 @@ public partial class DeckScene : Control
         if (!_factionLeader.TryGetValue(faction, out var leaderId)) { Flash("请加入一个阵营的卡牌"); return; }
         string name = string.IsNullOrWhiteSpace(_nameField.Text) ? "我的卡组" : _nameField.Text.Trim();
         string localId = string.IsNullOrEmpty(_deckId) ? DeckStorage.NewId() : _deckId;
+        _deckId = localId; // adopt the id at once — a re-save (server slow / DeckError) must upsert, not duplicate
 
         // Local storage is the source of truth (works offline). Save there first, always.
         DeckStorage.Save(new StoredDeck
