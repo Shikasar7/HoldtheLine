@@ -69,8 +69,8 @@ public sealed class LocalGameHost : IGameHost
         {
             if (_state.Result != null)
                 return null;
-            if (_state.Mulligan is { } mull) // 起手重抽: keep-all default (GreedyAi.MulliganPick swaps in at M-5)
-                return seat is 0 or 1 && !mull.Done[seat] ? new MulliganCommand { Seat = seat, ReplacedEntityIds = [] } : null;
+            if (_state.Mulligan is { } mull) // 起手重抽: heuristic swap of high-cost cards (docs/11 §7)
+                return seat is 0 or 1 && !mull.Done[seat] ? Ai.MulliganAi.Pick(_state, _db, seat) : null;
             if (seat != _state.ActiveSeat)
                 return null;
             return _ai.Pick(_state);

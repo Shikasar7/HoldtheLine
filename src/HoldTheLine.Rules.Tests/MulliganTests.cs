@@ -1,3 +1,4 @@
+using HoldTheLine.Rules.Ai;
 using HoldTheLine.Rules.Commands;
 using HoldTheLine.Rules.Engine;
 using HoldTheLine.Rules.Events;
@@ -309,5 +310,19 @@ public class MulliganTests
         Assert.True((await host.SubmitCommandAsync(0, new ConcedeCommand { Seat = 0 })).Accepted);
         Assert.NotNull(host.GetView(0).Result);
         Assert.Equal(1, host.GetView(0).Result!.WinnerSeat);
+    }
+
+    // M-5 — the AI heuristic swaps out cards costing ≥5 and keeps the cheap ones.
+    [Fact]
+    public void Ai_mulligan_swaps_expensive_cards()
+    {
+        var s = TestKit.NewGame(seed: 5);
+        s.Player(0).Hand.Clear();
+        int cheap = TestKit.GiveCard(s, 0, "t_vanilla"); // cost 2
+        int pricey = TestKit.GiveCard(s, 0, "t_big");    // cost 5
+
+        var pick = MulliganAi.Pick(s, TestKit.Db, 0);
+        Assert.Contains(pricey, pick.ReplacedEntityIds);
+        Assert.DoesNotContain(cheap, pick.ReplacedEntityIds);
     }
 }

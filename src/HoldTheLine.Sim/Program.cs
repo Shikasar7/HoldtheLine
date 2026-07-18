@@ -14,6 +14,10 @@ using HoldTheLine.Rules.State;
 //   mode = greedy (default) | random | roundrobin
 //   roundrobin ignores deckA/deckB and runs all 4-faction pairings (greedy) into a matrix.
 
+// Positional args are filtered of the optional --mulligan flag so indices stay stable.
+bool mulligan = args.Contains("--mulligan");
+args = args.Where(a => a != "--mulligan").ToArray();
+
 int games = args.Length > 0 ? int.Parse(args[0]) : 400;
 ulong seed = args.Length > 1 ? ulong.Parse(args[1]) : 20260717UL;
 string mode = args.Length > 2 ? args[2] : "greedy";
@@ -142,10 +146,24 @@ MatchResult PlayMatch(IReadOnlyList<string> d0, IReadOnlyList<string> d1, string
     {
         Seed = matchSeed, FirstSeat = 0,
         Deck0 = d0, Deck1 = d1, Leader0 = l0, Leader1 = l1,
+        MulliganEnabled = mulligan,
     }, db, leaders);
 
     long commands = 0;
     bool tideKill = false;
+
+    // 起手重抽 (docs/11): resolve both seats before the first turn (no-op when disabled — Mulligan is null).
+    while (state.Mulligan is not null)
+    {
+        int seat = state.Mulligan.Done[0] ? 1 : 0;
+        var mull = greedy ? MulliganAi.Pick(state, db, seat) : new MulliganCommand { Seat = seat, ReplacedEntityIds = [] };
+        var mres = resolver.Execute(state, mull);
+        if (!mres.Success)
+            throw new InvalidOperationException($"Mulligan rejected: {mres.Error!.Code} {mres.Error.Message}");
+        state = mres.State!;
+        commands++;
+    }
+
     while (state.Result is null && state.TurnNumber <= TurnLimit)
     {
         var legal = CommandEnumerator.LegalCommands(state, db, leaders);
