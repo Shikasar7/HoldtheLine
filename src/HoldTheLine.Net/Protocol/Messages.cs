@@ -33,6 +33,9 @@ namespace HoldTheLine.Net.Protocol;
 [JsonDerivedType(typeof(LeaveQueue), "leave_queue")]
 [JsonDerivedType(typeof(GetLadder), "get_ladder")]
 [JsonDerivedType(typeof(Rematch), "rematch")]
+// --- protocol v5 (docs/12 B1): username+password accounts on top of the persistent guest identity.
+[JsonDerivedType(typeof(Register), "register")]
+[JsonDerivedType(typeof(Login), "login")]
 public abstract record ClientMessage
 {
     /// <summary>Client-assigned, monotonic per connection. Server echoes it in the matching reply
@@ -118,6 +121,24 @@ public sealed record GetLadder : ClientMessage
 /// <summary>After a match ends, both players sending this re-opens the same room for another game.</summary>
 public sealed record Rematch : ClientMessage;
 
+// --- protocol v5 client messages (docs/12 B1) ----------------------------------------------------
+
+/// <summary>Upgrade the connection's already-handshaked persistent identity into a username+password
+/// account. Win/loss, decks and rating stay in place — it just binds credentials to the same guest_id.</summary>
+public sealed record Register : ClientMessage
+{
+    public required string Username { get; init; }
+    public required string Password { get; init; }
+}
+
+/// <summary>Log in to a registered account: on success this connection's identity switches to that
+/// account and the server rotates its secret (see AuthOk / docs/12 B1.3).</summary>
+public sealed record Login : ClientMessage
+{
+    public required string Username { get; init; }
+    public required string Password { get; init; }
+}
+
 // ---------------------------------------------------------------------------------------------
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "t")]
@@ -140,6 +161,8 @@ public sealed record Rematch : ClientMessage;
 [JsonDerivedType(typeof(Ladder), "ladder")]
 [JsonDerivedType(typeof(RematchStatus), "rematch_status")]
 [JsonDerivedType(typeof(RatingChange), "rating_change")]
+// --- protocol v5 (docs/12 B1) ---
+[JsonDerivedType(typeof(AuthOk), "auth_ok")]
 public abstract record ServerMessage
 {
     /// <summary>Echoes the client <see cref="ClientMessage.Seq"/> this is a direct reply to; 0 for
@@ -234,6 +257,16 @@ public sealed record ErrorMsg : ServerMessage
 }
 
 public sealed record Pong : ServerMessage;
+
+/// <summary>Register / login succeeded. On login (only) it carries the account's guest_id and a freshly
+/// rotated secret; the client persists both into identity.json (docs/12 B1.3). On register both are null
+/// (the guest_id is unchanged). Failures use <see cref="ErrorMsg"/>.</summary>
+public sealed record AuthOk : ServerMessage
+{
+    public required string Username { get; init; }
+    public string? GuestId { get; init; }
+    public string? Secret { get; init; }
+}
 
 // --- protocol v2 server messages (M3 §3.4) -------------------------------------------------------
 

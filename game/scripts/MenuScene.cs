@@ -178,8 +178,10 @@ public partial class MenuScene : Control
         p.AddChild(Btn("好友房间", new Vector2(Cx, y + 88), new Vector2(600, 68), ShowFriendRoom));
         p.AddChild(Btn("卡组编辑", new Vector2(Cx, y + 164), new Vector2(290, 60), OpenDeckEditor));
         p.AddChild(Btn("天梯排行", new Vector2(Cx + 310, y + 164), new Vector2(290, 60), ShowLadder));
-        p.AddChild(Btn("断开连接", new Vector2(Cx, y + 236), new Vector2(290, 60), async () => { await Session.DisconnectAsync(); CloseOverlay(); }));
-        p.AddChild(Btn("返回", new Vector2(Cx + 310, y + 236), new Vector2(290, 60), CloseOverlay));
+        // Bottom row: 账号 / 断开连接 / 返回 (docs/12 B1: account panel entry sits beside disconnect).
+        p.AddChild(Btn("账号", new Vector2(Cx, y + 236), new Vector2(190, 60), ShowAccountPanel));
+        p.AddChild(Btn("断开连接", new Vector2(Cx + 200, y + 236), new Vector2(190, 60), async () => { await Session.DisconnectAsync(); CloseOverlay(); }));
+        p.AddChild(Btn("返回", new Vector2(Cx + 400, y + 236), new Vector2(200, 60), CloseOverlay));
     }
 
     private async void StartQueue()
@@ -303,6 +305,86 @@ public partial class MenuScene : Control
         var local = DeckStorage.LoadAll().FirstOrDefault(d => d.ServerId == ds.Id);
         DeckEditContext.Editing = new DeckEditContext.Deck(local?.Id ?? DeckStorage.NewId(), ds.Name, ds.Faction, ds.CardIds, ds.Id);
         GetTree().ChangeSceneToFile("res://scenes/menu/Deck.tscn");
+    }
+
+    // ---------- account (docs/12 B1): register/login on top of the persistent guest identity ----------
+
+    /// <summary>Server auth error code → panel copy (the six frozen B1 codes). Local errors
+    /// ("未连接"/"服务器无响应") aren't codes and pass through unchanged.</summary>
+    private static string AuthErrorText(string codeOrText) => codeOrText switch
+    {
+        "name_taken" => "用户名已被占用",
+        "weak_password" => "密码太短(至少 8 位)",
+        "bad_credentials" => "用户名或密码错误",
+        "too_many_attempts" => "尝试过于频繁,请稍后再试",
+        "not_identified" => "当前为临时身份,无法注册",
+        "already_bound" => "该身份已绑定过用户名",
+        _ => codeOrText,
+    };
+
+    /// <summary>Password auth needs an encrypted channel. wss:// is fine; plain ws:// is only allowed to
+    /// loopback / LAN hosts (debug), where there's no untrusted hop.</summary>
+    private static bool SecureChannelOk()
+    {
+        var url = GameConfig.ServerUrl ?? "";
+        if (url.StartsWith("wss://", System.StringComparison.Ordinal)) return true;
+        try
+        {
+            var host = new System.Uri(url).Host;
+            return host is "127.0.0.1" or "localhost"
+                || host.StartsWith("192.168.", System.StringComparison.Ordinal)
+                || host.StartsWith("10.", System.StringComparison.Ordinal);
+        }
+        catch { return false; }
+    }
+
+    private void ShowAccountPanel()
+    {
+        var p = NewPanel();
+        PanelLabel(p, "账 号", 130, 52, BattleTheme.TextMain);
+        PanelLabel(p, Session.BoundUsername is { } bound ? $"已绑定:{bound}" : "当前为游客身份(本机密钥)", 208, 24, BattleTheme.Accent);
+        PanelLabel(p, "注册:把当前进度绑定到用户名+密码。登录:切换到另一个已有账号(会挤下旧设备)。", 250, 20, BattleTheme.TextDim);
+
+        PanelLabel(p, "用户名", 314, 22, BattleTheme.Accent);
+        var user = Field("", "2-20 个字符", new Vector2(Cx, 350), 600);
+        p.AddChild(user);
+        PanelLabel(p, "密码", 432, 22, BattleTheme.Accent);
+        var pass = Field("", "至少 8 位", new Vector2(Cx, 468), 600);
+        pass.Secret = true;
+        p.AddChild(pass);
+
+        var status = PanelLabel(p, "", 566, 24, BattleTheme.DangerColor);
+        void SetStatus(string text, Color color) { status.Text = text; status.AddThemeColorOverride("font_color", color); }
+
+        var register = Btn("注册(绑定当前进度)", new Vector2(Cx, 624), new Vector2(290, 64), null!);
+        var login = Btn("登录(切换到已有账号)", new Vector2(Cx + 310, 624), new Vector2(290, 64), null!);
+
+        register.Pressed += async () =>
+        {
+            SetStatus("注册中…", BattleTheme.TextDim);
+            var err = await Session.RegisterAsync(user.Text.Trim(), pass.Text);
+            if (err is null) SetStatus($"注册成功,已绑定「{user.Text.Trim()}」", BattleTheme.Accent);
+            else SetStatus(AuthErrorText(err), BattleTheme.DangerColor);
+        };
+        login.Pressed += async () =>
+        {
+            SetStatus("登录中…", BattleTheme.TextDim);
+            var err = await Session.LoginAsync(user.Text.Trim(), pass.Text);
+            if (err is null) ShowLobby(); // profile re-pushed on the same socket → lobby shows the account's decks/rating
+            else SetStatus(AuthErrorText(err), BattleTheme.DangerColor);
+        };
+        p.AddChild(register);
+        p.AddChild(login);
+
+        // Plaintext gate: no passwords over an untrusted ws:// hop.
+        if (!SecureChannelOk())
+        {
+            register.Disabled = true;
+            login.Disabled = true;
+            SetStatus("密码功能需要加密连接(wss)", BattleTheme.DangerColor);
+        }
+
+        p.AddChild(Btn("返回", new Vector2(Cx, 712), new Vector2(600, 60), ShowLobby));
     }
 
     // ---------- deck manager (local storage: multiple decks, edit / rename / copy / delete / vs-AI) ----------

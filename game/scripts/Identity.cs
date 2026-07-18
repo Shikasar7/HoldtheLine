@@ -42,6 +42,16 @@ public static class Identity
         return _cached.Value;
     }
 
+    /// <summary>Adopt a new identity, persisting it and refreshing the cache (docs/12 B1). Called after a
+    /// successful login: the server rotated this account's secret, so the device stores the new pair — the
+    /// old identity.json is now stale everywhere else (single active device).</summary>
+    public static void Replace(string guestId, string secret)
+    {
+        var stored = new Stored(guestId, secret);
+        Save(stored);
+        _cached = (guestId, secret);
+    }
+
     private static void Save(Stored stored)
     {
         using var f = Godot.FileAccess.Open(Path, Godot.FileAccess.ModeFlags.Write);

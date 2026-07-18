@@ -23,6 +23,9 @@ public static class Session
     public static GameServerClient? Client { get; private set; }
     public static RemoteGameHost? Remote { get; private set; }
     public static Profile? Profile { get; private set; }
+    /// <summary>The username bound/logged-in during THIS session (docs/12 B1); null while a plain guest.
+    /// Profile carries no username (frozen shape), so this is the only client-side signal of account state.</summary>
+    public static string? BoundUsername { get; private set; }
     public static bool Connected => Client is { State: ConnectionState.Connected };
 
     private static Hello? _hello;
@@ -37,6 +40,9 @@ public static class Session
     public static event Action<RoomCreated>? RoomCreatedOk;
     public static event Action<ErrorMsg>? Errored;
     public static event Action<ConnectionState>? StateChanged;
+    /// <summary>register/login succeeded (docs/12 B1). On login the identity/secret have already been
+    /// rotated + persisted by the time this fires; a fresh Profile push follows on the same socket.</summary>
+    public static event Action<AuthOk>? AuthOkReceived;
 
     /// <summary>Connect + hello (identity + data hash). Idempotent: a no-op if already connected. Returns
     /// null on success, or a human-readable error. Arms the first match host so match_started is captured.</summary>
@@ -99,6 +105,42 @@ public static class Session
 
     public static Task SendAsync(ClientMessage message) => Client?.SendAsync(message) ?? Task.CompletedTask;
 
+    /// <summary>register (docs/12 B1): bind username+password to the current identity. Returns null on
+    /// success, else the server error code (mapped to copy by the account panel) or a local error.</summary>
+    public static Task<string?> RegisterAsync(string username, string password) =>
+        AuthAsync(new Register { Username = username, Password = password });
+
+    /// <summary>login: switch this connection to a registered account. Returns null on success (identity +
+    /// secret already rotated and persisted, Profile re-pushed), else the error code / a local error.</summary>
+    public static Task<string?> LoginAsync(string username, string password) =>
+        AuthAsync(new Login { Username = username, Password = password });
+
+    // Send an auth request and await its correlated reply (AuthOk → null; ErrorMsg → its Code). Uses a
+    // pre-allocated seq so the reply can't beat the handler being wired up.
+    private static async Task<string?> AuthAsync(ClientMessage msg)
+    {
+        var client = Client;
+        if (client is null)
+            return "未连接";
+
+        int seq = client.NextSeq();
+        var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Handler(ServerMessage m)
+        {
+            if (m is AuthOk ok && ok.Seq == seq) tcs.TrySetResult(null);
+            else if (m is ErrorMsg e && e.Seq == seq) tcs.TrySetResult(e.Code);
+        }
+        client.MessageReceived += Handler;
+        try
+        {
+            await client.SendWithSeqAsync(msg, seq);
+            return await tcs.Task.WaitAsync(TimeSpan.FromSeconds(8));
+        }
+        catch (TimeoutException) { return "服务器无响应"; }
+        catch (Exception ex) { return ex.Message; }
+        finally { client.MessageReceived -= Handler; }
+    }
+
     public static async Task DisconnectAsync()
     {
         var c = Client;
@@ -106,6 +148,7 @@ public static class Session
         Client = null;
         Remote = null;
         Profile = null;
+        BoundUsername = null;
         _hello = null;
         if (c is not null)
             await c.DisposeAsync();
@@ -122,6 +165,17 @@ public static class Session
             case DeckError de: DeckSaveFailed?.Invoke(de); break;
             case Ladder l: LadderReceived?.Invoke(l); break;
             case RoomCreated room: RoomCreatedOk?.Invoke(room); break;
+            case AuthOk ok:
+                // Login carries a rotated identity: persist it AND refresh _hello so a later reconnect uses
+                // the new secret (the old one no longer verifies). Register carries nulls → nothing to rotate.
+                if (ok.GuestId is { } gid && ok.Secret is { } sec)
+                {
+                    Identity.Replace(gid, sec);
+                    if (_hello is { } h) _hello = h with { GuestId = gid, Secret = sec };
+                }
+                BoundUsername = ok.Username;
+                AuthOkReceived?.Invoke(ok);
+                break;
             case ErrorMsg e: Errored?.Invoke(e); break;
         }
     }

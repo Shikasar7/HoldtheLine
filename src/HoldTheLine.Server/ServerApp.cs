@@ -26,6 +26,7 @@ public static class ServerApp
         builder.Services.AddSingleton<RoomManager>();
         builder.Services.AddSingleton<QueueManager>();
         builder.Services.AddSingleton<ServerStats>();
+        builder.Services.AddSingleton<AuthThrottle>();
 
         var app = builder.Build();
         app.UseWebSockets();
@@ -64,14 +65,16 @@ public static class ServerApp
         var ladder = ctx.RequestServices.GetRequiredService<LadderStore>();
         var queue = ctx.RequestServices.GetRequiredService<QueueManager>();
         var stats = ctx.RequestServices.GetRequiredService<ServerStats>();
+        var throttle = ctx.RequestServices.GetRequiredService<AuthThrottle>();
         var loggerFactory = ctx.RequestServices.GetRequiredService<ILoggerFactory>();
 
+        string remoteIp = ctx.Connection.RemoteIpAddress?.ToString() ?? "?";
         using var socket = await ctx.WebSockets.AcceptWebSocketAsync();
-        var conn = new ClientConnection(socket, loggerFactory.CreateLogger<ClientConnection>());
+        var conn = new ClientConnection(socket, loggerFactory.CreateLogger<ClientConnection>(), remoteIp);
         stats.Connected();
         try
         {
-            await conn.RunAsync(rooms, content, opts, accounts, decks, collection, ladder, queue, ctx.RequestAborted);
+            await conn.RunAsync(rooms, content, opts, accounts, decks, collection, ladder, queue, throttle, ctx.RequestAborted);
         }
         finally
         {

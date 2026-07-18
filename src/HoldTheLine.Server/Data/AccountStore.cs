@@ -28,9 +28,23 @@ public sealed class AccountStore
                 last_seen   INTEGER NOT NULL
             );
             """));
+
+        // docs/12 B1: username accounts layered onto the guest identity. Additive migration so an existing
+        // B0 database upgrades in place — each ALTER is skipped if the column already exists.
+        foreach (var column in new[] { "username TEXT", "username_lower TEXT", "password_hash TEXT" })
+        {
+            try { _db.Run(c => Exec(c, $"ALTER TABLE accounts ADD COLUMN {column}")); }
+            catch (SqliteException) { /* column already present */ }
+        }
+        _db.Run(c => Exec(c, """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_username
+            ON accounts(username_lower) WHERE username_lower IS NOT NULL;
+            """));
     }
 
     public enum Outcome { Registered, Restored, BadSecret }
+
+    public enum AuthOutcome { Ok, NameTaken, BadCredentials, NotIdentified, AlreadyBound }
 
     /// <summary>Register a brand-new identity, or restore an existing one after verifying its secret.
     /// On success the display name and last-seen timestamp are refreshed.</summary>
@@ -65,6 +79,59 @@ public sealed class AccountStore
     {
         string? name = QueryScalar(c, "SELECT name FROM accounts WHERE guest_id=$g", ("$g", guestId));
         return name is null ? null : new Account(guestId, name);
+    });
+
+    /// <summary>register (docs/12 B1): bind a username+password to an already-identified guest. The
+    /// username_lower unique index rejects a collision as <see cref="AuthOutcome.NameTaken"/>; a guest that
+    /// already carries a username is <see cref="AuthOutcome.AlreadyBound"/>; a missing row (anonymous
+    /// connection) is <see cref="AuthOutcome.NotIdentified"/>.</summary>
+    public AuthOutcome BindCredentials(string guestId, string username, string password) => _db.Run(c =>
+    {
+        string? row = QueryScalar(c, "SELECT guest_id FROM accounts WHERE guest_id=$g", ("$g", guestId));
+        if (row is null)
+            return AuthOutcome.NotIdentified;
+        string? existing = QueryScalar(c, "SELECT username FROM accounts WHERE guest_id=$g AND username IS NOT NULL", ("$g", guestId));
+        if (existing is not null)
+            return AuthOutcome.AlreadyBound;
+
+        try
+        {
+            Exec(c, "UPDATE accounts SET username=$u, username_lower=$ul, password_hash=$ph WHERE guest_id=$g",
+                ("$u", username), ("$ul", username.ToLowerInvariant()), ("$ph", PasswordHash.Hash(password)), ("$g", guestId));
+        }
+        catch (SqliteException ex) when (ex.SqliteErrorCode == 19) // SQLITE_CONSTRAINT: username_lower already taken
+        {
+            return AuthOutcome.NameTaken;
+        }
+        return AuthOutcome.Ok;
+    });
+
+    /// <summary>login (docs/12 B1): verify username+password, then rotate the account's secret (single active
+    /// device — the old identity.json stops verifying). Returns the account's guest_id and the NEW secret on
+    /// success; a missing user or wrong password is <see cref="AuthOutcome.BadCredentials"/> (indistinguishable
+    /// on purpose, to defeat username enumeration).</summary>
+    public (AuthOutcome Outcome, string? GuestId, string? NewSecret) Login(string username, string password) => _db.Run(c =>
+    {
+        string? guestId = null, pwHash = null;
+        using (var cmd = c.CreateCommand())
+        {
+            cmd.CommandText = "SELECT guest_id, password_hash FROM accounts WHERE username_lower=$ul";
+            cmd.Parameters.AddWithValue("$ul", username.ToLowerInvariant());
+            using var reader = cmd.ExecuteReader();
+            if (reader.Read())
+            {
+                guestId = reader.GetString(0);
+                pwHash = reader.IsDBNull(1) ? null : reader.GetString(1);
+            }
+        }
+
+        if (guestId is null || pwHash is null || !PasswordHash.Verify(password, pwHash))
+            return (AuthOutcome.BadCredentials, (string?)null, (string?)null);
+
+        string newSecret = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+        Exec(c, "UPDATE accounts SET secret_hash=$sh, last_seen=$t WHERE guest_id=$g",
+            ("$sh", HashSecret(newSecret)), ("$t", DateTimeOffset.UtcNow.ToUnixTimeSeconds()), ("$g", guestId));
+        return (AuthOutcome.Ok, guestId, newSecret);
     });
 
     // ---- helpers ----

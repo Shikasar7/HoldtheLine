@@ -14,7 +14,7 @@ namespace HoldTheLine.Server.Rooms;
 /// the opponent's thread also pushes match-start/events here). N0 handles hello + room lifecycle;
 /// in-match routing (submit_command / resync) is stubbed for N1.
 /// </summary>
-public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection> logger)
+public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection> logger, string remoteIp)
 {
     private readonly SemaphoreSlim _sendGate = new(1, 1);
 
@@ -28,14 +28,19 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
     private CollectionStore _collection = null!;
     private LadderStore _ladder = null!;
     private QueueManager _queue = null!;
+    private AuthThrottle _throttle = null!;
 
     public string GuestId { get; private set; } = "";
     public string Name { get; private set; } = "";
     public Room? Room { get; set; }
     public int Seat { get; set; }
+    /// <summary>True once the handshake established a persistent account (hello carried a secret). Only such
+    /// connections may register a username (docs/12 B1: anonymous → not_identified).</summary>
+    private bool _identified;
 
     public async Task RunAsync(RoomManager rooms, GameContent content, ServerOptions opts, AccountStore accounts,
-        DeckStore decks, CollectionStore collection, LadderStore ladder, QueueManager queue, CancellationToken ct)
+        DeckStore decks, CollectionStore collection, LadderStore ladder, QueueManager queue, AuthThrottle throttle,
+        CancellationToken ct)
     {
         _rooms = rooms;
         _content = content;
@@ -45,6 +50,7 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
         _collection = collection;
         _ladder = ladder;
         _queue = queue;
+        _throttle = throttle;
         try
         {
             if (!await HandshakeAsync(ct).ConfigureAwait(false))
@@ -135,6 +141,7 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
                 return false;
             }
             Name = account.Name;
+            _identified = true; // has a verified db row → may register a username (docs/12 B1)
         }
 
         await SendAsync(new HelloOk
@@ -229,9 +236,77 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
                 await SendAsync(BuildLadder(gl.Season ?? LadderStore.DefaultSeason, gl.Seq)).ConfigureAwait(false);
                 break;
 
+            case Register r:
+                await HandleRegisterAsync(r).ConfigureAwait(false);
+                break;
+
+            case Login l:
+                await HandleLoginAsync(l).ConfigureAwait(false);
+                break;
+
             case Hello:
                 throw new ProtocolError("already_hello", "Duplicate hello on an established connection.");
         }
+    }
+
+    /// <summary>register (docs/12 B1): bind username+password to this connection's persistent identity.
+    /// Failures throw <see cref="ProtocolError"/> (relayed as an ErrorMsg with the message's Seq) using the
+    /// six frozen auth codes. Password/secret never touch the log.</summary>
+    private async Task HandleRegisterAsync(Register r)
+    {
+        if (!_identified)
+            throw new ProtocolError("not_identified", "Connect with a saved identity before registering.");
+
+        string username = (r.Username ?? "").Trim();
+        // Length is enforced on the client (LineEdit + gated button); server-side it's defensive. There is no
+        // dedicated "bad username" code in the frozen set, so a malformed name falls back to name_taken.
+        if (username.Length is < 2 or > 20)
+            throw new ProtocolError("name_taken", "Username must be 2-20 characters.");
+        if ((r.Password ?? "").Length < 8)
+            throw new ProtocolError("weak_password", "Password must be at least 8 characters.");
+
+        string usernameLower = username.ToLowerInvariant();
+        if (!_throttle.TryAcquire(usernameLower, remoteIp))
+            throw new ProtocolError("too_many_attempts", "Too many attempts; wait a minute and retry.");
+
+        switch (_accounts.BindCredentials(GuestId, username, r.Password!))
+        {
+            case AccountStore.AuthOutcome.Ok:
+                _throttle.RecordSuccess(usernameLower, remoteIp);
+                await SendAsync(new AuthOk { Username = username, Seq = r.Seq }).ConfigureAwait(false);
+                break;
+            case AccountStore.AuthOutcome.NameTaken:
+                _throttle.RecordFailure(usernameLower, remoteIp);
+                throw new ProtocolError("name_taken", "That username is taken.");
+            case AccountStore.AuthOutcome.AlreadyBound:
+                throw new ProtocolError("already_bound", "This identity already has a username.");
+            default:
+                throw new ProtocolError("not_identified", "Cannot register this connection.");
+        }
+    }
+
+    /// <summary>login (docs/12 B1): switch this connection to the named account and rotate its secret. On
+    /// success re-pushes the account <see cref="Profile"/> (rating/decks now resolve to the account's guest).</summary>
+    private async Task HandleLoginAsync(Login l)
+    {
+        string username = (l.Username ?? "").Trim();
+        string usernameLower = username.ToLowerInvariant();
+        if (!_throttle.TryAcquire(usernameLower, remoteIp))
+            throw new ProtocolError("too_many_attempts", "Too many attempts; wait a minute and retry.");
+
+        var (outcome, guestId, newSecret) = _accounts.Login(username, l.Password ?? "");
+        if (outcome != AccountStore.AuthOutcome.Ok)
+        {
+            _throttle.RecordFailure(usernameLower, remoteIp);
+            throw new ProtocolError("bad_credentials", "Wrong username or password.");
+        }
+
+        _throttle.RecordSuccess(usernameLower, remoteIp);
+        GuestId = guestId!;
+        Name = _accounts.Find(guestId!)?.Name ?? Name;
+        _identified = true;
+        await SendAsync(new AuthOk { Username = username, GuestId = guestId, Secret = newSecret, Seq = l.Seq }).ConfigureAwait(false);
+        await SendAsync(BuildProfile()).ConfigureAwait(false);
     }
 
     /// <summary>Validate and persist a custom deck (B1). Server-authoritative: it derives the faction from

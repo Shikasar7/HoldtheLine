@@ -9,8 +9,9 @@ public static class ProtocolConstants
     /// v2 (M3): persistent identity fields on hello + the §3.4 lobby/deck/queue/ladder message families.
     /// v3 (M3 收尾): <see cref="DeckSummary"/> carries leader + card_ids so saved decks are editable client-side.
     /// v4 (docs/11): 起手重抽 — MulliganCommand rides SubmitCommand (no new C→S message); match_started /
-    /// resync_ok carry MulliganSecondsLeft.</summary>
-    public const int ProtocolVersion = 4;
+    /// resync_ok carry MulliganSecondsLeft.
+    /// v5 (docs/12 B1): 注册/登录 — Register / Login (C→S) + AuthOk (S→C); auth failures reuse ErrorMsg.</summary>
+    public const int ProtocolVersion = 5;
 }
 
 /// <summary>
