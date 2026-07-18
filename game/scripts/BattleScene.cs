@@ -57,6 +57,10 @@ public partial class BattleScene : Control
 	private Control? _gameMenu; // in-match menu overlay (继续 / 查看牌组 / 投降 / 返回菜单)
 	private readonly IReadOnlyList<string>?[] _deckCards = new IReadOnlyList<string>?[2]; // brought decklists, for 查看牌组
 
+	private Control? _mulliganPanel;     // 起手重抽 overlay (docs/11 §6), offline + online
+	private int _mulliganMode;           // online only: 0 none, 1 selecting, 2 waiting-for-opponent
+	private int _mulliganShownSeat = -1; // offline hotseat: seat whose panel is currently up
+
 	// Presentation queue (plan §10 item 9). Every public event — whether the in-process host dispatched
 	// it on the main thread or the RemoteGameHost received it on the WebSocket thread — lands in this
 	// thread-safe queue and is played back one BEAT at a time by a single consumer (RunPlayback), paced
@@ -157,6 +161,7 @@ public partial class BattleScene : Control
 			FirstSeat = (int)(GD.Randi() % 2),
 			Deck0 = cards0, Leader0 = leader0,
 			Deck1 = cards1, Leader1 = leader1,
+			MulliganEnabled = true, // 起手重抽 (docs/11)
 		};
 		var local = new LocalGameHost(_cards, _leaders, config);
 		_localHost = local;
@@ -165,6 +170,7 @@ public partial class BattleScene : Control
 
 		FullRender();
 
+		if (InMulliganPhase()) { BeginMulliganOffline(); return; } // 起手重抽 precedes the first turn
 		if (_vsAi && ActiveSeat == _aiSeat)
 			_ = RunAiTurn(); // AI won the coin toss — it opens
 	}
@@ -1093,6 +1099,7 @@ public partial class BattleScene : Control
 		_onlineReady = true;
 		SetConn("");
 		FullRender();
+		RefreshMulliganUi(); // show the 起手重抽 panel if the match opened into a mulligan phase
 		if (!_playQueue.IsEmpty) KickPlayback();
 	}
 
@@ -1188,6 +1195,7 @@ public partial class BattleScene : Control
 		_busy = true;
 		RefreshInteractable();
 		await RunPlayback();
+		RefreshMulliganUi(); // reflect mulligan progress (my panel → waiting → normal) after each batch
 		if (_host.GetView(_humanSeat).Result == null) { _busy = false; RefreshInteractable(); }
 	}
 
@@ -1879,6 +1887,213 @@ public partial class BattleScene : Control
 		close.Text = "返回"; close.AddThemeFontSizeOverride("font_size", 26);
 		close.Pressed += () => { _sfx.Play("button"); ShowGameMenu(); };
 		panel.AddChild(close);
+	}
+
+	// ---------- 起手重抽 (mulligan, docs/11 §6) ----------
+
+	private bool InMulliganPhase()
+	{
+		var v = _host.GetView(0);
+		return v.MulliganPending || v.OpponentMulliganPending;
+	}
+
+	/// <summary>Whether the given seat still owes a mulligan (read off seat 0's view).</summary>
+	private bool MullPending(int seat) =>
+		seat == 0 ? _host.GetView(0).MulliganPending : _host.GetView(0).OpponentMulliganPending;
+
+	private void CloseMulligan()
+	{
+		if (_mulliganPanel is { } p && GodotObject.IsInstanceValid(p)) p.QueueFree();
+		_mulliganPanel = null;
+	}
+
+	// --- offline (hotseat / vs-AI) ---
+
+	private void BeginMulliganOffline()
+	{
+		_handLayer.Visible = false;
+		_mulliganShownSeat = -1;
+		AdvanceMulliganOffline();
+	}
+
+	private void AdvanceMulliganOffline()
+	{
+		if (!InMulliganPhase()) { EndMulliganOffline(); return; }
+
+		// vs-AI: the AI keeps its whole hand (a heuristic pick lands in M-5).
+		if (_vsAi && MullPending(_aiSeat))
+		{
+			_ = SubmitMulliganOffline(_aiSeat, System.Array.Empty<int>());
+			return;
+		}
+
+		// The human seat to prompt. Hotseat mulligans in seat order (FirstSeat == ActiveSeat during the phase).
+		int seat = _vsAi ? _humanSeat : (MullPending(ActiveSeat) ? ActiveSeat : 1 - ActiveSeat);
+		if (!MullPending(seat)) { EndMulliganOffline(); return; }
+
+		if (!_vsAi && _mulliganShownSeat >= 0 && _mulliganShownSeat != seat)
+		{
+			ShowMulliganPassOverlay(seat); // hotseat: hand the device to the other player first
+			return;
+		}
+		_mulliganShownSeat = seat;
+		ShowMulliganPanel(seat, null, ids => { _ = SubmitMulliganOffline(seat, ids); });
+	}
+
+	private async Task SubmitMulliganOffline(int seat, IReadOnlyList<int> replaced)
+	{
+		CloseMulligan();
+		await Apply(new MulliganCommand { Seat = seat, ReplacedEntityIds = replaced.ToList() });
+		AdvanceMulliganOffline();
+	}
+
+	private void EndMulliganOffline()
+	{
+		CloseMulligan();
+		_handLayer.Visible = true;
+		FullRender();
+		if (_vsAi)
+		{
+			if (ActiveSeat == _aiSeat && _host.GetView(0).Result == null) _ = RunAiTurn();
+		}
+		else
+		{
+			ShowPassOverlay(ActiveSeat); // hotseat: pass the device to FirstSeat for turn 1
+		}
+	}
+
+	private void ShowMulliganPassOverlay(int seat)
+	{
+		CloseMulligan();
+		_handLayer.Visible = false;
+		var panel = BattleTheme.MakeButton(Vector2.Zero, new Vector2(BattleTheme.ScreenW, BattleTheme.ScreenH), new Color(0.03f, 0.03f, 0.03f, 0.95f), radius: 0);
+		var msg = BattleTheme.MakeLabel($"轮到 {(seat == 0 ? "玩家1" : "玩家2")} 换牌\n\n点击继续", 44, BattleTheme.TextMain, HorizontalAlignment.Center);
+		msg.Position = new Vector2(0, 420); msg.Size = new Vector2(BattleTheme.ScreenW, 240);
+		panel.AddChild(msg);
+		panel.Pressed += () =>
+		{
+			_mulliganShownSeat = seat;
+			ShowMulliganPanel(seat, null, ids => { _ = SubmitMulliganOffline(seat, ids); });
+		};
+		_overlayLayer.AddChild(panel);
+		_mulliganPanel = panel; // ShowMulliganPanel's CloseMulligan retires it
+	}
+
+	// --- online ---
+
+	/// <summary>Reflect the current mulligan state online: show my selection panel while I owe a mulligan,
+	/// a waiting notice once I've submitted, and tear the overlay down when the phase closes.</summary>
+	private void RefreshMulliganUi()
+	{
+		if (!_online) return;
+		var view = _host.GetView(_humanSeat);
+
+		if (view.Result != null || (!view.MulliganPending && !view.OpponentMulliganPending))
+		{
+			if (_mulliganMode != 0) { _mulliganMode = 0; CloseMulligan(); _handLayer.Visible = true; FullRender(); }
+			return;
+		}
+
+		if (view.MulliganPending)
+		{
+			if (_mulliganMode == 1) return; // already selecting — don't clobber the player's picks
+			_mulliganMode = 1;
+			ShowMulliganPanel(_humanSeat, _remoteHost?.MulliganSecondsLeft, ids =>
+			{
+				_mulliganMode = 2;
+				ShowMulliganWaiting();
+				SubmitOnline(new MulliganCommand { Seat = _humanSeat, ReplacedEntityIds = ids });
+			});
+		}
+		else if (_mulliganMode != 2)
+		{
+			_mulliganMode = 2;
+			ShowMulliganWaiting();
+		}
+	}
+
+	private void ShowMulliganWaiting()
+	{
+		CloseMulligan();
+		_handLayer.Visible = false;
+		var dim = new ColorRect { Color = new Color(0.02f, 0.02f, 0.02f, 0.9f) };
+		dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		_overlayLayer.AddChild(dim);
+		_mulliganPanel = dim;
+		var msg = BattleTheme.MakeOutlinedLabel("已确认 · 等待对手换牌…", 40, BattleTheme.Accent, HorizontalAlignment.Center);
+		msg.Position = new Vector2(0, 470); msg.Size = new Vector2(BattleTheme.ScreenW, 60);
+		dim.AddChild(msg);
+	}
+
+	// --- shared panel ---
+
+	/// <summary>The 起手重抽 selection panel: the seat's opening hand as toggleable cards (tap = mark for
+	/// replacement) plus a confirm. <paramref name="onConfirm"/> receives the chosen entity ids.</summary>
+	private void ShowMulliganPanel(int seat, int? secondsLeft, System.Action<List<int>> onConfirm)
+	{
+		CloseMulligan();
+		_handLayer.Visible = false;
+
+		var hand = _host.GetView(seat).Self.Hand;
+		var selected = new HashSet<int>();
+
+		var dim = new ColorRect { Color = new Color(0.02f, 0.02f, 0.02f, 0.92f) };
+		dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		_overlayLayer.AddChild(dim);
+		_mulliganPanel = dim;
+
+		string who = _vsAi || _online ? "起 手 换 牌" : (seat == 0 ? "玩家1 · 起手换牌" : "玩家2 · 起手换牌");
+		var title = BattleTheme.MakeOutlinedLabel(who, 46, BattleTheme.TextMain, HorizontalAlignment.Center);
+		title.Position = new Vector2(0, 84); title.Size = new Vector2(BattleTheme.ScreenW, 60);
+		dim.AddChild(title);
+		var sub = BattleTheme.MakeLabel("点击要换掉的牌,然后确认(仅一次机会)", 26, BattleTheme.TextDim, HorizontalAlignment.Center);
+		sub.Position = new Vector2(0, 160); sub.Size = new Vector2(BattleTheme.ScreenW, 40);
+		dim.AddChild(sub);
+		if (secondsLeft is { } s)
+		{
+			var timer = BattleTheme.MakeOutlinedLabel($"限时 {s} 秒", 24, BattleTheme.Accent, HorizontalAlignment.Center);
+			timer.Position = new Vector2(0, 206); timer.Size = new Vector2(BattleTheme.ScreenW, 34);
+			dim.AddChild(timer);
+		}
+
+		var faceSize = new Vector2(206, 288);
+		int n = hand.Count;
+		const float gap = 22f;
+		float totalW = n * faceSize.X + (n - 1) * gap;
+		float startX = Mathf.Max(20f, (BattleTheme.ScreenW - totalW) / 2f);
+		const float y = 300f;
+
+		var confirm = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2 - 200, 664), new Vector2(400, 84), BattleTheme.AccentSoft, BattleTheme.Accent, 2, 12);
+		confirm.AddThemeFontSizeOverride("font_size", 30);
+		void UpdateConfirm() => confirm.Text = selected.Count == 0 ? "确认 · 全部保留" : $"确认 · 换 {selected.Count} 张";
+		UpdateConfirm();
+
+		for (int i = 0; i < n; i++)
+		{
+			int id = hand[i].EntityId;
+			var def = _cards.Get(hand[i].CardId);
+			var holder = new Button { Position = new Vector2(startX + i * (faceSize.X + gap), y), Size = faceSize, Flat = true };
+			holder.AddThemeStyleboxOverride("normal", BattleTheme.Box(new Color(0, 0, 0, 0)));
+			holder.AddChild(CardView.BuildFace(def, faceSize));
+
+			var mark = new Panel { Size = faceSize, MouseFilter = MouseFilterEnum.Ignore, Visible = false };
+			mark.AddThemeStyleboxOverride("panel", BattleTheme.Box(new Color(0.7f, 0.2f, 0.15f, 0.42f), BattleTheme.DangerColor, 4, 10));
+			var glyph = BattleTheme.MakeOutlinedLabel("换", 64, Colors.White, HorizontalAlignment.Center);
+			glyph.Size = faceSize;
+			mark.AddChild(glyph);
+			holder.AddChild(mark);
+
+			holder.Pressed += () =>
+			{
+				if (!selected.Add(id)) selected.Remove(id);
+				mark.Visible = selected.Contains(id);
+				UpdateConfirm();
+			};
+			dim.AddChild(holder);
+		}
+
+		confirm.Pressed += () => { _sfx.Play("button"); onConfirm(selected.ToList()); };
+		dim.AddChild(confirm);
 	}
 
 	private void ShowWinOverlay(GameEndedEvent ended)
