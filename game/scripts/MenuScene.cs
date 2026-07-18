@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using HoldTheLine.Net.Protocol;
 
@@ -140,21 +142,29 @@ public partial class MenuScene : Control
         PanelLabel(p, pf != null ? $"评分 {pf.Rating}   ·   胜 {pf.Wins} / 负 {pf.Losses}" : "", 224, 26, BattleTheme.Accent);
 
         PanelLabel(p, "当前卡组", 300, 22, BattleTheme.TextDim);
-        var deckBtns = new Button[DeckOptions.Length];
-        void Repaint() { for (int i = 0; i < DeckOptions.Length; i++) BattleTheme.SetButtonBg(deckBtns[i], _lobbyDeck == DeckOptions[i].Id ? DeckOptions[i].Color : BattleTheme.PanelDark); }
-        for (int i = 0; i < DeckOptions.Length; i++)
+        // Built-in starter decks first, then the player's saved decks (from the last profile push).
+        var options = new List<(string Id, string Label, Color Color)>();
+        foreach (var d in DeckOptions) options.Add((d.Id, d.Label, d.Color));
+        if (pf != null)
+            foreach (var d in pf.Decks) options.Add((d.Id, d.Name, FactionTint(d.Faction)));
+        if (options.All(o => o.Id != _lobbyDeck)) _lobbyDeck = options[0].Id; // deleted deck → fall back
+
+        var deckBtns = new Button[options.Count];
+        void Repaint() { for (int i = 0; i < options.Count; i++) BattleTheme.SetButtonBg(deckBtns[i], _lobbyDeck == options[i].Id ? options[i].Color : BattleTheme.PanelDark); }
+        for (int i = 0; i < options.Count; i++)
         {
-            var opt = DeckOptions[i];
+            var opt = options[i];
             deckBtns[i] = Btn(opt.Label, new Vector2(Cx + (i % 2) * 310, 334 + (i / 2) * 66), new Vector2(290, 58), () => { _lobbyDeck = opt.Id; Repaint(); });
             p.AddChild(deckBtns[i]);
         }
         Repaint();
 
-        p.AddChild(Btn("排位匹配", new Vector2(Cx, 486), new Vector2(600, 76), StartQueue));
-        p.AddChild(Btn("好友房间", new Vector2(Cx, 574), new Vector2(600, 68), ShowFriendRoom));
-        p.AddChild(Btn("卡组编辑 (施工中 · C2)", new Vector2(Cx, 654), new Vector2(600, 60), () => { }));
-        p.AddChild(Btn("断开连接", new Vector2(Cx, 726), new Vector2(290, 60), async () => { await Session.DisconnectAsync(); CloseOverlay(); }));
-        p.AddChild(Btn("返回", new Vector2(Cx + 310, 726), new Vector2(290, 60), CloseOverlay));
+        float y = 334 + ((options.Count + 1) / 2) * 66 + 16;
+        p.AddChild(Btn("排位匹配", new Vector2(Cx, y), new Vector2(600, 76), StartQueue));
+        p.AddChild(Btn("好友房间", new Vector2(Cx, y + 88), new Vector2(600, 68), ShowFriendRoom));
+        p.AddChild(Btn("卡组编辑", new Vector2(Cx, y + 164), new Vector2(600, 60), OpenDeckEditor));
+        p.AddChild(Btn("断开连接", new Vector2(Cx, y + 236), new Vector2(290, 60), async () => { await Session.DisconnectAsync(); CloseOverlay(); }));
+        p.AddChild(Btn("返回", new Vector2(Cx + 310, y + 236), new Vector2(290, 60), CloseOverlay));
     }
 
     private async void StartQueue()
@@ -249,6 +259,23 @@ public partial class MenuScene : Control
         GameConfig.SetOnlineAttached();
         GetTree().ChangeSceneToFile(BattlePath);
     }
+
+    /// <summary>Open the deck editor (M3 C2). Session is static, so the connection survives the scene swap;
+    /// on save the editor returns to the menu, where re-opening the lobby shows the refreshed deck list.</summary>
+    private void OpenDeckEditor()
+    {
+        DeckEditContext.Editing = null; // new deck (editing an existing one needs a get_deck round-trip; not yet in protocol)
+        GetTree().ChangeSceneToFile("res://scenes/menu/Deck.tscn");
+    }
+
+    private static Color FactionTint(string faction) => faction switch
+    {
+        "iron_vow" => BattleTheme.SeatColor0,
+        "wildpack" => BattleTheme.SeatColor1,
+        "duskweaver" => Color.FromHtml("8b5fa6"),
+        "undervault" => Color.FromHtml("b5883f"),
+        _ => BattleTheme.AccentSoft,
+    };
 
     private LineEdit Field(string text, string placeholder, Vector2 pos, float width)
     {
