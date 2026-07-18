@@ -20,9 +20,6 @@ public static class GameConfig
     /// open the online panel and create/join — no address typing. Editable for LAN/local testing.</summary>
     public static string ServerUrl = "ws://212.64.21.174:5210/ws";
     public static string Nickname = "玩家";
-    public static bool CreateRoom;    // true = host a room; false = join RoomCode
-    public static string RoomCode = "";
-    public static string OnlineDeck = "iron_wall";
 
     public static void SetVsAi(string humanDeck, string aiDeck)
     {
@@ -49,18 +46,6 @@ public static class GameConfig
     {
         VsAi = false;
         Online = true;
-        Configured = true;
-    }
-
-    public static void SetOnline(string serverUrl, string nickname, bool createRoom, string roomCode, string deck)
-    {
-        VsAi = false;
-        Online = true;
-        ServerUrl = serverUrl;
-        Nickname = string.IsNullOrWhiteSpace(nickname) ? "玩家" : nickname;
-        CreateRoom = createRoom;
-        RoomCode = roomCode.Trim().ToUpperInvariant();
-        OnlineDeck = deck;
         Configured = true;
     }
 }

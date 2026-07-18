@@ -169,7 +169,10 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
             Rating = rating,
             Wins = wins,
             Losses = losses,
-            Decks = _decks.ListFor(GuestId).Select(d => new DeckSummary { Id = d.Id, Name = d.Name, Faction = d.Faction }).ToList(),
+            Decks = _decks.ListFor(GuestId).Select(d => new DeckSummary
+            {
+                Id = d.Id, Name = d.Name, Faction = d.Faction, Leader = d.Leader, CardIds = d.CardIds,
+            }).ToList(),
             CollectionMode = _collection.Mode,
         };
     }

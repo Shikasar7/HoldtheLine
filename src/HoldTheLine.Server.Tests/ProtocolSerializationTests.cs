@@ -77,6 +77,32 @@ public class ProtocolSerializationTests
         RoundTripsServer(new Pong { Seq = 6 });
     }
 
+    [Fact]
+    public void Profile_deck_summary_round_trips_with_full_card_list()
+    {
+        // Protocol v3: DeckSummary carries leader + card_ids so a saved deck is editable client-side.
+        var profile = new Profile
+        {
+            Name = "Alice",
+            Rating = 1200,
+            Wins = 3,
+            Losses = 1,
+            CollectionMode = "unlock_all",
+            Decks =
+            [
+                new DeckSummary
+                {
+                    Id = "deck-abc123", Name = "铁壁改", Faction = "iron_vow", Leader = "warden_karr",
+                    CardIds = ["iv_shield_bearer", "iv_shield_bearer", "neutral_scout"],
+                },
+            ],
+        };
+        var json = ProtocolJson.Encode(profile);
+        Assert.Contains("\"leader\":", json);
+        Assert.Contains("\"card_ids\":", json);
+        RoundTripsServer(profile);
+    }
+
     private static PlayerView MinimalView() => new()
     {
         ViewerSeat = 0,

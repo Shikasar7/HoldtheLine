@@ -6,8 +6,9 @@ namespace HoldTheLine.Net.Protocol;
 public static class ProtocolConstants
 {
     /// <summary>Wire-format version. Bump on any change to <see cref="ClientMessage"/>/<see cref="ServerMessage"/> shapes.
-    /// v2 (M3): persistent identity fields on hello + the §3.4 lobby/deck/queue/ladder message families.</summary>
-    public const int ProtocolVersion = 2;
+    /// v2 (M3): persistent identity fields on hello + the §3.4 lobby/deck/queue/ladder message families.
+    /// v3 (M3 收尾): <see cref="DeckSummary"/> carries leader + card_ids so saved decks are editable client-side.</summary>
+    public const int ProtocolVersion = 3;
 }
 
 /// <summary>

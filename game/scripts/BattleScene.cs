@@ -21,10 +21,8 @@ public partial class BattleScene : Control
 	private LeaderDatabase _leaders = null!;
 	private IGameHost _host = null!;
 	private LocalGameHost? _localHost;   // set for hotseat / vs-AI (SuggestCommand lives here)
-	private GameServerClient? _client;   // set for online
-	private RemoteGameHost? _remoteHost; // set for online
+	private RemoteGameHost? _remoteHost; // set for online (the shared Session's match host)
 	private bool _onlineReady;           // match_started applied and local seat known
-	private bool _onlineAttached;        // true = using the shared Session connection (lobby); don't dispose on exit
 	private System.Action<ConnectionState>? _connHandler; // stored so it can be unhooked from the persistent client
 	private System.Action<RatingChange>? _ratingHandler;  // ranked ELO delta pushed post-match (C3); unhooked on exit
 	private RatingChange? _ratingChange; // latest rating_change (may arrive before or after the win overlay)
@@ -1030,73 +1028,25 @@ public partial class BattleScene : Control
 	{
 		SetConn("连接对局…");
 
-		// C1 lobby model: the lobby already connected and started the match on the shared Session — just
-		// attach to its RemoteGameHost. (Legacy direct-launch, below, still connects on its own.)
-		if (Session.Remote is { } shared)
+		// C1 lobby model (the only online path since the legacy direct-dial was removed): the lobby
+		// already connected and started the match on the shared Session — attach to its RemoteGameHost.
+		if (Session.Remote is not { } shared)
 		{
-			_onlineAttached = true;
-			_client = Session.Client;
-			_remoteHost = shared;
-			_host = shared;
-			WireRemoteEvents(shared);
-			// Ranked ELO result (C3): the server pushes rating_change post-match on the shared Session socket.
-			// Only ranked-queue matches send it — casual friend rooms never do, so the label just stays blank.
-			_ratingHandler = rc => Callable.From(() => OnRatingChange(rc)).CallDeferred();
-			Session.RatingChanged += _ratingHandler;
-			try
-			{
-				int seat = await shared.WaitForMatchAsync(); // already applied → returns the seat immediately
-				Session.EnableReconnect();
-				Callable.From(() => OnMatchReady(seat)).CallDeferred();
-			}
-			catch (System.Exception ex)
-			{
-				var m = ex.Message;
-				Callable.From(() => SetConn($"连接失败:{m}")).CallDeferred();
-			}
+			SetConn("联机会话不存在——请从主菜单联机入口进入");
 			return;
 		}
 
-		var client = new GameServerClient(new WebSocketTransport());
-		var remote = new RemoteGameHost(client);
-		_client = client;
-		_remoteHost = remote;
-		_host = remote;
-
-		// Room code / errors: shown while waiting for an opponent (marshalled to the main thread).
-		client.MessageReceived += msg =>
-		{
-			switch (msg)
-			{
-				case RoomCreated rc:
-					{ var code = rc.Code; Callable.From(() => SetConn($"房间号  {code}\n把它发给朋友,等待加入…")).CallDeferred(); break; }
-				case ErrorMsg em:
-					{ var m = $"{em.Code}:{em.Message}"; Callable.From(() => SetConn($"错误:{m}")).CallDeferred(); break; }
-			}
-		};
-		WireRemoteEvents(remote);
-
+		_remoteHost = shared;
+		_host = shared;
+		WireRemoteEvents(shared);
+		// Ranked ELO result (C3): the server pushes rating_change post-match on the shared Session socket.
+		// Only ranked-queue matches send it — casual friend rooms never do, so the label just stays blank.
+		_ratingHandler = rc => Callable.From(() => OnRatingChange(rc)).CallDeferred();
+		Session.RatingChanged += _ratingHandler;
 		try
 		{
-			var (guestId, secret) = Identity.Get(); // M3 B0: stable device identity + secret
-			var hello = new Hello
-			{
-				GuestId = guestId,
-				Secret = secret,
-				Name = GameConfig.Nickname,
-				ProtocolVersion = ProtocolConstants.ProtocolVersion,
-				RulesVersion = HoldTheLine.Rules.RulesInfo.Version,
-				DataHash = HoldTheLine.Net.DataHash.Compute(_cards, _leaders, GameData.LoadDecks()),
-			};
-			await client.ConnectAsync(new System.Uri(GameConfig.ServerUrl), hello);
-
-			if (GameConfig.CreateRoom)
-				await client.SendAsync(new CreateRoom { DeckId = GameConfig.OnlineDeck });
-			else
-				await client.SendAsync(new JoinRoom { Code = GameConfig.RoomCode, DeckId = GameConfig.OnlineDeck });
-
-			int seat = await remote.WaitForMatchAsync();
-			remote.EnableReconnect(hello); // dropped socket now auto-reconnects with the resume token
+			int seat = await shared.WaitForMatchAsync(); // already applied → returns the seat immediately
+			Session.EnableReconnect();
 			Callable.From(() => OnMatchReady(seat)).CallDeferred();
 		}
 		catch (System.Exception ex)
@@ -1327,7 +1277,7 @@ public partial class BattleScene : Control
 
 	public override void _ExitTree()
 	{
-		if (_onlineAttached)
+		if (_online)
 		{
 			// Shared Session connection (lobby): unhook our conn handler from the persistent client and
 			// arm a fresh host for the next match; DON'T close the socket — the lobby owns it.
@@ -1336,10 +1286,6 @@ public partial class BattleScene : Control
 			if (_ratingHandler is { } rh)
 				Session.RatingChanged -= rh; // static event → must detach or it pins this freed scene
 			Session.ArmMatchHost();
-		}
-		else if (_client != null)
-		{
-			_ = _client.DisposeAsync().AsTask(); // legacy: battle owns the socket → closing tears the match down
 		}
 	}
 

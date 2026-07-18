@@ -242,11 +242,17 @@ public sealed record Profile : ServerMessage
     public required string CollectionMode { get; init; }
 }
 
+/// <summary>Complete deck snapshot inside <see cref="Profile"/>. Carries the full card list so the
+/// client can edit a saved deck without a separate get_deck round-trip — the profile IS the account
+/// snapshot (protocol v3; Fable ruling 2026-07-18: cheaper than a new message pair at Beta scale,
+/// ~30 ids × ≤20 decks per push).</summary>
 public sealed record DeckSummary
 {
     public required string Id { get; init; }
     public required string Name { get; init; }
     public required string Faction { get; init; }
+    public required string Leader { get; init; }
+    public required IReadOnlyList<string> CardIds { get; init; }
 }
 
 public sealed record DeckSaved : ServerMessage

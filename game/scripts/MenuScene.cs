@@ -154,8 +154,22 @@ public partial class MenuScene : Control
         for (int i = 0; i < options.Count; i++)
         {
             var opt = options[i];
-            deckBtns[i] = Btn(opt.Label, new Vector2(Cx + (i % 2) * 310, 334 + (i / 2) * 66), new Vector2(290, 58), () => { _lobbyDeck = opt.Id; Repaint(); });
+            var pos = new Vector2(Cx + (i % 2) * 310, 334 + (i / 2) * 66);
+            deckBtns[i] = Btn(opt.Label, pos, new Vector2(290, 58), () => { _lobbyDeck = opt.Id; Repaint(); });
             p.AddChild(deckBtns[i]);
+            // Saved decks (after the builtins) get an edit chip — Profile.Decks carries the full card
+            // list (protocol v3), so the editor can open it directly, no extra round-trip.
+            if (i >= DeckOptions.Length && pf != null)
+            {
+                var ds = pf.Decks[i - DeckOptions.Length];
+                var edit = Btn("改", new Vector2(pos.X + 240, pos.Y + 5), new Vector2(46, 48), () =>
+                {
+                    DeckEditContext.Editing = new DeckEditContext.Deck(ds.Id, ds.Name, ds.Faction, ds.CardIds);
+                    GetTree().ChangeSceneToFile("res://scenes/menu/Deck.tscn");
+                });
+                edit.AddThemeFontSizeOverride("font_size", 18);
+                p.AddChild(edit);
+            }
         }
         Repaint();
 
@@ -267,7 +281,7 @@ public partial class MenuScene : Control
     /// on save the editor returns to the menu, where re-opening the lobby shows the refreshed deck list.</summary>
     private void OpenDeckEditor()
     {
-        DeckEditContext.Editing = null; // new deck (editing an existing one needs a get_deck round-trip; not yet in protocol)
+        DeckEditContext.Editing = null; // new deck; editing an existing one goes through the per-deck 改 chip
         GetTree().ChangeSceneToFile("res://scenes/menu/Deck.tscn");
     }
 
