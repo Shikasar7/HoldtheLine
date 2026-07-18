@@ -14,7 +14,9 @@ namespace HoldTheLine.Rules.Ai;
 ///
 /// X2.1 taught it the new-faction primitives (docs/06 §5.2): battlecry damage aims at enemies, 贯穿
 /// counts the line hit, cell/cross AOEs subtract friendly-fire, 消灭 only sacrifices cheap/dying bodies,
-/// and any order is worth more while on-cast engines (ally_order_played) sit in play.
+/// and any order is worth more while on-cast engines (ally_order_played) sit in play. The second batch
+/// (docs/10 §6#4): 灼蚀 (sear) scores full value vs 坚守, self_moved makes a move worth its payoff, and
+/// buffing all_ally_emplacements scales with the turrets already down.
 /// </summary>
 public static class GreedyAi
 {
@@ -84,6 +86,18 @@ public static class GreedyAi
                         else if (inEnemyHalfNow && !inEnemyHalfAfter) score -= tideWorth;
                     }
                 }
+
+                // self_moved (游群): moving IS the payoff. A per-move self-buff makes the step worth more;
+                // a move-ping is worth the enemies it will hit from the DESTINATION cell (where it fires).
+                foreach (var e in db.Get(unit.CardId).Effects.Where(e => e.Trigger == "self_moved"))
+                    score += e.Action switch
+                    {
+                        "buff" when e.Target == "self" => (e.Atk + e.Hp) * 1.2,
+                        ("damage" or "sear") when e.Target == "adjacent_enemies" =>
+                            BoardGeometry.AdjacentCells(m.To).Select(s.UnitAt)
+                                .Count(x => x != null && x.OwnerSeat != m.Seat) * e.Amount * 1.5,
+                        _ => 0.5,
+                    };
                 return score;
             }
 
@@ -180,25 +194,29 @@ public static class GreedyAi
         switch (e.Action)
         {
             case "damage":
+            case "sear": // 灼蚀: same shape as damage, but ignores 坚守 — so it scores full value vs HoldFast prey.
+            {
+                bool sear = e.Action == "sear";
                 switch (e.Target)
                 {
                     case "target_unit":
                     case "target_unit_own_half":
                         if (target == null) return 0;
-                        return targetIsEnemy ? DamageValue(s, seat, target, e.Amount) : -100;
+                        return targetIsEnemy ? DamageValue(s, seat, target, e.Amount, sear) : -100;
                     case "column_enemies":
-                        return SumDamage(s, seat, s.Units.Where(u => u.OwnerSeat != seat && InCol(u, targetCell)), e.Amount);
+                        return SumDamage(s, seat, s.Units.Where(u => u.OwnerSeat != seat && InCol(u, targetCell)), e.Amount, sear);
                     case "row_enemies":
-                        return SumDamage(s, seat, s.Units.Where(u => u.OwnerSeat != seat && InRow(u, targetCell)), e.Amount);
+                        return SumDamage(s, seat, s.Units.Where(u => u.OwnerSeat != seat && InRow(u, targetCell)), e.Amount, sear);
                     case "cell_cross_all":
-                        return targetCell is { } cc ? SumDamage(s, seat, CrossUnits(s, cc), e.Amount) : 0;
+                        return targetCell is { } cc ? SumDamage(s, seat, CrossUnits(s, cc), e.Amount, sear) : 0;
                     case "unit_cross_all":
-                        return target == null ? 0 : SumDamage(s, seat, CrossUnits(s, target.Cell), e.Amount);
+                        return target == null ? 0 : SumDamage(s, seat, CrossUnits(s, target.Cell), e.Amount, sear);
                     case "adjacent_enemies":
                         return 1.5; // source-relative on-cast/deathrattle — small flat credit
                     default:
                         return 1;
                 }
+            }
 
             case "destroy":
                 if (target == null || !targetIsAlly) return -100;
@@ -223,6 +241,8 @@ public static class GreedyAi
                     }
                     case "column_allies":
                         return s.Units.Count(u => u.OwnerSeat == seat && InCol(u, targetCell)) * (e.Atk + e.Hp) * 1.5;
+                    case "all_ally_emplacements": // 匠会 阵地 payoff: value scales with turrets already bolted down.
+                        return s.Units.Count(u => u.OwnerSeat == seat && u.HasKeyword(Keyword.Emplacement)) * (e.Atk + e.Hp) * 1.5;
                     default:
                         return 1;
                 }
@@ -271,9 +291,10 @@ public static class GreedyAi
                 bonus += e.Action switch
                 {
                     "buff" => (e.Atk + e.Hp) * 1.2,
-                    "damage" when e.Target == "adjacent_enemies" =>
+                    ("damage" or "sear") when e.Target == "adjacent_enemies" =>
                         BoardGeometry.AdjacentCells(u.Cell).Select(s.UnitAt)
                             .Count(x => x != null && x.OwnerSeat != seat) * e.Amount * 1.5,
+                    "recall_order" => 1.5, // 奥菲兰: a free order back each cast — steady value engine
                     _ => 1.0,
                 };
         return bonus;
@@ -290,23 +311,23 @@ public static class GreedyAi
         return v;
     }
 
-    private static double SumDamage(GameState s, int seat, IEnumerable<UnitInstance> victims, int amount) =>
-        victims.Sum(u => DamageValue(s, seat, u, amount));
+    private static double SumDamage(GameState s, int seat, IEnumerable<UnitInstance> victims, int amount, bool sear = false) =>
+        victims.Sum(u => DamageValue(s, seat, u, amount, sear));
 
     /// <summary>Signed value of dealing <paramref name="amount"/> to <paramref name="victim"/>: enemies good, friendly fire bad.</summary>
-    private static double DamageValue(GameState s, int seat, UnitInstance victim, int amount)
+    private static double DamageValue(GameState s, int seat, UnitInstance victim, int amount, bool sear = false)
     {
-        int dmg = EffectDamage(victim, amount);
+        int dmg = EffectDamage(victim, amount, sear);
         double v = dmg * 2 + (dmg >= victim.CurrentHp ? UnitValue(victim) * 3 : 0);
         return victim.OwnerSeat == seat ? -v : v;
     }
 
-    private static int EffectDamage(UnitInstance victim, int amount)
+    private static int EffectDamage(UnitInstance victim, int amount, bool ignoreHoldFast = false)
     {
         if (victim.ShieldActive) return 0;
         int dmg = amount;
         if (victim.HasKeyword(Keyword.Emplacement)) dmg += 1; // bolted down — effect damage +1
-        if (victim.HasKeyword(Keyword.HoldFast) && !victim.MovedThisRound) dmg -= 1;
+        if (!ignoreHoldFast && victim.HasKeyword(Keyword.HoldFast) && !victim.MovedThisRound) dmg -= 1; // 灼蚀 skips this
         return Math.Max(0, dmg);
     }
 

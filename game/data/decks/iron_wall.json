@@ -5,22 +5,74 @@
     "faction": "iron_vow",
     "leader": "leader_iv_valen",
     "cards": [
-      { "id": "iv_oath_squire", "count": 2 },
-      { "id": "iv_shieldbearer", "count": 3 },
-      { "id": "iv_garrison_guard", "count": 3 },
-      { "id": "iv_line_sergeant", "count": 2 },
-      { "id": "iv_oathguard", "count": 3 },
-      { "id": "iv_bastion_archer", "count": 2 },
-      { "id": "iv_rampart_hammer", "count": 2 },
-      { "id": "iv_oath_avenger", "count": 2 },
-      { "id": "iv_gate_titan", "count": 2 },
-      { "id": "iv_bulwark", "count": 1 },
-      { "id": "iv_aegis_paragon", "count": 1 },
-      { "id": "iv_fortress_lord", "count": 1 },
-      { "id": "iv_oath_prayer", "count": 1 },
-      { "id": "iv_shield_wall", "count": 2 },
-      { "id": "iv_hold_the_line", "count": 2 },
-      { "id": "iv_overline_execution", "count": 1 }
+      {
+        "id": "iv_oath_squire",
+        "count": 1
+      },
+      {
+        "id": "iv_shieldbearer",
+        "count": 3
+      },
+      {
+        "id": "iv_garrison_guard",
+        "count": 3
+      },
+      {
+        "id": "iv_line_sergeant",
+        "count": 2
+      },
+      {
+        "id": "iv_oathguard",
+        "count": 3
+      },
+      {
+        "id": "iv_bastion_archer",
+        "count": 2
+      },
+      {
+        "id": "iv_rampart_hammer",
+        "count": 2
+      },
+      {
+        "id": "iv_oath_avenger",
+        "count": 2
+      },
+      {
+        "id": "iv_gate_titan",
+        "count": 2
+      },
+      {
+        "id": "iv_bulwark",
+        "count": 1
+      },
+      {
+        "id": "iv_aegis_paragon",
+        "count": 1
+      },
+      {
+        "id": "iv_fortress_lord",
+        "count": 1
+      },
+      {
+        "id": "iv_shield_wall",
+        "count": 2
+      },
+      {
+        "id": "iv_hold_the_line",
+        "count": 2
+      },
+      {
+        "id": "iv_overline_execution",
+        "count": 1
+      },
+      {
+        "id": "iv_siege_anchor",
+        "count": 1
+      },
+      {
+        "id": "iv_fortify",
+        "count": 1
+      }
     ]
   }
 ]

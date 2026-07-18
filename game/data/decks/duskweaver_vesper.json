@@ -11,7 +11,7 @@
       },
       {
         "id": "dw_cinder_moth",
-        "count": 2
+        "count": 1
       },
       {
         "id": "dw_pyre_channeler",
@@ -51,7 +51,7 @@
       },
       {
         "id": "dw_flame_lash",
-        "count": 3
+        "count": 2
       },
       {
         "id": "dw_immolate",
@@ -63,6 +63,14 @@
       },
       {
         "id": "dw_fire_curtain",
+        "count": 1
+      },
+      {
+        "id": "dw_searing_brand",
+        "count": 1
+      },
+      {
+        "id": "dw_pyre_guard",
         "count": 1
       }
     ]

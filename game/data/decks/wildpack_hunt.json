@@ -5,22 +5,74 @@
     "faction": "wildpack",
     "leader": "leader_wp_saen",
     "cards": [
-      { "id": "wp_pup", "count": 2 },
-      { "id": "wp_fang_rider", "count": 2 },
-      { "id": "wp_flanker", "count": 2 },
-      { "id": "wp_raider", "count": 4 },
-      { "id": "wp_dire_wolf", "count": 3 },
-      { "id": "wp_stalker", "count": 2 },
-      { "id": "wp_howler", "count": 2 },
-      { "id": "wp_ambusher", "count": 2 },
-      { "id": "wp_pack_alpha", "count": 2 },
-      { "id": "wp_windrunner", "count": 1 },
-      { "id": "wp_rift_leaper", "count": 1 },
-      { "id": "wp_packlord", "count": 1 },
-      { "id": "wp_hunt_signal", "count": 2 },
-      { "id": "wp_pounce", "count": 1 },
-      { "id": "wp_blood_scent", "count": 1 },
-      { "id": "wp_pack_call", "count": 2 }
+      {
+        "id": "wp_pup",
+        "count": 2
+      },
+      {
+        "id": "wp_fang_rider",
+        "count": 2
+      },
+      {
+        "id": "wp_flanker",
+        "count": 2
+      },
+      {
+        "id": "wp_raider",
+        "count": 4
+      },
+      {
+        "id": "wp_dire_wolf",
+        "count": 3
+      },
+      {
+        "id": "wp_stalker",
+        "count": 2
+      },
+      {
+        "id": "wp_howler",
+        "count": 2
+      },
+      {
+        "id": "wp_ambusher",
+        "count": 2
+      },
+      {
+        "id": "wp_pack_alpha",
+        "count": 2
+      },
+      {
+        "id": "wp_windrunner",
+        "count": 1
+      },
+      {
+        "id": "wp_rift_leaper",
+        "count": 1
+      },
+      {
+        "id": "wp_packlord",
+        "count": 1
+      },
+      {
+        "id": "wp_hunt_signal",
+        "count": 1
+      },
+      {
+        "id": "wp_blood_scent",
+        "count": 1
+      },
+      {
+        "id": "wp_pack_call",
+        "count": 2
+      },
+      {
+        "id": "wp_wild_heart",
+        "count": 1
+      },
+      {
+        "id": "wp_blood_tracker",
+        "count": 1
+      }
     ]
   }
 ]
