@@ -341,5 +341,306 @@
     ],
     "text": "射程 2,架设。",
     "art_prompt": "a small freshly-unfolded sentry turret, single ballista bolt loaded"
+  },
+  {
+    "id": "uv_spike_barrier",
+    "name": "尖桩拒马",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 1,
+    "atk": 0,
+    "hp": 4,
+    "keywords": [
+      {
+        "keyword": "guard"
+      },
+      {
+        "keyword": "emplacement"
+      }
+    ],
+    "text": "守护,架设。",
+    "art_prompt": "a bolted-down spiked barricade frame, wooden stakes and iron braces, immovable"
+  },
+  {
+    "id": "uv_repair_apprentice",
+    "name": "检修学徒",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 2,
+    "atk": 1,
+    "hp": 3,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "heal",
+        "target": "target_unit",
+        "amount": 2
+      }
+    ],
+    "text": "战吼:一个随从恢复 2 点生命。",
+    "art_prompt": "a young mechanic apprentice tightening a bolt on a battered machine, oil and tools"
+  },
+  {
+    "id": "uv_steam_gunner",
+    "name": "蒸汽铳兵",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 3,
+    "atk": 3,
+    "hp": 3,
+    "keywords": [
+      {
+        "keyword": "range",
+        "value": 1
+      }
+    ],
+    "text": "射程 1。",
+    "art_prompt": "a steam-powered gunner with a short brass blunderbuss, valves hissing, point-blank"
+  },
+  {
+    "id": "uv_mortar_crew",
+    "name": "迫击炮组",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 4,
+    "atk": 2,
+    "hp": 5,
+    "keywords": [
+      {
+        "keyword": "range",
+        "value": 3
+      },
+      {
+        "keyword": "emplacement"
+      }
+    ],
+    "text": "射程 3,架设。",
+    "art_prompt": "a two-man mortar crew loading a stubby siege mortar bolted to the deck, fuse ready"
+  },
+  {
+    "id": "uv_armored_hauler",
+    "name": "装甲运载车",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 5,
+    "atk": 4,
+    "hp": 6,
+    "keywords": [
+      {
+        "keyword": "hold_fast"
+      }
+    ],
+    "text": "坚守。",
+    "art_prompt": "a heavy armored steam-hauler grinding forward on iron treads, escorting the guns"
+  },
+  {
+    "id": "uv_twin_bolt_tower",
+    "name": "双矢弩塔",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 5,
+    "atk": 3,
+    "hp": 5,
+    "keywords": [
+      {
+        "keyword": "range",
+        "value": 2
+      },
+      {
+        "keyword": "emplacement"
+      },
+      {
+        "keyword": "pierce"
+      }
+    ],
+    "text": "射程 2,架设,贯穿。",
+    "art_prompt": "a twin-barreled bolt tower bolted to the ground, two ballista arms cranked and aimed"
+  },
+  {
+    "id": "uv_entrench_line",
+    "name": "掘壕",
+    "faction": "undervault",
+    "type": "order",
+    "rarity": "common",
+    "cost": 2,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "buff",
+        "target": "all_ally_emplacements",
+        "hp": 2
+      }
+    ],
+    "text": "你的所有架设友方随从 +0/+2。",
+    "art_prompt": "engineers digging in the gun line with sandbags and plating, entrenched emplacements"
+  },
+  {
+    "id": "uv_gear_foreman",
+    "name": "齿轮工长",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "rare",
+    "cost": 3,
+    "atk": 2,
+    "hp": 3,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "buff",
+        "target": "all_ally_emplacements",
+        "atk": 1
+      }
+    ],
+    "text": "战吼:你的所有架设友方随从 +1/+0。",
+    "art_prompt": "a gear-foreman throwing a master lever, every turret on the line spinning up hotter"
+  },
+  {
+    "id": "uv_lockdown",
+    "name": "锁闭防务",
+    "faction": "undervault",
+    "type": "order",
+    "rarity": "rare",
+    "cost": 3,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "buff",
+        "target": "target_unit_ally",
+        "hp": 2
+      },
+      {
+        "trigger": "play",
+        "action": "grant_keyword",
+        "target": "target_unit_ally",
+        "keyword": "guard",
+        "duration": "permanent"
+      },
+      {
+        "trigger": "play",
+        "action": "grant_keyword",
+        "target": "target_unit_ally",
+        "keyword": "hold_fast",
+        "duration": "permanent"
+      }
+    ],
+    "text": "一个友方随从 +0/+2 并获得守护和坚守。",
+    "art_prompt": "a unit being welded into a lockdown bunker of plates and clamps, sealed tight"
+  },
+  {
+    "id": "uv_salvage_crew",
+    "name": "回收小队",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "rare",
+    "cost": 4,
+    "atk": 3,
+    "hp": 4,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "draw",
+        "amount": 1
+      }
+    ],
+    "text": "战吼:抽 1 张牌。",
+    "art_prompt": "a salvage crew hauling scrap and parts back from a wreck, one holding a recovered schematic"
+  },
+  {
+    "id": "uv_longshot_engine",
+    "name": "长程狙击台",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "rare",
+    "cost": 6,
+    "atk": 3,
+    "hp": 6,
+    "keywords": [
+      {
+        "keyword": "range",
+        "value": 3
+      },
+      {
+        "keyword": "emplacement"
+      },
+      {
+        "keyword": "pierce"
+      }
+    ],
+    "text": "射程 3,架设,贯穿。",
+    "art_prompt": "a long-barreled sniper engine bolted to a raised platform, single precise heavy bolt"
+  },
+  {
+    "id": "uv_thunder_battery",
+    "name": "雷鸣炮列",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "epic",
+    "cost": 7,
+    "atk": 4,
+    "hp": 7,
+    "keywords": [
+      {
+        "keyword": "range",
+        "value": 2
+      },
+      {
+        "keyword": "pierce"
+      }
+    ],
+    "text": "射程 2,贯穿。",
+    "art_prompt": "a rolling thunder-battery of stacked cannons on a mobile carriage, smoke and recoil"
+  },
+  {
+    "id": "uv_fortress_crawler",
+    "name": "移动要塞",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "epic",
+    "cost": 8,
+    "atk": 6,
+    "hp": 8,
+    "keywords": [
+      {
+        "keyword": "guard"
+      },
+      {
+        "keyword": "hold_fast"
+      }
+    ],
+    "text": "守护,坚守。",
+    "art_prompt": "a walking fortress-crawler the size of a gatehouse grinding forward on massive legs"
+  },
+  {
+    "id": "uv_master_artificer",
+    "name": "首席大匠·维尔达",
+    "faction": "undervault",
+    "type": "unit",
+    "rarity": "legendary",
+    "cost": 6,
+    "atk": 3,
+    "hp": 5,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "summon",
+        "amount": 2,
+        "summon_card_id": "uv_sentry_token"
+      },
+      {
+        "trigger": "battlecry",
+        "action": "buff",
+        "target": "all_ally_emplacements",
+        "atk": 1,
+        "hp": 1
+      }
+    ],
+    "text": "战吼:在你的底线行召唤两座 1/2 哨戒炮,你的所有架设友方随从 +1/+1。一人成阵。",
+    "art_prompt": "a master artificer-woman surrounded by deploying sentry turrets and blueprints, the whole line lighting up"
   }
 ]

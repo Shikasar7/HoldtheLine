@@ -206,5 +206,443 @@
 	"effects": [{ "trigger": "play", "action": "damage", "target": "column_enemies", "amount": 1 }],
 	"text": "选择一列:该列所有敌方随从受到 1 点伤害。",
 	"art_prompt": "a coordinated artillery barrage hammering one straight lane of the battlefield, dust column"
+  },
+  {
+    "id": "nl_torchbearer",
+    "name": "火把杂役",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 1,
+    "atk": 1,
+    "hp": 1,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "damage",
+        "target": "target_unit",
+        "amount": 1
+      }
+    ],
+    "text": "战吼:对一个随从造成 1 点伤害。",
+    "art_prompt": "a ragged camp hand swinging a burning torch as an improvised weapon, sparks flying"
+  },
+  {
+    "id": "nl_shield_porter",
+    "name": "扛盾民壮",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 2,
+    "atk": 2,
+    "hp": 3,
+    "text": "",
+    "art_prompt": "a burly commoner hauling a heavy door-shield, plain leather, determined"
+  },
+  {
+    "id": "nl_quartermaster",
+    "name": "军需官",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 2,
+    "atk": 1,
+    "hp": 3,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "buff",
+        "target": "target_unit_ally",
+        "atk": 1
+      }
+    ],
+    "text": "战吼:一个友方随从 +1/+0。",
+    "art_prompt": "a supply officer handing a fresh spear and rations to a soldier, crates behind"
+  },
+  {
+    "id": "nl_outrider",
+    "name": "游骑传令",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 3,
+    "atk": 3,
+    "hp": 2,
+    "keywords": [
+      {
+        "keyword": "swift",
+        "value": 2
+      }
+    ],
+    "text": "疾行 2。",
+    "art_prompt": "a light cavalry messenger galloping across the field, dispatch scroll in hand"
+  },
+  {
+    "id": "nl_watchtower_archer",
+    "name": "哨塔射手",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 3,
+    "atk": 1,
+    "hp": 4,
+    "keywords": [
+      {
+        "keyword": "range",
+        "value": 2
+      }
+    ],
+    "text": "射程 2。",
+    "art_prompt": "an archer in a wooden watchtower, drawing a steady bead over the palisade"
+  },
+  {
+    "id": "nl_sapper",
+    "name": "爆破工兵",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 3,
+    "atk": 2,
+    "hp": 2,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "damage",
+        "target": "target_unit",
+        "amount": 2
+      }
+    ],
+    "text": "战吼:对一个随从造成 2 点伤害。",
+    "art_prompt": "a soot-faced sapper hurling a lit powder charge, fuse hissing"
+  },
+  {
+    "id": "nl_halberdier",
+    "name": "斧枪卫",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 4,
+    "atk": 4,
+    "hp": 4,
+    "keywords": [
+      {
+        "keyword": "hold_fast"
+      }
+    ],
+    "text": "坚守。",
+    "art_prompt": "a disciplined halberdier braced in a wide stance, polearm leveled"
+  },
+  {
+    "id": "nl_shield_veteran",
+    "name": "老练持盾兵",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 4,
+    "atk": 2,
+    "hp": 6,
+    "keywords": [
+      {
+        "keyword": "guard"
+      }
+    ],
+    "text": "守护。",
+    "art_prompt": "a scarred veteran behind a huge battered tower shield, unmovable"
+  },
+  {
+    "id": "nl_standard_bearer",
+    "name": "军旗手",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 4,
+    "atk": 2,
+    "hp": 3,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "buff",
+        "target": "adjacent_allies",
+        "atk": 1,
+        "hp": 1
+      }
+    ],
+    "text": "战吼:相邻友方随从 +1/+1。",
+    "art_prompt": "a proud standard-bearer raising a rallying banner, comrades heartened around"
+  },
+  {
+    "id": "nl_longbow_line",
+    "name": "长弓列兵",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 5,
+    "atk": 3,
+    "hp": 5,
+    "keywords": [
+      {
+        "keyword": "range",
+        "value": 2
+      }
+    ],
+    "text": "射程 2。",
+    "art_prompt": "a rank of longbowmen loosing a volley in unison, arrows arcing"
+  },
+  {
+    "id": "nl_caravan_guard",
+    "name": "车队护卫",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 5,
+    "atk": 4,
+    "hp": 7,
+    "text": "",
+    "art_prompt": "a heavily-built caravan guard with a broad falchion, standing watch over wagons"
+  },
+  {
+    "id": "nl_battering_ram",
+    "name": "冲城槌",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 5,
+    "atk": 5,
+    "hp": 5,
+    "keywords": [
+      {
+        "keyword": "trample"
+      }
+    ],
+    "text": "践踏。",
+    "art_prompt": "a crew driving a great iron-capped battering ram forward through a gate"
+  },
+  {
+    "id": "nl_field_dressing",
+    "name": "战地包扎",
+    "faction": "neutral",
+    "type": "order",
+    "rarity": "common",
+    "cost": 1,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "heal",
+        "target": "target_unit",
+        "amount": 3
+      }
+    ],
+    "text": "一个随从恢复 3 点生命。",
+    "art_prompt": "hands quickly wrapping a bandage around a wounded soldier's arm, field kit open"
+  },
+  {
+    "id": "nl_tactician",
+    "name": "随军参谋",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "rare",
+    "cost": 2,
+    "atk": 1,
+    "hp": 2,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "draw",
+        "amount": 1
+      }
+    ],
+    "text": "战吼:抽 1 张牌。",
+    "art_prompt": "a sharp-eyed staff officer studying a map, quill in hand, planning"
+  },
+  {
+    "id": "nl_mercenary_captain",
+    "name": "佣兵队长",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "rare",
+    "cost": 4,
+    "atk": 3,
+    "hp": 3,
+    "keywords": [
+      {
+        "keyword": "charge"
+      }
+    ],
+    "text": "冲锋。",
+    "art_prompt": "a battle-hardened sellsword captain charging in with a notched blade, coin-purse jingling"
+  },
+  {
+    "id": "nl_sharpshooter",
+    "name": "神射手",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "rare",
+    "cost": 4,
+    "atk": 2,
+    "hp": 4,
+    "keywords": [
+      {
+        "keyword": "range",
+        "value": 3
+      }
+    ],
+    "text": "射程 3。",
+    "art_prompt": "a lone marksman on a ridge with an oversized crossbow, one eye closed, patient"
+  },
+  {
+    "id": "nl_shadow_agent",
+    "name": "影探",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "rare",
+    "cost": 4,
+    "atk": 3,
+    "hp": 3,
+    "keywords": [
+      {
+        "keyword": "cheap_shot"
+      }
+    ],
+    "text": "偷袭。",
+    "art_prompt": "a cloaked agent slipping a dagger from the dark, face half-hidden by a hood"
+  },
+  {
+    "id": "nl_watch_commander",
+    "name": "哨备统领",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "rare",
+    "cost": 5,
+    "atk": 3,
+    "hp": 6,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "grant_keyword",
+        "target": "target_unit_ally",
+        "keyword": "guard",
+        "duration": "permanent"
+      }
+    ],
+    "text": "战吼:一个友方随从获得守护。",
+    "art_prompt": "a stern watch commander directing a shield to the front, tor-lit rampart"
+  },
+  {
+    "id": "nl_drillmaster",
+    "name": "操典教头",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "rare",
+    "cost": 6,
+    "atk": 4,
+    "hp": 5,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "buff",
+        "target": "all_allies",
+        "atk": 1
+      }
+    ],
+    "text": "战吼:你的所有友方随从 +1/+0。",
+    "art_prompt": "a bellowing drillmaster raising a baton, an entire rank snapping to attention"
+  },
+  {
+    "id": "nl_forced_march",
+    "name": "强行军",
+    "faction": "neutral",
+    "type": "order",
+    "rarity": "rare",
+    "cost": 1,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "move_bonus",
+        "target": "target_unit_ally",
+        "amount": 1
+      },
+      {
+        "trigger": "play",
+        "action": "draw",
+        "amount": 1
+      }
+    ],
+    "text": "一个友方随从本回合移动力 +1,抽 1 张牌。",
+    "art_prompt": "a column of troops marching double-time down a muddy road at dawn, banners forward"
+  },
+  {
+    "id": "nl_royal_lancer",
+    "name": "御前枪骑",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "epic",
+    "cost": 6,
+    "atk": 5,
+    "hp": 5,
+    "keywords": [
+      {
+        "keyword": "charge"
+      }
+    ],
+    "text": "冲锋。",
+    "art_prompt": "a gilded royal lancer at full gallop, pennoned lance couched, sunlight on plate"
+  },
+  {
+    "id": "nl_juggernaut",
+    "name": "攻坚巨兽",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "epic",
+    "cost": 7,
+    "atk": 6,
+    "hp": 6,
+    "keywords": [
+      {
+        "keyword": "trample"
+      },
+      {
+        "keyword": "hold_fast"
+      }
+    ],
+    "text": "践踏,坚守。",
+    "art_prompt": "a massive siege-beast in bolted armor plowing through a barricade, unstoppable"
+  },
+  {
+    "id": "nl_grand_banner",
+    "name": "王国大纛",
+    "faction": "neutral",
+    "type": "order",
+    "rarity": "epic",
+    "cost": 6,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "buff",
+        "target": "all_allies",
+        "atk": 1,
+        "hp": 1
+      }
+    ],
+    "text": "你的所有友方随从 +1/+1。",
+    "art_prompt": "an enormous kingdom war-banner unfurling over a whole army, light breaking through"
+  },
+  {
+    "id": "nl_strategist",
+    "name": "军师·闻鹤",
+    "faction": "neutral",
+    "type": "unit",
+    "rarity": "legendary",
+    "cost": 5,
+    "atk": 3,
+    "hp": 4,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "draw",
+        "amount": 2
+      }
+    ],
+    "text": "战吼:抽 2 张牌。运筹于帷幄之中。",
+    "art_prompt": "a serene grey-robed strategist by a candle and a battle map, a crane feather fan in hand"
   }
 ]

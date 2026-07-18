@@ -334,5 +334,262 @@
     "hp": 2,
     "text": "烬火雏凤。",
     "art_prompt": "a small ember-feathered phoenix chick with wobbly flame wings"
+  },
+  {
+    "id": "dw_ash_whelp",
+    "name": "灰烬幼灵",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 1,
+    "atk": 2,
+    "hp": 1,
+    "text": "",
+    "art_prompt": "a small ember-elemental whelp trailing sparks, eager and flickering"
+  },
+  {
+    "id": "dw_flame_adept",
+    "name": "焰术学徒",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 2,
+    "atk": 2,
+    "hp": 1,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "damage",
+        "target": "target_unit",
+        "amount": 1
+      }
+    ],
+    "text": "战吼:对一个随从造成 1 点伤害。",
+    "art_prompt": "a young fire-adept flicking a spark of flame from their fingertips, dusk robes"
+  },
+  {
+    "id": "dw_scorch_zealot",
+    "name": "灼誓狂徒",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 2,
+    "atk": 3,
+    "hp": 1,
+    "text": "",
+    "art_prompt": "a fervent zealot wreathed in scorching heat, wild-eyed, robes smoldering"
+  },
+  {
+    "id": "dw_choir_acolyte",
+    "name": "烬火唱徒",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 3,
+    "atk": 1,
+    "hp": 3,
+    "effects": [
+      {
+        "trigger": "ally_order_played",
+        "action": "buff",
+        "target": "self",
+        "hp": 1
+      }
+    ],
+    "text": "你每施放一张指令牌后,本随从 +0/+1。",
+    "art_prompt": "a hooded choir acolyte chanting, ash swirling, growing steadier with each verse"
+  },
+  {
+    "id": "dw_ashen_courier",
+    "name": "灰烬信使",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 3,
+    "atk": 2,
+    "hp": 2,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "recall_order",
+        "amount": 1
+      }
+    ],
+    "text": "战吼:将 1 张随机指令牌从你的墓地移回手牌。",
+    "art_prompt": "an ash-cloaked courier pulling a smoldering scroll back out of a brazier of embers"
+  },
+  {
+    "id": "dw_pyre_guard",
+    "name": "焰卫",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "common",
+    "cost": 4,
+    "atk": 3,
+    "hp": 5,
+    "keywords": [
+      {
+        "keyword": "guard"
+      }
+    ],
+    "text": "守护。",
+    "art_prompt": "a stalwart pyre-guardian with a shield of standing flame, holding the front line"
+  },
+  {
+    "id": "dw_conflagrate",
+    "name": "燔火",
+    "faction": "duskweaver",
+    "type": "order",
+    "rarity": "common",
+    "cost": 3,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "damage",
+        "target": "target_unit",
+        "amount": 4
+      }
+    ],
+    "text": "对一个随从造成 4 点伤害。",
+    "art_prompt": "a roaring gout of flame engulfing a single target, intense orange blaze"
+  },
+  {
+    "id": "dw_searing_brand",
+    "name": "灼痕烙印",
+    "faction": "duskweaver",
+    "type": "order",
+    "rarity": "rare",
+    "cost": 2,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "sear",
+        "target": "target_unit",
+        "amount": 3
+      }
+    ],
+    "text": "对一个随从造成 3 点灼蚀伤害(无视坚守)。",
+    "art_prompt": "a white-hot branding sigil searing through armor, ignoring the shield, cruel light"
+  },
+  {
+    "id": "dw_vesper_cantor",
+    "name": "晚祷领唱",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "rare",
+    "cost": 4,
+    "atk": 2,
+    "hp": 4,
+    "effects": [
+      {
+        "trigger": "ally_order_played",
+        "action": "sear",
+        "target": "adjacent_enemies",
+        "amount": 1
+      }
+    ],
+    "text": "你每施放一张指令牌后,对相邻敌方随从造成 1 点灼蚀伤害。",
+    "art_prompt": "a vesper cantor singing dusk-prayers, threads of searing ember lashing nearby foes"
+  },
+  {
+    "id": "dw_rekindle",
+    "name": "复燃",
+    "faction": "duskweaver",
+    "type": "order",
+    "rarity": "rare",
+    "cost": 2,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "recall_order",
+        "amount": 2
+      }
+    ],
+    "text": "将 2 张随机指令牌从你的墓地移回手牌。",
+    "art_prompt": "dying embers flaring back to life, two burnt scrolls reforming from the ash"
+  },
+  {
+    "id": "dw_flare_summoner",
+    "name": "唤焰者",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "rare",
+    "cost": 5,
+    "atk": 4,
+    "hp": 4,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "summon",
+        "amount": 1,
+        "summon_card_id": "dw_phoenix_chick"
+      }
+    ],
+    "text": "战吼:在你的底线行召唤一只 2/2 烬火雏凤。",
+    "art_prompt": "a flare-caller raising both arms as a small ember phoenix chick bursts into being"
+  },
+  {
+    "id": "dw_cinder_storm",
+    "name": "烬蚀之列",
+    "faction": "duskweaver",
+    "type": "order",
+    "rarity": "epic",
+    "cost": 5,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "sear",
+        "target": "column_enemies",
+        "amount": 2
+      }
+    ],
+    "text": "选择一列:该列所有敌方随从受到 2 点灼蚀伤害。",
+    "art_prompt": "a vertical storm of cinders raking straight down a column, armor blackening"
+  },
+  {
+    "id": "dw_inferno_behemoth",
+    "name": "焚世巨灵",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "epic",
+    "cost": 7,
+    "atk": 6,
+    "hp": 6,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "damage",
+        "target": "unit_cross_all",
+        "amount": 2
+      }
+    ],
+    "text": "战吼:对一个随从及其相邻格的所有随从造成 2 点伤害(含友方)。",
+    "art_prompt": "a towering inferno behemoth erupting in a cross-shaped blast, allies caught in the fire"
+  },
+  {
+    "id": "dw_dusk_matriarch",
+    "name": "黄昏圣咏·奥菲兰",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "legendary",
+    "cost": 8,
+    "atk": 6,
+    "hp": 7,
+    "effects": [
+      {
+        "trigger": "ally_order_played",
+        "action": "recall_order",
+        "amount": 1
+      },
+      {
+        "trigger": "ally_order_played",
+        "action": "buff",
+        "target": "self",
+        "atk": 1,
+        "hp": 1
+      }
+    ],
+    "text": "你每施放一张指令牌后,将 1 张随机指令牌从你的墓地移回手牌,且本随从 +1/+1。永焰不熄。",
+    "art_prompt": "a black-and-gold dusk matriarch enthroned in an eternal choir of flame, endlessly rekindling"
   }
 ]
