@@ -23,6 +23,8 @@ public enum RuleErrorCode
     InvalidDeck,
     NotImplemented,
     InvalidCommand,
+    /// <summary>A non-mulligan command was submitted while the match is still in the 起手重抽 phase.</summary>
+    MulliganPending,
 }
 
 public sealed record RuleError(RuleErrorCode Code, string Message);

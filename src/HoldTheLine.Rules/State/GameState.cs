@@ -97,6 +97,24 @@ public sealed record GameResult
 }
 
 /// <summary>
+/// The 起手重抽 (mulligan) phase state (docs/11). Present (non-null on <see cref="GameState.Mulligan"/>)
+/// only while at least one seat still owes a mulligan; cleared to null once both are done, so the state
+/// returns to today's shape and serializes identically to a pre-mulligan match. Each seat draws its
+/// replacements from an independent RNG stream so results are order-independent and unpredictable to the
+/// opponent. <see cref="FirstSeat"/>/<see cref="CoinCardId"/> are stashed here so the Resolver can start
+/// the first turn + hand out the coin on completion without reaching for MatchConfig.
+/// </summary>
+public sealed class MulliganState
+{
+    /// <summary>Per-seat: has this seat submitted its mulligan yet.</summary>
+    public bool[] Done { get; set; } = [false, false];
+    /// <summary>Per-seat independent SplitMix64 stream (Seed ^ seat salt); the match Rng is untouched.</summary>
+    public ulong[] RngState { get; set; } = new ulong[2];
+    public int FirstSeat { get; set; }
+    public string CoinCardId { get; set; } = "";
+}
+
+/// <summary>
 /// The complete authoritative match state. Fully serializable; cloned by the resolver before
 /// every mutation so callers keep snapshot semantics. Never exposed to the presentation layer —
 /// clients get <c>PlayerView</c> and events.
@@ -116,6 +134,10 @@ public sealed class GameState
     public PlayerState[] Players { get; set; } = [];
     public DeterministicRng Rng { get; set; } = new();
     public GameResult? Result { get; set; }
+
+    /// <summary>Non-null while the match is in the 起手重抽 phase (docs/11); null = normal play. Old
+    /// snapshots without this field deserialize to null → today's behaviour.</summary>
+    public MulliganState? Mulligan { get; set; }
 
     public PlayerState Player(int seat) => Players[seat];
     public PlayerState ActivePlayer => Players[ActiveSeat];

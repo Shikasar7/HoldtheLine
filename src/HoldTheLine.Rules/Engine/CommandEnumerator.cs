@@ -13,8 +13,20 @@ namespace HoldTheLine.Rules.Engine;
 /// </summary>
 public static class CommandEnumerator
 {
-    public static List<Command> LegalCommands(GameState state, CardDatabase db, LeaderDatabase? leaders = null)
+    /// <param name="forSeat">Only meaningful in the 起手重抽 phase — the seat whose mulligan options to
+    /// enumerate (both seats may act). Ignored in normal play, which always enumerates the active seat.</param>
+    public static List<Command> LegalCommands(GameState state, CardDatabase db, LeaderDatabase? leaders = null, int? forSeat = null)
     {
+        // 起手重抽: the enumerator's job is "any single command here is legal" (bot fallback / timeout
+        // auto-play / random bot) — it returns just the keep-all mulligan; heuristic swaps live in the AI layer.
+        if (state.Mulligan is { } mull)
+        {
+            int mseat = forSeat ?? state.ActiveSeat;
+            return mseat is 0 or 1 && !mull.Done[mseat]
+                ? [new MulliganCommand { Seat = mseat, ReplacedEntityIds = [] }]
+                : [];
+        }
+
         leaders ??= LeaderDatabase.Empty;
         var resolver = new Resolver(db, leaders);
         var candidates = new List<Command>();

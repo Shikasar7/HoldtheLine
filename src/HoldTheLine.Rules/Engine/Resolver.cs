@@ -33,8 +33,21 @@ public sealed class Resolver
             return ExecutionResult.Fail(RuleErrorCode.GameOver, "The game has ended.");
         if (command.Seat is not (0 or 1))
             return ExecutionResult.Fail(RuleErrorCode.InvalidCommand, $"Invalid seat {command.Seat}.");
-        if (command is not ConcedeCommand && command.Seat != state.ActiveSeat)
-            return ExecutionResult.Fail(RuleErrorCode.NotYourTurn, "It is not your turn.");
+
+        // 起手重抽 phase (docs/11): only Mulligan (either seat) and Concede are legal; MulliganCommand is
+        // illegal once play has begun. Both bypass the active-seat check.
+        if (state.Mulligan is not null)
+        {
+            if (command is not (MulliganCommand or ConcedeCommand))
+                return ExecutionResult.Fail(RuleErrorCode.MulliganPending, "The match is still in the mulligan phase.");
+        }
+        else
+        {
+            if (command is MulliganCommand)
+                return ExecutionResult.Fail(RuleErrorCode.InvalidCommand, "Not in the mulligan phase.");
+            if (command is not ConcedeCommand && command.Seat != state.ActiveSeat)
+                return ExecutionResult.Fail(RuleErrorCode.NotYourTurn, "It is not your turn.");
+        }
 
         var working = RulesJson.Clone(state);
         var ctx = new ResolutionContext(working, _db);
@@ -47,6 +60,7 @@ public sealed class Resolver
             UseLeaderSkillCommand skill => ResolveLeaderSkill(ctx, skill),
             EndTurnCommand => ResolveEndTurn(ctx),
             ConcedeCommand concede => ResolveConcede(ctx, concede),
+            MulliganCommand mulligan => ResolveMulligan(ctx, mulligan),
             _ => new RuleError(RuleErrorCode.InvalidCommand, $"Unknown command type {command.GetType().Name}."),
         };
 
@@ -344,6 +358,67 @@ public sealed class Resolver
     {
         ctx.State.Result = new GameResult { WinnerSeat = 1 - cmd.Seat, Reason = "concede" };
         ctx.Emit(new GameEndedEvent { WinnerSeat = 1 - cmd.Seat, Reason = "concede" });
+        return null;
+    }
+
+    // ---- 起手重抽 (mulligan, docs/11) ----
+
+    private static RuleError? ResolveMulligan(ResolutionContext ctx, MulliganCommand cmd)
+    {
+        var state = ctx.State;
+        var mull = state.Mulligan!; // Execute guarantees we are in the mulligan phase
+        int seat = cmd.Seat;
+
+        if (mull.Done[seat])
+            return new RuleError(RuleErrorCode.InvalidCommand, "You have already mulliganed.");
+
+        var player = state.Player(seat);
+        var replacedIds = cmd.ReplacedEntityIds.Distinct().ToList();
+        var toReplace = new List<CardInstance>();
+        foreach (var id in replacedIds)
+        {
+            var card = player.Hand.FirstOrDefault(c => c.EntityId == id);
+            if (card is null)
+                return new RuleError(RuleErrorCode.UnknownEntity, $"Card {id} is not in your hand.");
+            toReplace.Add(card);
+        }
+        if (toReplace.Count > player.Deck.Count)
+            return new RuleError(RuleErrorCode.InvalidCommand, "Cannot replace more cards than the deck holds.");
+
+        // Removal is announced first (the client hides the swapped cards); the replacements follow as
+        // ordinary CardDrawn events. Opponent sees only ReplacedCount (RedactFor).
+        ctx.Emit(new MulliganResolvedEvent { Seat = seat, ReplacedEntityIds = replacedIds, ReplacedCount = replacedIds.Count });
+
+        int k = toReplace.Count;
+        if (k > 0)
+        {
+            foreach (var card in toReplace)
+                player.Hand.Remove(card);
+
+            // Draw-first, then shuffle the swapped cards back: structurally a swapped card cannot be
+            // redrawn this mulligan. Uses this seat's isolated stream; the match Rng is never consumed.
+            var seatRng = new DeterministicRng { State = mull.RngState[seat] };
+            for (int i = 0; i < k; i++)
+            {
+                var drawn = player.Deck[^1];
+                player.Deck.RemoveAt(player.Deck.Count - 1);
+                player.Hand.Add(drawn);
+                ctx.Emit(new CardDrawnEvent { Seat = seat, CardEntityId = drawn.EntityId, CardId = drawn.CardId });
+            }
+            player.Deck.AddRange(toReplace);
+            seatRng.Shuffle(player.Deck);
+            mull.RngState[seat] = seatRng.State;
+        }
+
+        mull.Done[seat] = true;
+
+        if (mull.Done[0] && mull.Done[1])
+        {
+            state.Mulligan = null;
+            ctx.Emit(new MulliganCompletedEvent());
+            ctx.GiveCoin(1 - mull.FirstSeat, mull.CoinCardId); // second player's coin, deferred past mulligan
+            TurnFlow.StartTurn(ctx, mull.FirstSeat);
+        }
         return null;
     }
 

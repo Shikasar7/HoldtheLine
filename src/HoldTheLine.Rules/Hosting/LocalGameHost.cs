@@ -52,7 +52,11 @@ public sealed class LocalGameHost : IGameHost
     {
         lock (_gate)
         {
-            if (_state.Result != null || seat != _state.ActiveSeat)
+            if (_state.Result != null)
+                return [];
+            if (_state.Mulligan is not null) // 起手重抽: either seat may act, gated per-seat by the enumerator
+                return CommandEnumerator.LegalCommands(_state, _db, _leaders, forSeat: seat);
+            if (seat != _state.ActiveSeat)
                 return [];
             return CommandEnumerator.LegalCommands(_state, _db, _leaders);
         }
@@ -63,7 +67,11 @@ public sealed class LocalGameHost : IGameHost
     {
         lock (_gate)
         {
-            if (_state.Result != null || seat != _state.ActiveSeat)
+            if (_state.Result != null)
+                return null;
+            if (_state.Mulligan is { } mull) // 起手重抽: keep-all default (GreedyAi.MulliganPick swaps in at M-5)
+                return seat is 0 or 1 && !mull.Done[seat] ? new MulliganCommand { Seat = seat, ReplacedEntityIds = [] } : null;
+            if (seat != _state.ActiveSeat)
                 return null;
             return _ai.Pick(_state);
         }

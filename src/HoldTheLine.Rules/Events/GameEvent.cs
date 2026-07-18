@@ -31,6 +31,8 @@ namespace HoldTheLine.Rules.Events;
 [JsonDerivedType(typeof(LeaderSkillUsedEvent), "leader_skill_used")]
 [JsonDerivedType(typeof(UnitDiedEvent), "unit_died")]
 [JsonDerivedType(typeof(ManaGainedEvent), "mana_gained")]
+[JsonDerivedType(typeof(MulliganResolvedEvent), "mulligan_resolved")]
+[JsonDerivedType(typeof(MulliganCompletedEvent), "mulligan_completed")]
 [JsonDerivedType(typeof(GameEndedEvent), "game_ended")]
 public abstract record GameEvent
 {
@@ -201,6 +203,26 @@ public sealed record ManaGainedEvent : GameEvent
     public required int Amount { get; init; }
     public required int NewMana { get; init; }
 }
+
+/// <summary>
+/// One seat resolved its 起手重抽 (docs/11): the replaced cards left hand and their replacements were drawn
+/// (as normal <see cref="CardDrawnEvent"/>s). The opponent sees only <see cref="ReplacedCount"/> — which
+/// cards were swapped stays hidden.
+/// </summary>
+public sealed record MulliganResolvedEvent : GameEvent
+{
+    public required int Seat { get; init; }
+    /// <summary>EntityIds of the swapped-out cards; null when redacted for the opponent.</summary>
+    public IReadOnlyList<int>? ReplacedEntityIds { get; init; }
+    /// <summary>Public (D8): how many cards this seat swapped.</summary>
+    public required int ReplacedCount { get; init; }
+
+    public override GameEvent RedactFor(int viewerSeat) =>
+        viewerSeat == Seat ? this : this with { ReplacedEntityIds = null };
+}
+
+/// <summary>Both seats finished their mulligan; the coin (if any) and the first turn follow. No payload.</summary>
+public sealed record MulliganCompletedEvent : GameEvent;
 
 public sealed record GameEndedEvent : GameEvent
 {

@@ -167,6 +167,17 @@ internal sealed class ResolutionContext
         }
     }
 
+    /// <summary>Hands the 军令硬币 to <paramref name="seat"/> (no-op when the config carries no coin). Shared by
+    /// game creation and mulligan completion, where the coin is deferred past the 起手重抽 phase (docs/11 D7).</summary>
+    public void GiveCoin(int seat, string coinCardId)
+    {
+        if (coinCardId.Length == 0)
+            return;
+        var coin = new CardInstance { EntityId = State.TakeEntityId(), CardId = coinCardId };
+        State.Player(seat).Hand.Add(coin);
+        Emit(new CardDrawnEvent { Seat = seat, CardEntityId = coin.EntityId, CardId = coin.CardId });
+    }
+
     public void GainMana(int seat, int amount)
     {
         var player = State.Player(seat);

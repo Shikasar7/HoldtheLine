@@ -6,6 +6,9 @@ namespace HoldTheLine.Rules.Engine;
 
 public static class GameFactory
 {
+    /// <summary>Distinguishes the two mulligan RNG streams from the match Rng and from each other (docs/11 D4).</summary>
+    private const ulong MulliganSalt = 0x4D554C4C_49474E00UL;
+
     /// <summary>Creates the initial state and the opening event batch (shuffle, opening hands, coin, first turn start).</summary>
     public static (GameState State, IReadOnlyList<GameEvent> Events) CreateGame(MatchConfig config, CardDatabase db, LeaderDatabase? leaders = null)
     {
@@ -49,13 +52,24 @@ public static class GameFactory
         ctx.DrawCards(config.FirstSeat, config.OpeningHandFirst);
         ctx.DrawCards(second, config.OpeningHandSecond);
 
-        if (config.CoinCardId.Length > 0)
+        if (config.MulliganEnabled)
         {
-            var coin = new CardInstance { EntityId = state.TakeEntityId(), CardId = config.CoinCardId };
-            state.Player(second).Hand.Add(coin);
-            ctx.Emit(new CardDrawnEvent { Seat = second, CardEntityId = coin.EntityId, CardId = coin.CardId });
+            // Enter the mulligan phase: the coin and the first turn are deferred until both seats submit
+            // (Resolver.ResolveMulligan). Per-seat RNG streams derive from the seed but never touch state.Rng.
+            state.Mulligan = new MulliganState
+            {
+                FirstSeat = config.FirstSeat,
+                CoinCardId = config.CoinCardId,
+                RngState =
+                [
+                    new DeterministicRng(config.Seed ^ (MulliganSalt + 0)).State,
+                    new DeterministicRng(config.Seed ^ (MulliganSalt + 1)).State,
+                ],
+            };
+            return (state, ctx.Events);
         }
 
+        ctx.GiveCoin(second, config.CoinCardId);
         TurnFlow.StartTurn(ctx, config.FirstSeat);
         return (state, ctx.Events);
     }

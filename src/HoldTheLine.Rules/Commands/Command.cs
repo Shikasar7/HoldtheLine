@@ -15,6 +15,7 @@ namespace HoldTheLine.Rules.Commands;
 [JsonDerivedType(typeof(UseLeaderSkillCommand), "use_leader_skill")]
 [JsonDerivedType(typeof(EndTurnCommand), "end_turn")]
 [JsonDerivedType(typeof(ConcedeCommand), "concede")]
+[JsonDerivedType(typeof(MulliganCommand), "mulligan")]
 public abstract record Command
 {
     public required int Seat { get; init; }
@@ -56,3 +57,11 @@ public sealed record UseLeaderSkillCommand : Command
 public sealed record EndTurnCommand : Command;
 
 public sealed record ConcedeCommand : Command;
+
+/// <summary>起手重抽 (docs/11): swap out a chosen subset of the opening hand, once. Legal only during the
+/// mulligan phase; bypasses the active-seat check (both seats act). An empty list = keep everything.</summary>
+public sealed record MulliganCommand : Command
+{
+    /// <summary>EntityIds of the hand cards to replace; empty = keep all.</summary>
+    public required IReadOnlyList<int> ReplacedEntityIds { get; init; }
+}

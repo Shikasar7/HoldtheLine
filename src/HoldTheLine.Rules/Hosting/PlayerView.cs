@@ -19,6 +19,12 @@ public sealed record PlayerView
     public required IReadOnlyList<UnitView> Units { get; init; }
     public GameResult? Result { get; init; }
 
+    /// <summary>起手重抽 (docs/11): this seat still owes a mulligan (drives the mulligan UI). Absent field
+    /// on an old snapshot deserializes to false.</summary>
+    public bool MulliganPending { get; init; }
+    /// <summary>The opponent still owes a mulligan ("waiting for opponent…").</summary>
+    public bool OpponentMulliganPending { get; init; }
+
     public static PlayerView From(GameState state, int viewerSeat)
     {
         var self = state.Player(viewerSeat);
@@ -29,6 +35,8 @@ public sealed record PlayerView
             TurnNumber = state.TurnNumber,
             ActiveSeat = state.ActiveSeat,
             Result = state.Result,
+            MulliganPending = state.Mulligan is { } m && !m.Done[viewerSeat],
+            OpponentMulliganPending = state.Mulligan is { } mo && !mo.Done[1 - viewerSeat],
             Self = new SelfView
             {
                 LeaderId = self.LeaderId,

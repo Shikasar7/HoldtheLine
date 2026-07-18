@@ -21,4 +21,9 @@ public sealed record MatchConfig
     public string CoinCardId { get; init; } = "neutral_coin";
     /// <summary>Enforce constructed-deck rules (30 cards, rarity caps). Off by default so tests and sims can use small decks.</summary>
     public bool ValidateDecks { get; init; }
+
+    /// <summary>Run the 起手重抽 (mulligan) phase before the first turn (docs/11). **Off by default**: an
+    /// old command log's config JSON has no such field → deserializes to false → its replay is byte-for-byte
+    /// unchanged. Production entry points (MatchSession / BattleScene / Sim) set it explicitly.</summary>
+    public bool MulliganEnabled { get; init; }
 }
