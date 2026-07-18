@@ -20,18 +20,22 @@ namespace HoldTheLine.Rules.Ai;
 /// </summary>
 public sealed class SearchAi
 {
-    private const int TopK = 4;              // candidate first-moves to roll out (ranked by a cheap probe)
-    private const int MaxRolloutCommands = 8; // safety cap per turn side inside a rollout — also bounds the step budget
+    private readonly int _topK;              // candidate first-moves to roll out (ranked by a cheap probe)
+    private readonly int _maxRolloutCommands; // safety cap per turn side inside a rollout — also bounds the step budget
 
     private readonly Resolver _resolver;
     private readonly CardDatabase _db;
     private readonly LeaderDatabase _leaders;
 
-    public SearchAi(CardDatabase db, LeaderDatabase leaders)
+    /// <summary>Defaults (topK 4 / rollout 8) are the tuned Hard-AI parameters; every existing call site
+    /// omits them and is behaviour-identical. The 普通 tier passes shallower values via <see cref="AiProfile"/>.</summary>
+    public SearchAi(CardDatabase db, LeaderDatabase leaders, int topK = 4, int maxRolloutCommands = 8)
     {
         _db = db;
         _leaders = leaders;
         _resolver = new Resolver(db, leaders);
+        _topK = topK;
+        _maxRolloutCommands = maxRolloutCommands;
     }
 
     public Command Pick(GameState state)
@@ -52,7 +56,7 @@ public sealed class SearchAi
             .Where(t => t.Child is not null)
             .Select(t => (t.Command, t.Child, Quick: Eval(t.Child!, seat)))
             .OrderByDescending(t => t.Quick)
-            .Take(TopK)
+            .Take(_topK)
             .ToList();
 
         Command best = candidates[^1];
@@ -70,10 +74,10 @@ public sealed class SearchAi
     private GameState Rollout(GameState s, int seat)
     {
         int guard = 0;
-        while (s.Result is null && s.ActiveSeat == seat && guard++ < MaxRolloutCommands)
+        while (s.Result is null && s.ActiveSeat == seat && guard++ < _maxRolloutCommands)
             s = Step(s);
         guard = 0;
-        while (s.Result is null && s.ActiveSeat != seat && guard++ < MaxRolloutCommands)
+        while (s.Result is null && s.ActiveSeat != seat && guard++ < _maxRolloutCommands)
             s = Step(s);
         return s;
     }

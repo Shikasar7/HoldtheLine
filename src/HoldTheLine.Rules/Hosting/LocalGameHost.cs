@@ -19,7 +19,9 @@ public sealed class LocalGameHost : IGameHost
     private readonly CardDatabase _db;
     private readonly LeaderDatabase _leaders;
     private readonly Resolver _resolver;
-    private readonly Ai.SearchAi _ai;   // M3 B3: vs-AI opponent uses lookahead, not one-ply greedy
+    private readonly Ai.AiProfile _profile;     // docs/12 C2: which difficulty tier this host's AI plays at
+    private readonly Ai.SearchAi? _ai;          // built only when the profile uses lookahead; Greedy tiers leave it null
+    private readonly DeterministicRng _aiRng;   // ε-misplay rolls; seeded off the match seed so a tier is reproducible
     private readonly List<(int Seat, Action<GameEvent> Handler)> _subscribers = new();
     private readonly List<Command> _commandLog = new();
     private readonly List<GameEvent> _eventLog = new();
@@ -28,17 +30,19 @@ public sealed class LocalGameHost : IGameHost
     public MatchConfig Config { get; }
     public bool LoopbackSerialization { get; }
 
-    public LocalGameHost(CardDatabase db, MatchConfig config, bool loopbackSerialization = true)
-        : this(db, LeaderDatabase.Empty, config, loopbackSerialization) { }
+    public LocalGameHost(CardDatabase db, MatchConfig config, bool loopbackSerialization = true, Ai.AiProfile? aiProfile = null)
+        : this(db, LeaderDatabase.Empty, config, loopbackSerialization, aiProfile) { }
 
-    public LocalGameHost(CardDatabase db, LeaderDatabase leaders, MatchConfig config, bool loopbackSerialization = true)
+    public LocalGameHost(CardDatabase db, LeaderDatabase leaders, MatchConfig config, bool loopbackSerialization = true, Ai.AiProfile? aiProfile = null)
     {
         Config = config;
         LoopbackSerialization = loopbackSerialization;
         _db = db;
         _leaders = leaders;
         _resolver = new Resolver(db, leaders);
-        _ai = new Ai.SearchAi(db, leaders);
+        _profile = aiProfile ?? Ai.AiProfile.Hard; // null = Hard: server MatchSession / BotClient / existing tests unchanged
+        _ai = _profile.UseSearch ? new Ai.SearchAi(db, leaders, _profile.SearchTopK, _profile.SearchRollout) : null;
+        _aiRng = new DeterministicRng(config.Seed ^ 0xA5A5A5A5UL);
         var (state, events) = GameFactory.CreateGame(config, db, leaders);
         _state = state;
         _eventLog.AddRange(events);
@@ -69,11 +73,27 @@ public sealed class LocalGameHost : IGameHost
         {
             if (_state.Result != null)
                 return null;
-            if (_state.Mulligan is { } mull) // 起手重抽: heuristic swap of high-cost cards (docs/11 §7)
-                return seat is 0 or 1 && !mull.Done[seat] ? Ai.MulliganAi.Pick(_state, _db, seat) : null;
+            if (_state.Mulligan is { } mull) // 起手重抽: Easy keeps everything; Normal/Hard swap high-cost cards (docs/11 §7)
+            {
+                if (seat is not (0 or 1) || mull.Done[seat])
+                    return null;
+                return _profile.MulliganKeepAll
+                    ? new MulliganCommand { Seat = seat, ReplacedEntityIds = [] }
+                    : Ai.MulliganAi.Pick(_state, _db, seat);
+            }
             if (seat != _state.ActiveSeat)
                 return null;
-            return _ai.Pick(_state);
+
+            var legal = CommandEnumerator.LegalCommands(_state, _db, _leaders);
+            // ε-random misplay (Easy tier): pick a real but suboptimal legal move — never Concede/EndTurn, so
+            // the AI blunders a play rather than silently forfeiting the turn. Empty pool → fall through to the normal pick.
+            if (_profile.Epsilon > 0 && _aiRng.NextInt(1000) < (int)(_profile.Epsilon * 1000))
+            {
+                var pool = legal.Where(c => c is not ConcedeCommand and not EndTurnCommand).ToList();
+                if (pool.Count > 0)
+                    return pool[_aiRng.NextInt(pool.Count)];
+            }
+            return _profile.UseSearch ? _ai!.Pick(_state, legal) : Ai.GreedyAi.Pick(_state, _db, _leaders, legal);
         }
     }
 
