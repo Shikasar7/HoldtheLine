@@ -13,6 +13,17 @@ public static class GameConfig
     public static string Deck1 = "wildpack_hunt";
     public static bool Configured;
 
+    // Custom decks (from local DeckStorage): when set, these explicit card lists + leaders override the
+    // built-in Deck0/Deck1 id lookup for the offline match. Cleared by the Set* helpers below.
+    public static IReadOnlyList<string>? Deck0CardIds;
+    public static string? Deck0Leader;
+    public static IReadOnlyList<string>? Deck1CardIds;
+    public static string? Deck1Leader;
+
+    /// <summary>The card list the local player queued/entered a match with, so the in-match 查看牌组 panel
+    /// can show it online too (where the resolved deck otherwise lives only on the server).</summary>
+    public static IReadOnlyList<string>? LocalDeckCards;
+
     // Online (M2 N2). When Online is set, BattleScene connects to a server instead of running a
     // LocalGameHost; the local seat is assigned by the server's match_started, not chosen here.
     public static bool Online;
@@ -21,6 +32,13 @@ public static class GameConfig
     public static string ServerUrl = "ws://212.64.21.174:5210/ws";
     public static string Nickname = "玩家";
 
+    private static void ClearCustomDecks()
+    {
+        Deck0CardIds = null; Deck0Leader = null;
+        Deck1CardIds = null; Deck1Leader = null;
+        LocalDeckCards = null;
+    }
+
     public static void SetVsAi(string humanDeck, string aiDeck)
     {
         Online = false;
@@ -28,6 +46,20 @@ public static class GameConfig
         HumanSeat = 0;
         Deck0 = humanDeck;
         Deck1 = aiDeck;
+        ClearCustomDecks();
+        Configured = true;
+    }
+
+    /// <summary>vs-AI with a custom human deck (explicit card list + leader from local storage); the AI
+    /// still plays a built-in preconstructed deck.</summary>
+    public static void SetVsAiCustom(IReadOnlyList<string> humanCards, string humanLeader, string aiDeck)
+    {
+        Online = false;
+        VsAi = true;
+        HumanSeat = 0;
+        Deck0 = ""; Deck1 = aiDeck;
+        ClearCustomDecks();
+        Deck0CardIds = humanCards; Deck0Leader = humanLeader;
         Configured = true;
     }
 
@@ -37,6 +69,7 @@ public static class GameConfig
         HumanSeat = 0;
         Deck0 = "iron_wall";
         Deck1 = "wildpack_hunt";
+        ClearCustomDecks();
         Configured = true;
     }
 

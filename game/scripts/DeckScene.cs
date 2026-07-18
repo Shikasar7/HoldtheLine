@@ -22,7 +22,9 @@ public partial class DeckScene : Control
     private Dictionary<string, string> _factionLeader = new(); // faction → leader id
 
     private readonly List<string> _deck = new();  // card ids (with repeats)
-    private string _deckId = "";                   // "" = new deck
+    private string _deckId = "";                   // local storage id; "" = new deck
+    private string? _editServerId;                 // server id of the deck being edited, if any
+    private string _pendingLocalId = "";           // local id awaiting a DeckSaved to record its server id
     private string _filter = "iron_vow";
 
     private Control _gridHost = null!, _deckList = null!, _curveHost = null!;
@@ -30,6 +32,7 @@ public partial class DeckScene : Control
     private LineEdit _nameField = null!;
     private Label _status = null!;
     private readonly Button[] _tabs = new Button[FactionOrder.Length];
+    private Control? _preview; // floating hover preview (enlarged card + full rules + keyword text)
 
     public override void _Ready()
     {
@@ -43,6 +46,7 @@ public partial class DeckScene : Control
         if (DeckEditContext.Editing is { } ed)
         {
             _deckId = ed.Id;
+            _editServerId = ed.ServerId;
             _deck.AddRange(ed.CardIds);
             _filter = ed.Faction is "neutral" or "" ? "iron_vow" : ed.Faction;
         }
@@ -155,6 +159,7 @@ public partial class DeckScene : Control
 
     private void RebuildCollection()
     {
+        HidePreview(); // a lingering preview may point at a tile we're about to free
         foreach (Node c in _gridHost.GetChildren()) c.QueueFree();
         var cards = _cards.All
             .Where(c => c.Rarity != Rarity.Token && c.Faction == _filter)
@@ -167,7 +172,8 @@ public partial class DeckScene : Control
     {
         var size = new Vector2(210, 132);
         var tile = MakeButton("", Vector2.Zero, size, BattleTheme.PanelDark, () => AddCard(def));
-        tile.AddThemeStyleboxOverride("normal", BattleTheme.Box(BattleTheme.PanelDark, FactionColor(def.Faction), 2, 8));
+        tile.AddThemeStyleboxOverride("normal", BattleTheme.Box(BattleTheme.PanelDark, CardView.FactionColor(def.Faction), 2, 8));
+        HookInspect(tile, def); // hover = enlarged preview, right-click = full detail popup
 
         if (BattleTheme.Tex($"cards/{def.Id}.png") is { } art)
             tile.AddChild(BattleTheme.Art(art, new Vector2(4, 4), new Vector2(size.X - 8, 78), TextureRect.StretchModeEnum.KeepAspectCovered));
@@ -228,11 +234,13 @@ public partial class DeckScene : Control
         foreach (var g in _deck.GroupBy(id => id).Select(g => (Def: _cards.Get(g.Key), Count: g.Count()))
                      .OrderBy(x => x.Def.Cost).ThenBy(x => x.Def.Name, System.StringComparer.Ordinal))
         {
-            var row = MakeButton($"{g.Count}×  {ShortName(g.Def.Name)}", Vector2.Zero, new Vector2(632, 40), BattleTheme.PanelDark, () => RemoveOne(g.Def.Id));
-            row.AddThemeStyleboxOverride("normal", BattleTheme.Box(BattleTheme.PanelDark, FactionColor(g.Def.Faction), 1, 6));
+            var def = g.Def;
+            var row = MakeButton($"{g.Count}×  {ShortName(def.Name)}", Vector2.Zero, new Vector2(632, 40), BattleTheme.PanelDark, () => RemoveOne(def.Id));
+            row.AddThemeStyleboxOverride("normal", BattleTheme.Box(BattleTheme.PanelDark, CardView.FactionColor(def.Faction), 1, 6));
             row.AddThemeFontSizeOverride("font_size", 18);
             row.Alignment = HorizontalAlignment.Left;
-            row.AddChild(CostBadge(g.Def.Cost, new Vector2(580, 4), 30));
+            row.AddChild(CostBadge(def.Cost, new Vector2(580, 4), 30));
+            HookInspect(row, def); // hover = preview, right-click = detail. Left-click still removes one.
             _deckList.AddChild(row);
         }
 
@@ -279,27 +287,54 @@ public partial class DeckScene : Control
 
     private void OnSave()
     {
-        if (!Session.Connected) { Flash("未连接服务器"); return; }
         if (DeckValidator.Validate(_deck, _cards) is { } err) { Flash(err.Message); return; }
         string faction = DeckFaction();
         if (!_factionLeader.TryGetValue(faction, out var leaderId)) { Flash("请加入一个阵营的卡牌"); return; }
-        _ = Session.SendAsync(new SaveDeck
+        string name = string.IsNullOrWhiteSpace(_nameField.Text) ? "我的卡组" : _nameField.Text.Trim();
+        string localId = string.IsNullOrEmpty(_deckId) ? DeckStorage.NewId() : _deckId;
+
+        // Local storage is the source of truth (works offline). Save there first, always.
+        DeckStorage.Save(new StoredDeck
         {
-            DeckId = string.IsNullOrEmpty(_deckId) ? null : _deckId,
-            Name = string.IsNullOrWhiteSpace(_nameField.Text) ? "我的卡组" : _nameField.Text.Trim(),
+            Id = localId,
+            Name = name,
+            Faction = faction,
             Leader = leaderId,
             CardIds = _deck.ToList(),
+            ServerId = _editServerId,
         });
+
+        // When connected, also push to the server so the deck is queue-able online; the DeckSaved reply
+        // carries the assigned id, which we then record on the local deck.
+        if (Session.Connected)
+        {
+            _pendingLocalId = localId;
+            Flash("保存中…");
+            _ = Session.SendAsync(new SaveDeck
+            {
+                DeckId = string.IsNullOrEmpty(_editServerId) ? null : _editServerId,
+                Name = name,
+                Leader = leaderId,
+                CardIds = _deck.ToList(),
+            });
+            return; // navigate once the server confirms (OnDeckSaved)
+        }
+
+        DeckEditContext.Editing = null;
+        GetTree().ChangeSceneToFile(MenuPath);
     }
 
     private void OnDeckSaved(DeckSaved ds) => Callable.From(() =>
     {
-        _ = Session.SendAsync(new GetProfile()); // refresh Profile.Decks so the lobby shows the new deck
+        if (!string.IsNullOrEmpty(_pendingLocalId))
+            DeckStorage.SetServerId(_pendingLocalId, ds.DeckId); // link the local deck to its server copy
+        _ = Session.SendAsync(new GetProfile()); // refresh Profile.Decks so the online lobby shows the new deck
         DeckEditContext.Editing = null;
         GetTree().ChangeSceneToFile(MenuPath);
     }).CallDeferred();
 
-    private void OnDeckError(DeckError de) => Callable.From(() => Flash($"保存失败:{de.Message}")).CallDeferred();
+    // A failed server push still leaves the deck saved locally; surface it but don't lose the local copy.
+    private void OnDeckError(DeckError de) => Callable.From(() => Flash($"服务器保存失败(本地已保存):{de.Message}")).CallDeferred();
 
     // ---------- helpers ----------
 
@@ -333,19 +368,83 @@ public partial class DeckScene : Control
         return dot > 0 ? name[..dot] : name;
     }
 
-    private static Color FactionColor(string faction) => faction switch
+    // ---------- inspect: hover preview + right-click detail popup ----------
+
+    private void HookInspect(Control tile, CardDefinition def)
     {
-        "iron_vow" => BattleTheme.SeatColor0,
-        "wildpack" => BattleTheme.SeatColor1,
-        "duskweaver" => Color.FromHtml("8b5fa6"),
-        "undervault" => Color.FromHtml("b5883f"),
-        _ => BattleTheme.TextDim,
-    };
+        tile.MouseEntered += () => ShowPreview(def, tile);
+        tile.MouseExited += HidePreview;
+        tile.GuiInput += e =>
+        {
+            if (e is InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: true })
+                CardView.ShowDetailPopup(this, def);
+        };
+    }
+
+    private void HidePreview()
+    {
+        if (_preview is { } p && GodotObject.IsInstanceValid(p)) p.QueueFree();
+        _preview = null;
+    }
+
+    private void ShowPreview(CardDefinition def, Control anchor)
+    {
+        HidePreview();
+        var cardSize = new Vector2(300, 420);
+        string full = BattleTheme.BodyText(def.Text);
+
+        // A plate under the card carries the FULL rules text (the framed face truncates) + one line per keyword.
+        float textH = full.Length > 0 ? 20f + 24f * Mathf.Ceil(full.Length / 16f) : 0f;
+        float kwH = def.Keywords.Count * 46f;
+        float plateH = textH + kwH > 0 ? 16f + textH + kwH : 0f;
+        float totalH = cardSize.Y + (plateH > 0 ? plateH + 8f : 0f);
+
+        var rect = anchor.GetGlobalRect();
+        float x = rect.End.X + 12f;
+        if (x + cardSize.X > BattleTheme.ScreenW - 10f) x = rect.Position.X - cardSize.X - 12f;
+        x = Mathf.Clamp(x, 10f, BattleTheme.ScreenW - cardSize.X - 10f);
+        float y = Mathf.Clamp(rect.Position.Y - 60f, 10f, BattleTheme.ScreenH - totalH - 10f);
+
+        var root = new Control { Position = new Vector2(x, y), Size = new Vector2(cardSize.X, totalH), MouseFilter = MouseFilterEnum.Ignore };
+        root.AddChild(CardView.BuildFace(def, cardSize));
+
+        if (plateH > 0)
+        {
+            var plate = new Panel { Position = new Vector2(0, cardSize.Y + 8f), Size = new Vector2(cardSize.X, plateH), MouseFilter = MouseFilterEnum.Ignore };
+            plate.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.PanelDark, CardView.FactionColor(def.Faction), 2, 10));
+            root.AddChild(plate);
+
+            float yy = cardSize.Y + 8f + 8f;
+            if (full.Length > 0)
+            {
+                var t = BattleTheme.MakeLabel(full, 17, BattleTheme.TextMain, HorizontalAlignment.Center);
+                t.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+                t.VerticalAlignment = VerticalAlignment.Top;
+                t.Position = new Vector2(12, yy);
+                t.Size = new Vector2(cardSize.X - 24, textH);
+                root.AddChild(t);
+                yy += textH;
+            }
+            foreach (var k in def.Keywords)
+            {
+                var kl = BattleTheme.MakeLabel($"【{CardView.KeywordName(k)}】{BattleTheme.BodyText(CardView.KeywordDesc(k.Keyword))}", 14, BattleTheme.Accent);
+                kl.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+                kl.VerticalAlignment = VerticalAlignment.Top;
+                kl.Position = new Vector2(10, yy);
+                kl.Size = new Vector2(cardSize.X - 20, 46);
+                root.AddChild(kl);
+                yy += 46f;
+            }
+        }
+        AddChild(root);
+        _preview = root;
+    }
 }
 
-/// <summary>Hand-off from the lobby to the deck editor: which deck (if any) to edit.</summary>
+/// <summary>Hand-off to the deck editor: which deck (if any) to edit. <c>Id</c> is the local storage id;
+/// <c>ServerId</c> links it to the server copy so a save updates both.</summary>
 public static class DeckEditContext
 {
-    public sealed record Deck(string Id, string Name, string Faction, IReadOnlyList<string> CardIds);
+    public sealed record Deck(string Id, string Name, string Faction, IReadOnlyList<string> CardIds, string? ServerId = null);
     public static Deck? Editing;
 }

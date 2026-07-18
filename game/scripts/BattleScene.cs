@@ -54,6 +54,9 @@ public partial class BattleScene : Control
 	private int _humanSeat;
 	private int _aiSeat;
 
+	private Control? _gameMenu; // in-match menu overlay (继续 / 查看牌组 / 投降 / 返回菜单)
+	private readonly IReadOnlyList<string>?[] _deckCards = new IReadOnlyList<string>?[2]; // brought decklists, for 查看牌组
+
 	// Presentation queue (plan §10 item 9). Every public event — whether the in-process host dispatched
 	// it on the main thread or the RemoteGameHost received it on the WebSocket thread — lands in this
 	// thread-safe queue and is played back one BEAT at a time by a single consumer (RunPlayback), paced
@@ -142,16 +145,18 @@ public partial class BattleScene : Control
 		_humanSeat = GameConfig.HumanSeat;
 		_aiSeat = 1 - _humanSeat;
 
-		var decks = GameData.LoadDecks();
-		var d0 = decks.First(d => d.Id == GameConfig.Deck0);
-		var d1 = decks.First(d => d.Id == GameConfig.Deck1);
+		// Explicit card lists (custom decks from local storage) take precedence over the built-in id lookup.
+		var (cards0, leader0) = ResolveOfflineDeck(GameConfig.Deck0, GameConfig.Deck0CardIds, GameConfig.Deck0Leader);
+		var (cards1, leader1) = ResolveOfflineDeck(GameConfig.Deck1, GameConfig.Deck1CardIds, GameConfig.Deck1Leader);
+		_deckCards[0] = cards0;
+		_deckCards[1] = cards1;
 
 		var config = new MatchConfig
 		{
 			Seed = ((ulong)GD.Randi() << 32) | GD.Randi(),
 			FirstSeat = (int)(GD.Randi() % 2),
-			Deck0 = d0.Expand(), Leader0 = d0.Leader,
-			Deck1 = d1.Expand(), Leader1 = d1.Leader,
+			Deck0 = cards0, Leader0 = leader0,
+			Deck1 = cards1, Leader1 = leader1,
 		};
 		var local = new LocalGameHost(_cards, _leaders, config);
 		_localHost = local;
@@ -162,6 +167,16 @@ public partial class BattleScene : Control
 
 		if (_vsAi && ActiveSeat == _aiSeat)
 			_ = RunAiTurn(); // AI won the coin toss — it opens
+	}
+
+	/// <summary>Resolve one offline seat's deck: an explicit card list (a custom deck from local storage)
+	/// wins, otherwise fall back to the built-in preconstructed deck looked up by id.</summary>
+	private static (IReadOnlyList<string> Cards, string Leader) ResolveOfflineDeck(string builtinId, IReadOnlyList<string>? customCards, string? customLeader)
+	{
+		if (customCards is { Count: > 0 })
+			return (customCards, customLeader ?? "");
+		var d = GameData.LoadDecks().First(x => x.Id == builtinId);
+		return (d.Expand(), d.Leader);
 	}
 
 	// ---------- static scaffold ----------
@@ -286,7 +301,7 @@ public partial class BattleScene : Control
 		var menuBtn = BattleTheme.MakeButton(new Vector2(20, 20), new Vector2(120, 44), BattleTheme.PanelDark, BattleTheme.TextDim, 1, 8);
 		menuBtn.Text = "菜单 (Esc)";
 		menuBtn.AddThemeFontSizeOverride("font_size", 18);
-		menuBtn.Pressed += () => { _sfx.Play("button"); GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn"); };
+		menuBtn.Pressed += ToggleGameMenu;
 		_hudLayer.AddChild(menuBtn);
 
 		_detailPanel = new Panel { Position = DetailOrigin, Size = new Vector2(DetailW, DetailH), Visible = false };
@@ -846,8 +861,7 @@ public partial class BattleScene : Control
 	{
 		if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
 		{
-			if (_online) { ConcedeOnline(); return; } // Esc mid-match = concede (plan N2)
-			GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn");
+			ToggleGameMenu(); // open/close the in-match menu (继续 / 查看牌组 / 投降 / 返回菜单)
 			return;
 		}
 		if (_dragCardId is null)
@@ -1075,6 +1089,7 @@ public partial class BattleScene : Control
 	{
 		_humanSeat = seat;
 		_aiSeat = 1 - seat;
+		_deckCards[seat] = GameConfig.LocalDeckCards; // the deck this client queued with, for 查看牌组
 		_onlineReady = true;
 		SetConn("");
 		FullRender();
@@ -1710,6 +1725,160 @@ public partial class BattleScene : Control
 		panel.AddChild(msg);
 		panel.Pressed += () => { panel.QueueFree(); _handLayer.Visible = true; RefreshInteractable(); };
 		_overlayLayer.AddChild(panel);
+	}
+
+	// ---------- in-match menu (投降 / 暂停[后续] / 继续 / 查看牌组) ----------
+
+	private void ToggleGameMenu()
+	{
+		_sfx.Play("button");
+		if (_gameMenu is { } m && GodotObject.IsInstanceValid(m)) { CloseGameMenu(); return; }
+		ShowGameMenu();
+	}
+
+	private void CloseGameMenu()
+	{
+		if (_gameMenu is { } m && GodotObject.IsInstanceValid(m)) m.QueueFree();
+		_gameMenu = null;
+	}
+
+	/// <summary>A dim backdrop (click = close) plus a centered panel. Shared by the menu and its confirm/deck views.
+	/// Tracked in <see cref="_gameMenu"/> so Esc / the menu button close whichever is showing.</summary>
+	private Panel NewMenuOverlay(Vector2 panelSize)
+	{
+		CloseGameMenu();
+		var dim = new ColorRect { Color = new Color(0.02f, 0.02f, 0.02f, 0.72f) };
+		dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		_overlayLayer.AddChild(dim);
+		_gameMenu = dim;
+
+		var back = new Button { Flat = true };
+		back.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		back.Pressed += CloseGameMenu;
+		dim.AddChild(back);
+
+		var panel = new Panel
+		{
+			Position = new Vector2((BattleTheme.ScreenW - panelSize.X) / 2f, (BattleTheme.ScreenH - panelSize.Y) / 2f),
+			Size = panelSize,
+			MouseFilter = MouseFilterEnum.Stop, // clicks on the panel must not close via the backdrop
+		};
+		panel.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.PanelDark, BattleTheme.Accent, 2, 16));
+		dim.AddChild(panel);
+		return panel;
+	}
+
+	private void ShowGameMenu()
+	{
+		bool over = _host.GetView(ViewSeat).Result != null;
+		var panel = NewMenuOverlay(new Vector2(480, 512));
+
+		var title = BattleTheme.MakeOutlinedLabel("菜 单", 44, BattleTheme.TextMain, HorizontalAlignment.Center);
+		title.Position = new Vector2(0, 28); title.Size = new Vector2(480, 60);
+		panel.AddChild(title);
+
+		float by = 116f;
+		Button Row(string text, Color color, System.Action onPressed)
+		{
+			var b = BattleTheme.MakeButton(new Vector2(60, by), new Vector2(360, 72), color, BattleTheme.Accent, 2, 12);
+			b.Text = text;
+			b.AddThemeFontSizeOverride("font_size", 28);
+			b.Pressed += () => { _sfx.Play("button"); onPressed(); };
+			panel.AddChild(b);
+			by += 88f;
+			return b;
+		}
+
+		Row("继续", BattleTheme.AccentSoft, CloseGameMenu);
+		Row("查看牌组", BattleTheme.PanelDark, ShowDeckList);
+		var surrender = Row("投降", BattleTheme.PanelDark, ConfirmSurrender);
+		surrender.Disabled = over; // nothing to surrender once the match has ended
+		Row("返回菜单", BattleTheme.PanelDark, () => { CloseGameMenu(); GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn"); });
+	}
+
+	private void ConfirmSurrender()
+	{
+		var panel = NewMenuOverlay(new Vector2(480, 360));
+
+		var q = BattleTheme.MakeOutlinedLabel("确认投降?", 40, BattleTheme.DangerColor, HorizontalAlignment.Center);
+		q.Position = new Vector2(0, 60); q.Size = new Vector2(480, 60);
+		panel.AddChild(q);
+		var sub = BattleTheme.MakeLabel(FixedView ? "本局将判负" : "当前行动方判负", 22, BattleTheme.TextDim, HorizontalAlignment.Center);
+		sub.Position = new Vector2(0, 132); sub.Size = new Vector2(480, 36);
+		panel.AddChild(sub);
+
+		var yes = BattleTheme.MakeButton(new Vector2(56, 220), new Vector2(180, 88), BattleTheme.DangerColor, BattleTheme.Accent, 2, 12);
+		yes.Text = "投降"; yes.AddThemeFontSizeOverride("font_size", 28);
+		yes.Pressed += () => { _sfx.Play("button"); CloseGameMenu(); ConcedeMatch(); };
+		panel.AddChild(yes);
+		var no = BattleTheme.MakeButton(new Vector2(244, 220), new Vector2(180, 88), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12);
+		no.Text = "取消"; no.AddThemeFontSizeOverride("font_size", 28);
+		no.Pressed += () => { _sfx.Play("button"); ShowGameMenu(); };
+		panel.AddChild(no);
+	}
+
+	/// <summary>Submit a concede for the surrendering seat (online → the human; hotseat → the active player).
+	/// The resulting GameEnded flows through the pump to the win overlay.</summary>
+	private void ConcedeMatch()
+	{
+		if (_online) { ConcedeOnline(); return; }
+		int seat = FixedView ? _humanSeat : ActiveSeat;
+		Submit(new ConcedeCommand { Seat = seat }); // offline: routes through Apply → RunPlayback → win overlay
+	}
+
+	/// <summary>查看牌组: the full deck the local viewer brought this match, grouped by card with copy counts.
+	/// Click a card for its detail popup.</summary>
+	private void ShowDeckList()
+	{
+		var panel = NewMenuOverlay(new Vector2(1200, 900));
+		var title = BattleTheme.MakeOutlinedLabel("我 的 牌 组", 40, BattleTheme.TextMain, HorizontalAlignment.Center);
+		title.Position = new Vector2(0, 20); title.Size = new Vector2(1200, 54);
+		panel.AddChild(title);
+
+		var cards = _deckCards[ViewSeat];
+		if (cards is null || cards.Count == 0)
+		{
+			var none = BattleTheme.MakeLabel("牌组信息本局不可用", 28, BattleTheme.TextDim, HorizontalAlignment.Center);
+			none.Position = new Vector2(0, 420); none.Size = new Vector2(1200, 44);
+			panel.AddChild(none);
+		}
+		else
+		{
+			var scroll = new ScrollContainer { Position = new Vector2(24, 92), Size = new Vector2(1152, 720) };
+			scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+			panel.AddChild(scroll);
+			var grid = new GridContainer { Columns = 6, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+			grid.AddThemeConstantOverride("h_separation", 14);
+			grid.AddThemeConstantOverride("v_separation", 14);
+			scroll.AddChild(grid);
+
+			var faceSize = new Vector2(180, 252);
+			foreach (var g in cards.GroupBy(id => id)
+				         .Select(g => (Def: _cards.Get(g.Key), Count: g.Count()))
+				         .OrderBy(x => x.Def.Cost).ThenBy(x => x.Def.Name, System.StringComparer.Ordinal))
+			{
+				var def = g.Def;
+				var holder = new Button { CustomMinimumSize = faceSize, Size = faceSize, Flat = true };
+				holder.AddThemeStyleboxOverride("normal", BattleTheme.Box(new Color(0, 0, 0, 0)));
+				holder.AddChild(CardView.BuildFace(def, faceSize));
+				if (g.Count > 1)
+				{
+					var badge = new Panel { Position = new Vector2(faceSize.X - 46, 4), Size = new Vector2(42, 34), MouseFilter = MouseFilterEnum.Ignore };
+					badge.AddThemeStyleboxOverride("panel", BattleTheme.Box(new Color(0.05f, 0.05f, 0.05f, 0.85f), BattleTheme.Accent, 1, 8));
+					var bl = BattleTheme.MakeOutlinedLabel($"×{g.Count}", 20, BattleTheme.TextMain, HorizontalAlignment.Center);
+					bl.Size = new Vector2(42, 34);
+					badge.AddChild(bl);
+					holder.AddChild(badge);
+				}
+				holder.Pressed += () => { _sfx.Play("button"); CardView.ShowDetailPopup(this, def); };
+				grid.AddChild(holder);
+			}
+		}
+
+		var close = BattleTheme.MakeButton(new Vector2(500, 826), new Vector2(200, 60), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12);
+		close.Text = "返回"; close.AddThemeFontSizeOverride("font_size", 26);
+		close.Pressed += () => { _sfx.Play("button"); ShowGameMenu(); };
+		panel.AddChild(close);
 	}
 
 	private void ShowWinOverlay(GameEndedEvent ended)

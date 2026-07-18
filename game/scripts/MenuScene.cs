@@ -56,7 +56,8 @@ public partial class MenuScene : Control
         Emblem("ui/emblem_undervault.png", 714);
 
         AddButton("双人热座对战", new Vector2(660, 806), BattleTheme.AccentSoft, StartHotseat);
-        AddButton("联机对战", new Vector2(660, 888), BattleTheme.SeatColor0, ShowOnlinePanel);
+        AddButtonSized("联机对战", new Vector2(660, 888), new Vector2(290, 72), BattleTheme.SeatColor0, ShowOnlinePanel);
+        AddButtonSized("卡组管理", new Vector2(970, 888), new Vector2(290, 72), Color.FromHtml("8b5fa6"), ShowDeckManager);
         AddButton("退出", new Vector2(660, 970), BattleTheme.PanelDark, () => GetTree().Quit());
     }
 
@@ -162,11 +163,7 @@ public partial class MenuScene : Control
             if (i >= DeckOptions.Length && pf != null)
             {
                 var ds = pf.Decks[i - DeckOptions.Length];
-                var edit = Btn("改", new Vector2(pos.X + 240, pos.Y + 5), new Vector2(46, 48), () =>
-                {
-                    DeckEditContext.Editing = new DeckEditContext.Deck(ds.Id, ds.Name, ds.Faction, ds.CardIds);
-                    GetTree().ChangeSceneToFile("res://scenes/menu/Deck.tscn");
-                });
+                var edit = Btn("改", new Vector2(pos.X + 240, pos.Y + 5), new Vector2(46, 48), () => EditServerDeck(ds));
                 edit.AddThemeFontSizeOverride("font_size", 18);
                 p.AddChild(edit);
             }
@@ -274,7 +271,18 @@ public partial class MenuScene : Control
     private void GoToBattleOnline()
     {
         GameConfig.SetOnlineAttached();
+        GameConfig.LocalDeckCards = ResolveDeckCards(_lobbyDeck); // so the in-match 查看牌组 can show it
         GetTree().ChangeSceneToFile(BattlePath);
+    }
+
+    /// <summary>Resolve a lobby deck id to its flat card list: a built-in preconstructed deck, else a saved
+    /// deck from the last profile push. Null if unknown (the 查看牌组 panel then shows "unavailable").</summary>
+    private static IReadOnlyList<string>? ResolveDeckCards(string deckId)
+    {
+        var builtin = GameData.LoadDecks().FirstOrDefault(d => d.Id == deckId);
+        if (builtin != null) return builtin.Expand();
+        var saved = Session.Profile?.Decks.FirstOrDefault(d => d.Id == deckId);
+        return saved?.CardIds;
     }
 
     /// <summary>Open the deck editor (M3 C2). Session is static, so the connection survives the scene swap;
@@ -283,6 +291,120 @@ public partial class MenuScene : Control
     {
         DeckEditContext.Editing = null; // new deck; editing an existing one goes through the per-deck 改 chip
         GetTree().ChangeSceneToFile("res://scenes/menu/Deck.tscn");
+    }
+
+    /// <summary>Edit a server deck: link it to its local copy (by server id) so a save updates both, adopting
+    /// it into local storage on first edit when there's no local copy yet.</summary>
+    private void EditServerDeck(DeckSummary ds)
+    {
+        var local = DeckStorage.LoadAll().FirstOrDefault(d => d.ServerId == ds.Id);
+        DeckEditContext.Editing = new DeckEditContext.Deck(local?.Id ?? DeckStorage.NewId(), ds.Name, ds.Faction, ds.CardIds, ds.Id);
+        GetTree().ChangeSceneToFile("res://scenes/menu/Deck.tscn");
+    }
+
+    // ---------- deck manager (local storage: multiple decks, edit / rename / copy / delete / vs-AI) ----------
+
+    private void ShowDeckManager()
+    {
+        var p = NewPanel();
+        PanelLabel(p, "卡 组 管 理", 66, 52, BattleTheme.TextMain);
+        PanelLabel(p, "本地卡组:编辑 / 改名 / 复制 / 删除,或直接用于人机对战", 144, 22, BattleTheme.TextDim);
+
+        var decks = DeckStorage.LoadAll();
+        var scroll = new ScrollContainer { Position = new Vector2(380, 206), Size = new Vector2(1160, 690) };
+        scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        p.AddChild(scroll);
+        var list = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        list.AddThemeConstantOverride("separation", 10);
+        scroll.AddChild(list);
+
+        if (decks.Count == 0)
+        {
+            var empty = BattleTheme.MakeLabel("还没有本地卡组 —— 点“新建卡组”开始", 26, BattleTheme.TextDim, HorizontalAlignment.Center);
+            empty.CustomMinimumSize = new Vector2(1140, 140);
+            list.AddChild(empty);
+        }
+        else
+            foreach (var d in decks)
+                list.AddChild(DeckManagerRow(d));
+
+        p.AddChild(Btn("新建卡组", new Vector2(Cx, 920), new Vector2(290, 60), () => { DeckEditContext.Editing = null; GetTree().ChangeSceneToFile("res://scenes/menu/Deck.tscn"); }));
+        p.AddChild(Btn("返回", new Vector2(Cx + 310, 920), new Vector2(290, 60), CloseOverlay));
+    }
+
+    private Control DeckManagerRow(StoredDeck d)
+    {
+        var row = new Panel { CustomMinimumSize = new Vector2(1140, 72) };
+        row.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.PanelDark, FactionTint(d.Faction), 2, 10));
+
+        var name = BattleTheme.MakeOutlinedLabel(d.Name, 24, BattleTheme.TextMain);
+        name.Position = new Vector2(20, 4); name.Size = new Vector2(300, 36); name.ClipText = true;
+        row.AddChild(name);
+        var sub = BattleTheme.MakeLabel($"{CardView.FactionName(d.Faction)} · {d.CardIds.Count}张", 15, BattleTheme.TextDim);
+        sub.Position = new Vector2(20, 42); sub.Size = new Vector2(300, 26);
+        row.AddChild(sub);
+
+        float bx = 336;
+        void Act(string t, float w, Color c, System.Action a)
+        {
+            var b = BattleTheme.MakeButton(new Vector2(bx, 8), new Vector2(w, 56), c, BattleTheme.Accent, 1, 8);
+            b.Text = t; b.AddThemeFontSizeOverride("font_size", 20);
+            b.Pressed += a; row.AddChild(b); bx += w + 10;
+        }
+        Act("人机对战", 150, BattleTheme.AccentSoft, () => StartVsAiWithDeck(d));
+        Act("编辑", 110, BattleTheme.PanelDark, () =>
+        {
+            DeckEditContext.Editing = new DeckEditContext.Deck(d.Id, d.Name, d.Faction, d.CardIds, d.ServerId);
+            GetTree().ChangeSceneToFile("res://scenes/menu/Deck.tscn");
+        });
+        Act("改名", 110, BattleTheme.PanelDark, () => PromptRename(d));
+        Act("复制", 110, BattleTheme.PanelDark, () =>
+        {
+            DeckStorage.Save(d with { Id = DeckStorage.NewId(), Name = d.Name + " 副本", ServerId = null });
+            ShowDeckManager();
+        });
+        Act("删除", 110, BattleTheme.DangerColor, () => ConfirmDelete(d));
+        return row;
+    }
+
+    private void StartVsAiWithDeck(StoredDeck d)
+    {
+        var builtins = GameData.LoadDecks();
+        var ai = builtins[(int)(GD.Randi() % (uint)builtins.Count)]; // AI plays a random preconstructed deck
+        GameConfig.SetVsAiCustom(d.CardIds, d.Leader, ai.Id);
+        GetTree().ChangeSceneToFile(BattlePath);
+    }
+
+    private void PromptRename(StoredDeck d)
+    {
+        var p = NewPanel();
+        PanelLabel(p, "重命名卡组", 360, 40, BattleTheme.TextMain);
+        var field = Field(d.Name, "卡组名", new Vector2(Cx, 456), 600);
+        p.AddChild(field);
+        p.AddChild(Btn("确定", new Vector2(Cx, 560), new Vector2(290, 64), () =>
+        {
+            string name = string.IsNullOrWhiteSpace(field.Text) ? d.Name : field.Text.Trim();
+            DeckStorage.Save(d with { Name = name });
+            if (Session.Connected && !string.IsNullOrEmpty(d.ServerId))
+                _ = Session.SendAsync(new SaveDeck { DeckId = d.ServerId, Name = name, Leader = d.Leader, CardIds = d.CardIds });
+            ShowDeckManager();
+        }));
+        p.AddChild(Btn("取消", new Vector2(Cx + 310, 560), new Vector2(290, 64), ShowDeckManager));
+    }
+
+    private void ConfirmDelete(StoredDeck d)
+    {
+        var p = NewPanel();
+        PanelLabel(p, $"删除「{d.Name}」?", 372, 40, BattleTheme.DangerColor);
+        PanelLabel(p, "本地卡组将被移除,此操作不可恢复", 440, 22, BattleTheme.TextDim);
+        p.AddChild(Btn("删除", new Vector2(Cx, 540), new Vector2(290, 64), () =>
+        {
+            DeckStorage.Delete(d.Id);
+            if (Session.Connected && !string.IsNullOrEmpty(d.ServerId))
+                _ = Session.SendAsync(new DeleteDeck { DeckId = d.ServerId });
+            ShowDeckManager();
+        }));
+        p.AddChild(Btn("取消", new Vector2(Cx + 310, 540), new Vector2(290, 64), ShowDeckManager));
     }
 
     private static Color FactionTint(string faction) => faction switch
@@ -396,9 +518,12 @@ public partial class MenuScene : Control
             AddChild(BattleTheme.Art(tex, new Vector2(572, y), new Vector2(72, 72), TextureRect.StretchModeEnum.KeepAspectCentered));
     }
 
-    private void AddButton(string text, Vector2 pos, Color color, System.Action onPressed)
+    private void AddButton(string text, Vector2 pos, Color color, System.Action onPressed) =>
+        AddButtonSized(text, pos, new Vector2(600, 72), color, onPressed);
+
+    private void AddButtonSized(string text, Vector2 pos, Vector2 size, Color color, System.Action onPressed)
     {
-        var btn = BattleTheme.MakeButton(pos, new Vector2(600, 72), color, BattleTheme.Accent, 2, 12);
+        var btn = BattleTheme.MakeButton(pos, size, color, BattleTheme.Accent, 2, 12);
         btn.Text = text;
         btn.AddThemeFontSizeOverride("font_size", 26);
         btn.Pressed += onPressed;
