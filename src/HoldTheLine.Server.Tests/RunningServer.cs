@@ -20,11 +20,14 @@ public sealed class RunningServer : IAsyncDisposable
         Ws = ws;
     }
 
-    public static async Task<RunningServer> StartAsync(int? disconnectGraceSeconds = null, int? turnSeconds = null, string? commandLogDir = null, string? dbPath = null)
+    public static async Task<RunningServer> StartAsync(int? disconnectGraceSeconds = null, int? turnSeconds = null, string? commandLogDir = null, string? dbPath = null, bool mulliganEnabled = false, int? mulliganSeconds = null)
     {
-        var opts = new ServerOptions { Urls = "http://127.0.0.1:0" };
+        // Mulligan defaults OFF for tests so the pre-mulligan turn-flow suites stay unchanged; the dedicated
+        // mulligan flow tests opt in. Production ServerOptions defaults it ON.
+        var opts = new ServerOptions { Urls = "http://127.0.0.1:0", MulliganEnabled = mulliganEnabled };
         if (disconnectGraceSeconds is { } g) opts.DisconnectGraceSeconds = g;
         if (turnSeconds is { } t) opts.TurnSeconds = t;
+        if (mulliganSeconds is { } ms) opts.MulliganSeconds = ms;
         opts.CommandLogDir = commandLogDir;
         opts.DbPath = dbPath; // null → private in-memory db (isolated per server); a path persists across restarts
         var app = ServerApp.Build(opts);

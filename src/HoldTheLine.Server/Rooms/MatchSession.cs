@@ -39,6 +39,12 @@ public sealed class MatchSession
     private int _turnGeneration;
     private CancellationTokenSource? _turnTimerCts;
 
+    // 起手重抽 clock (docs/11 §5): a single shared countdown; on expiry the server plays keep-all for any
+    // seat that hasn't chosen. Runs from match start until both seats submit — the turn clock waits for it.
+    private readonly int _mulliganSeconds;
+    private CancellationTokenSource? _mulliganCts;
+    private long _mulliganStartTick;
+
     private readonly Channel<Envelope> _inbox;
     private readonly Task _pump;
     private bool _over;
@@ -50,16 +56,17 @@ public sealed class MatchSession
     // built this hook captured the *old* one. Null for friend rooms (unranked).
     private readonly Func<int, string, (ServerMessage? Seat0, ServerMessage? Seat1)>? _onEnded;
 
-    private enum Signal { Client, Dropped, Reattach, Forfeit, TurnBegin, TurnTimeout }
+    private enum Signal { Client, Dropped, Reattach, Forfeit, TurnBegin, TurnTimeout, MulliganTimeout }
     private readonly record struct Envelope(Signal Kind, int Seat, ClientMessage? Message, ClientConnection? Conn, string? Reason, int Gen);
 
-    private MatchSession(LocalGameHost host, ClientConnection[] conns, string[] resumeTokens, int graceSeconds, int turnSeconds, string? logDir, Func<int, string, (ServerMessage?, ServerMessage?)>? onEnded)
+    private MatchSession(LocalGameHost host, ClientConnection[] conns, string[] resumeTokens, int graceSeconds, int turnSeconds, int mulliganSeconds, string? logDir, Func<int, string, (ServerMessage?, ServerMessage?)>? onEnded)
     {
         Host = host;
         _conns = conns;
         _resumeTokens = resumeTokens;
         _graceSeconds = graceSeconds;
         _turnSeconds = turnSeconds;
+        _mulliganSeconds = mulliganSeconds;
         _onEnded = onEnded;
         _logPath = OpenLog(logDir, host.Config);
         _buffers = [new List<GameEvent>(), new List<GameEvent>()];
@@ -91,12 +98,13 @@ public sealed class MatchSession
             Deck1 = deck1.CardIds,
             Leader0 = deck0.Leader,
             Leader1 = deck1.Leader,
+            MulliganEnabled = opts.MulliganEnabled, // 起手重抽 (docs/11); rematch/queue/friend rooms all route through here
         };
 
         var host = new LocalGameHost(content.Cards, content.Leaders, config);
         var conns = new[] { seat0, seat1 };
         var tokens = new[] { SessionAuth.NewResumeToken(), SessionAuth.NewResumeToken() };
-        return new MatchSession(host, conns, tokens, opts.DisconnectGraceSeconds, opts.TurnSeconds, opts.CommandLogDir, onEnded);
+        return new MatchSession(host, conns, tokens, opts.DisconnectGraceSeconds, opts.TurnSeconds, opts.MulliganSeconds, opts.CommandLogDir, onEnded);
     }
 
     /// <summary>Start a JSONL log for this match (config header, then one accepted command per line).
@@ -126,19 +134,47 @@ public sealed class MatchSession
         catch { /* best-effort */ }
     }
 
+    /// <summary>True while the match is in the 起手重抽 phase (either seat still owes a mulligan).</summary>
+    private bool InMulligan
+    {
+        get { var v = Host.GetView(0); return v.MulliganPending || v.OpponentMulliganPending; }
+    }
+
+    /// <summary>Legal commands to ship a seat: its keep-all mulligan while it still owes one, its turn moves
+    /// while it is on the move, else null. The host returns [] for a seat with nothing to do.</summary>
+    private IReadOnlyList<Command>? LegalFor(int seat)
+    {
+        var view = Host.GetView(seat);
+        if (view.Result is not null)
+            return null;
+        if (view.MulliganPending || view.OpponentMulliganPending) // 起手重抽: both seats may act, gated per-seat
+            return view.MulliganPending ? Host.LegalCommands(seat) : null;
+        return view.ActiveSeat == seat ? Host.LegalCommands(seat) : null;
+    }
+
+    /// <summary>Seconds left on the mulligan clock for a resync/reattach, or null when not in the phase.</summary>
+    private int? MulliganSecondsLeftNow()
+    {
+        if (!InMulligan)
+            return null;
+        long elapsed = (Environment.TickCount64 - _mulliganStartTick) / 1000;
+        return (int)Math.Max(0, _mulliganSeconds - elapsed);
+    }
+
     public async Task SendMatchStartedAsync()
     {
+        bool mulligan = InMulligan;
         for (int seat = 0; seat < 2; seat++)
         {
             var view = Host.GetView(seat);
-            var legal = view.ActiveSeat == seat ? Host.LegalCommands(seat) : null;
             await _conns[seat].SendAsync(new MatchStarted
             {
                 Seat = seat,
                 ResumeToken = _resumeTokens[seat],
                 View = view,
                 OpponentName = _conns[1 - seat].Name,
-                LegalCommands = legal,
+                LegalCommands = LegalFor(seat),
+                MulliganSecondsLeft = mulligan ? _mulliganSeconds : null,
             });
         }
     }
@@ -161,6 +197,7 @@ public sealed class MatchSession
     {
         _inbox.Writer.TryComplete();
         _turnTimerCts?.Cancel();
+        _mulliganCts?.Cancel();
         foreach (var cts in _graceCts) cts?.Cancel();
         foreach (var sub in _subscriptions) sub.Dispose();
     }
@@ -180,8 +217,9 @@ public sealed class MatchSession
                     case Signal.Dropped: await HandleDroppedAsync(env.Conn!); break;
                     case Signal.Reattach: await HandleReattachAsync(env.Seat, env.Conn!); break;
                     case Signal.Forfeit: await HandleForfeitAsync(env.Seat, env.Reason!); break;
-                    case Signal.TurnBegin: await SyncTurnTimerAsync(); break;
+                    case Signal.TurnBegin: await BeginAsync(); break;
                     case Signal.TurnTimeout: await HandleTimeoutAsync(env.Seat, env.Gen); break;
+                    case Signal.MulliganTimeout: await HandleMulliganTimeoutAsync(); break;
                 }
             }
             catch (Exception ex)
@@ -222,14 +260,13 @@ public sealed class MatchSession
             var batch = _buffers[seat].ToList();
             _eventIndex[seat] += batch.Count;
             var view = Host.GetView(seat);
-            var legal = view.Result is null && view.ActiveSeat == seat ? Host.LegalCommands(seat) : null;
 
             await _conns[seat].SendAsync(new EventsMsg
             {
                 Batch = batch,
                 View = view,
                 EventIndex = _eventIndex[seat],
-                LegalCommands = legal,
+                LegalCommands = LegalFor(seat), // includes the keep-all mulligan for a still-pending seat
             });
         }
     }
@@ -240,6 +277,7 @@ public sealed class MatchSession
             return;
         _over = true;
         _turnTimerCts?.Cancel();
+        _mulliganCts?.Cancel();
         var reason = _endReasonOverride
             ?? _buffers[0].OfType<GameEndedEvent>().FirstOrDefault()?.Reason
             ?? "normal";
@@ -260,14 +298,67 @@ public sealed class MatchSession
 
     private async Task HandleResyncAsync(int seat)
     {
-        var view = Host.GetView(seat);
         await _conns[seat].SendAsync(new ResyncOk
         {
-            View = view,
+            View = Host.GetView(seat),
             EventsSince = [],
             EventIndex = _eventIndex[seat],
-            LegalCommands = view.Result is null && view.ActiveSeat == seat ? Host.LegalCommands(seat) : null,
+            LegalCommands = LegalFor(seat),
+            MulliganSecondsLeft = MulliganSecondsLeftNow(),
         });
+    }
+
+    // ---- 起手重抽 clock (docs/11 §5) ----------------------------------------------------------
+
+    /// <summary>Called once after match_started is sent: start the mulligan clock if the match opened into a
+    /// mulligan phase, otherwise the turn clock. When both seats finish mulliganing, the completing submit's
+    /// tail (SyncTurnTimerAsync) opens the first turn clock.</summary>
+    private async Task BeginAsync()
+    {
+        if (InMulligan)
+            StartMulliganTimer();
+        else
+            await SyncTurnTimerAsync();
+    }
+
+    private void StartMulliganTimer()
+    {
+        _mulliganCts?.Cancel();
+        _mulliganStartTick = Environment.TickCount64;
+        var cts = new CancellationTokenSource();
+        _mulliganCts = cts;
+        _ = RunMulliganTimerAsync(cts.Token);
+    }
+
+    private async Task RunMulliganTimerAsync(CancellationToken ct)
+    {
+        try { await Task.Delay(TimeSpan.FromSeconds(Math.Max(0, _mulliganSeconds)), ct); }
+        catch (OperationCanceledException) { return; }
+        _inbox.Writer.TryWrite(new Envelope(Signal.MulliganTimeout, -1, null, null, null, 0));
+    }
+
+    /// <summary>Mulligan clock expiry: keep-all on behalf of every seat that hasn't chosen. This is benign —
+    /// no forfeit, no timeout streak (docs/11 D9) — then the completing submit opens the first turn clock.</summary>
+    private async Task HandleMulliganTimeoutAsync()
+    {
+        if (_over || !InMulligan)
+            return;
+
+        for (int seat = 0; seat < 2 && !_over; seat++)
+        {
+            if (!Host.GetView(seat).MulliganPending)
+                continue;
+            _buffers[0].Clear();
+            _buffers[1].Clear();
+            var auto = new MulliganCommand { Seat = seat, ReplacedEntityIds = [] };
+            var result = await Host.SubmitCommandAsync(seat, auto);
+            if (!result.Accepted)
+                continue;
+            LogCommand(seat, auto);
+            await FanOutAsync();
+            await CheckMatchEndAsync();
+        }
+        await SyncTurnTimerAsync(); // phase closed → open the first turn clock
     }
 
     // ---- turn clock ---------------------------------------------------------------------------
@@ -279,8 +370,13 @@ public sealed class MatchSession
         if (_over)
         {
             _turnTimerCts?.Cancel();
+            _mulliganCts?.Cancel();
             return;
         }
+        if (InMulligan) // 起手重抽 not finished — the turn clock must not start yet (docs/11 R2: gate by phase, not ActiveSeat)
+            return;
+        _mulliganCts?.Cancel(); // phase is over; retire its clock so a late expiry can't fire
+
         int active = Host.GetView(0).ActiveSeat;
         if (active == _activeSeat)
             return;
@@ -359,13 +455,13 @@ public sealed class MatchSession
         _connected[seat] = true;
         _graceCts[seat]?.Cancel();
 
-        var view = Host.GetView(seat);
         await conn.SendAsync(new ResyncOk
         {
-            View = view,
+            View = Host.GetView(seat),
             EventsSince = [],
             EventIndex = _eventIndex[seat],
-            LegalCommands = view.Result is null && view.ActiveSeat == seat ? Host.LegalCommands(seat) : null,
+            LegalCommands = LegalFor(seat),
+            MulliganSecondsLeft = MulliganSecondsLeftNow(), // rebuild the mulligan UI on mid-phase reconnect
         });
         await _conns[1 - seat].SendAsync(new OpponentStatus { Connected = true });
     }

@@ -15,6 +15,14 @@ public sealed class ServerOptions
     /// <summary>Grace window a disconnected player has to reconnect before forfeiting (N3).</summary>
     public int DisconnectGraceSeconds { get; set; } = 120;
 
+    /// <summary>起手重抽 (docs/11): give every match a mulligan phase before the first turn. On by default in
+    /// production; tests that exercise the plain turn flow start a server with this off.</summary>
+    public bool MulliganEnabled { get; set; } = true;
+
+    /// <summary>Shared mulligan clock: seconds before the server auto-submits keep-all for any seat that
+    /// hasn't chosen (docs/11 D9). 0 = auto-resolve immediately (tests).</summary>
+    public int MulliganSeconds { get; set; } = 45;
+
     /// <summary>Optional explicit path to the card/leader/deck data root; auto-discovered when null.</summary>
     public string? DataRoot { get; set; }
 
