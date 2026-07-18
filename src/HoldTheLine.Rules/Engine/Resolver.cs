@@ -169,6 +169,20 @@ public sealed class Resolver
         ctx.Emit(new UnitMovedEvent { UnitEntityId = unit.EntityId, From = from, To = cmd.To });
         ctx.RecomputeGarrison(unit); // leaving/entering the home row toggles 驻防
         ctx.ProcessDeaths();         // losing borrowed 驻防 HP can be lethal
+
+        // self_moved (docs/10 §6#1): the mover reacts to its own step — 游群's "speed IS the payoff".
+        // Fires once per move command (Leap counts; summons / passive shoves never route through here).
+        // After ProcessDeaths, so a unit that died to lost 驻防 HP does not fire; targets are implicit
+        // around the mover (OnCastTargets), so no secondary prompt. RunTrigger sweeps its own deaths.
+        if (ctx.State.FindUnit(unit.EntityId) is { } moved)
+        {
+            var def = ctx.Db.Get(moved.CardId);
+            if (def.Effects.Any(e => e.Trigger == "self_moved"))
+            {
+                EffectEngine.RunTrigger(ctx, moved, moved.OwnerSeat, def.Effects, "self_moved", targetUnitId: null);
+                ctx.CheckGameEnd();
+            }
+        }
         return null;
     }
 

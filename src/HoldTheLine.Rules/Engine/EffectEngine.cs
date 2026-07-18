@@ -83,6 +83,14 @@ internal static class EffectEngine
                     ctx.DamageUnit(t, spec.Amount + (t.HasKeyword(Keyword.Emplacement) ? 1 : 0));
                 break;
 
+            case "sear":
+                // 灼蚀 (docs/10 §6#2): effect damage that ignores 坚守 reduction — the 教团→铁壁 answer
+                // (v2.1 遗留#1: HoldFast otherwise eats the 教团's 1-2pt chip damage whole). 持盾 still
+                // absorbs; 架设's +1 effect-damage clause still stacks (灼蚀 is effect damage too).
+                foreach (var t in targets)
+                    ctx.DamageUnit(t, spec.Amount + (t.HasKeyword(Keyword.Emplacement) ? 1 : 0), ignoreHoldFast: true);
+                break;
+
             case "destroy":
                 // 献祭/消灭: straight to the death sweep — bypasses DamageUnit, so 持盾/坚守 don't save it;
                 // 亡语 still fires (via ProcessDeaths). No new event — the sweep emits UnitDiedEvent.
@@ -227,6 +235,12 @@ internal static class EffectEngine
             case "all_allies":
                 return ctx.State.Units
                     .Where(u => u.OwnerSeat == ownerSeat)
+                    .ToList();
+
+            case "all_ally_emplacements":
+                // 匠会 阵地 payoff (docs/10 §6#3): every friendly 架设 unit — turrets you have bolted down.
+                return ctx.State.Units
+                    .Where(u => u.OwnerSeat == ownerSeat && u.HasKeyword(Keyword.Emplacement))
                     .ToList();
 
             default:

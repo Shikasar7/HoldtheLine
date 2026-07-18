@@ -78,11 +78,13 @@ public sealed class CardDatabase
             if (card.Type == CardType.Order && spec.Trigger != "play")
                 throw new InvalidDataException($"Order '{card.Id}': orders only support the 'play' trigger.");
             if (card.Type == CardType.Unit && spec.Trigger == "play")
-                throw new InvalidDataException($"Unit '{card.Id}': units use 'battlecry'/'deathrattle'/'ally_order_played', not 'play'.");
-            // ally_order_played fires from a source unit with no secondary target prompt (docs/06 §3.1).
-            if (spec.Trigger == "ally_order_played" && !EffectSpec.OnCastTargets.Contains(spec.Target))
+                throw new InvalidDataException($"Unit '{card.Id}': units use 'battlecry'/'deathrattle'/'ally_order_played'/'self_moved', not 'play'.");
+            if (card.Type == CardType.Order && spec.Trigger == "self_moved")
+                throw new InvalidDataException($"Order '{card.Id}': 'self_moved' is a unit trigger (orders don't move).");
+            // Reactive triggers fire from a source unit with no secondary target prompt (docs/06 §3.1, docs/10 §6#1).
+            if (spec.Trigger is "ally_order_played" or "self_moved" && !EffectSpec.OnCastTargets.Contains(spec.Target))
                 throw new InvalidDataException(
-                    $"Card '{card.Id}': ally_order_played target must be self/adjacent_allies/adjacent_enemies, got '{spec.Target}'.");
+                    $"Card '{card.Id}': {spec.Trigger} target must be self/adjacent_allies/adjacent_enemies, got '{spec.Target}'.");
 
             if (spec.Action == "grant_keyword")
             {

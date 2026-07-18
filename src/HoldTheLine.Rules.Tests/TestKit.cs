@@ -205,6 +205,36 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "buff", Target = "all_allies", Atk = 1 }],
     };
 
+    // ---- second-batch fixtures (docs/10 §6): sear / self_moved / all_ally_emplacements ----
+
+    /// <summary>Order: 3 灼蚀 damage to a unit — ignores 坚守, the 灼痕烙印 pattern.</summary>
+    public static readonly CardDefinition SearOrder = new()
+    {
+        Id = "t_sear", Name = "Searing Brand", Type = CardType.Order, Rarity = Rarity.Rare, Cost = 2,
+        Effects = [new EffectSpec { Trigger = "play", Action = "sear", Target = "target_unit", Amount = 3 }],
+    };
+
+    /// <summary>2/2 unit whose self_moved buffs itself +1/+0 this... (permanent here for test simplicity) — 循迹幼兽.</summary>
+    public static readonly CardDefinition SelfMovedGrower = new()
+    {
+        Id = "t_moved_self", Name = "Trail Sniffer 2/2", Cost = 2, Atk = 2, Hp = 2,
+        Effects = [new EffectSpec { Trigger = "self_moved", Action = "buff", Target = "self", Atk = 1 }],
+    };
+
+    /// <summary>2/3 unit whose self_moved pings adjacent enemies for 1 — 血迹追猎者.</summary>
+    public static readonly CardDefinition SelfMovedPinger = new()
+    {
+        Id = "t_moved_ping", Name = "Blood Tracker 2/3", Cost = 3, Atk = 2, Hp = 3,
+        Effects = [new EffectSpec { Trigger = "self_moved", Action = "damage", Target = "adjacent_enemies", Amount = 1 }],
+    };
+
+    /// <summary>Order: buff every friendly 架设 unit +0/+2 — the 掘壕 pattern.</summary>
+    public static readonly CardDefinition EmplacementBuffOrder = new()
+    {
+        Id = "t_emp_buff", Name = "Entrench Line", Type = CardType.Order, Cost = 2,
+        Effects = [new EffectSpec { Trigger = "play", Action = "buff", Target = "all_ally_emplacements", Hp = 2 }],
+    };
+
     public static CardDatabase Db { get; } = new([
         Vanilla, BigVanilla, Charger, Assaulter, Scout, Archer, GuardUnit, Holder,
         Trampler, Sneak, Shielded, BattlecryBuffer, Bomber, Coin, ZapOrder, DrawOrder,
@@ -213,6 +243,7 @@ public static class TestKit
         PackHunter, PackArcher,
         Turret, Barricade, Piercer, SacrificeOrder, RowBlastOrder, CrossBlastOrder,
         ColumnAllyBuffOrder, OnCastGrower, OnCastPinger, Recaller,
+        SearOrder, SelfMovedGrower, SelfMovedPinger, EmplacementBuffOrder,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.

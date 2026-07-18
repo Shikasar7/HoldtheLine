@@ -10,10 +10,10 @@ namespace HoldTheLine.Rules.Cards;
 /// </summary>
 public sealed record EffectSpec
 {
-    /// <summary>battlecry | deathrattle (units), play (orders), leader_skill (leaders).</summary>
+    /// <summary>battlecry | deathrattle | ally_order_played | self_moved (units), play (orders), leader_skill (leaders).</summary>
     public required string Trigger { get; init; }
 
-    /// <summary>damage | buff | draw | gain_mana | heal | grant_keyword | summon | move_bonus.</summary>
+    /// <summary>damage | sear | buff | draw | gain_mana | heal | grant_keyword | summon | move_bonus | destroy | recall_order.</summary>
     public required string Action { get; init; }
 
     /// <summary>See <see cref="KnownTargets"/>. Spatial selectors (column_enemies) read the command's target cell.</summary>
@@ -42,21 +42,22 @@ public sealed record EffectSpec
     public string? SummonCardId { get; init; }
 
     public static readonly IReadOnlySet<string> KnownTriggers = new HashSet<string>
-        { "battlecry", "deathrattle", "play", "leader_skill", "ally_order_played" };
+        { "battlecry", "deathrattle", "play", "leader_skill", "ally_order_played", "self_moved" };
 
     public static readonly IReadOnlySet<string> KnownActions = new HashSet<string>
-        { "damage", "buff", "draw", "gain_mana", "heal", "grant_keyword", "boost_range", "summon", "move_bonus", "destroy", "recall_order" };
+        { "damage", "sear", "buff", "draw", "gain_mana", "heal", "grant_keyword", "boost_range", "summon", "move_bonus", "destroy", "recall_order" };
 
     public static readonly IReadOnlySet<string> KnownTargets = new HashSet<string>
         { "none", "self", "target_unit", "target_unit_own_half", "target_unit_ally",
           "adjacent_allies", "adjacent_enemies",
           "column_enemies", "row_enemies", "column_allies", "cell_cross_all", "unit_cross_all",
-          "allies_home_row", "all_allies" };
+          "allies_home_row", "all_allies", "all_ally_emplacements" };
 
     public static readonly IReadOnlySet<string> KnownDurations = new HashSet<string>
         { "permanent", "end_of_turn", "your_next_turn" };
 
-    /// <summary>Targets the ally_order_played trigger may use — no secondary target prompt (docs/06 §3.1).</summary>
+    /// <summary>Targets the reactive triggers (ally_order_played, self_moved) may use — they fire without a
+    /// player prompt, so their targeting must be implicit around the source unit (docs/06 §3.1, docs/10 §6#1).</summary>
     public static readonly IReadOnlySet<string> OnCastTargets = new HashSet<string>
         { "self", "adjacent_allies", "adjacent_enemies" };
 

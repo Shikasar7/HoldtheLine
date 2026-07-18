@@ -34,10 +34,12 @@ internal sealed class ResolutionContext
 
     // ---- damage ----
 
-    /// <summary>Applies damage with HoldFast/Shield semantics. Does NOT sweep deaths — callers batch that via ProcessDeaths so simultaneous strikes resolve simultaneously.</summary>
-    public void DamageUnit(UnitInstance target, int amount)
+    /// <summary>Applies damage with HoldFast/Shield semantics. Does NOT sweep deaths — callers batch that via
+    /// ProcessDeaths so simultaneous strikes resolve simultaneously. <paramref name="ignoreHoldFast"/> is set
+    /// by 灼蚀 (sear): the reduction is skipped, but 持盾 absorption is unchanged (docs/10 §6#2).</summary>
+    public void DamageUnit(UnitInstance target, int amount, bool ignoreHoldFast = false)
     {
-        if (target.HasKeyword(Keyword.HoldFast) && !target.MovedThisRound)
+        if (!ignoreHoldFast && target.HasKeyword(Keyword.HoldFast) && !target.MovedThisRound)
             amount = Math.Max(0, amount - 1);
 
         if (amount <= 0)
