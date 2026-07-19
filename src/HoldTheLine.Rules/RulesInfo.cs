@@ -17,4 +17,9 @@ public static class RulesInfo
     /// OccupyCellOnKill ignored); 围猎 flank bonus +1 → +2; self_moved ATK gains capped at 2/unit/turn;
     /// amount_max random magnitude for damage/sear (灼痕烙印 2-3); iron_vow leader skill 筑垒(守护) → 授盾(持盾).</remarks>
     public const string Version = "0.6.0";
+
+    /// <summary>压力潮汐 start round, forwarded from the (internal) <see cref="Engine.TurnFlow"/> so the client
+    /// HUD can show the tide countdown (docs/17) without hardcoding 8 and drifting from the rule. Read-only
+    /// mirror — the single source of truth stays <c>TurnFlow.PressureTideStartRound</c>.</summary>
+    public const int PressureTideStartRound = Engine.TurnFlow.PressureTideStartRound;
 }

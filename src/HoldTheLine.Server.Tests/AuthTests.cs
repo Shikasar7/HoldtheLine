@@ -164,6 +164,34 @@ public class AuthTests
         Assert.Equal("not_identified", await RegisterCode(server, "gB", secret: null, "bob", "password123"));
     }
 
+    // 5b — docs/16: after a plain reconnect (hello only, no Login), the pushed Profile carries the bound
+    //      username, so the client knows it is a registered account (fixes the "shows as guest" mislabel);
+    //      an unregistered guest's Profile carries a null username.
+    [Fact]
+    public async Task Profile_username_reflects_account_on_silent_reconnect()
+    {
+        await using var server = await RunningServer.StartAsync();
+        Assert.Equal("ok", await RegisterCode(server, "gA", "secretA", "bob", "password123"));
+
+        // Registered account gA reconnects with hello only — no Login.
+        await using (var a = new GameServerClient(new WebSocketTransport()))
+        {
+            var profile = Tcs<Profile>();
+            a.MessageReceived += m => { if (m is Profile p) profile.TrySetResult(p); };
+            await a.ConnectAsync(server.Ws, Hello("gA", "secretA", "Alice"));
+            Assert.Equal("bob", (await profile.Task.WaitAsync(TimeSpan.FromSeconds(5))).Username);
+        }
+
+        // A plain guest (never registered) has a null username.
+        await using (var g = new GameServerClient(new WebSocketTransport()))
+        {
+            var profile = Tcs<Profile>();
+            g.MessageReceived += m => { if (m is Profile p) profile.TrySetResult(p); };
+            await g.ConnectAsync(server.Ws, Hello("gGuest", "secretG", "Guest"));
+            Assert.Null((await profile.Task.WaitAsync(TimeSpan.FromSeconds(5))).Username);
+        }
+    }
+
     // 6 — registering a second username on an already-bound identity is already_bound.
     [Fact]
     public async Task Registering_twice_on_one_identity_is_already_bound()

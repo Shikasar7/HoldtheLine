@@ -1,6 +1,7 @@
 using Godot;
 using HoldTheLine.Net.Client;
 using HoldTheLine.Net.Protocol;
+using HoldTheLine.Rules;
 using HoldTheLine.Rules.Ai;
 using HoldTheLine.Rules.Cards;
 using HoldTheLine.Rules.Commands;
@@ -37,6 +38,13 @@ public partial class BattleScene : Control
 	private Button _oppLeaderBtn = null!, _endTurnBtn = null!, _leaderPowerBtn = null!, _cancelBtn = null!;
 	private Label _turnLabel = null!, _oppInfo = null!, _selfInfo = null!, _logLabel = null!;
 	private Panel _detailPanel = null!; // left-side card inspector (click a piece to show it)
+
+	// docs/17 压力潮汐提示: a persistent HUD hint under the turn label (countdown → next-tide amount →
+	// lethal warning). _tidePulse breathes the label while a next-turn tide would be lethal-and-unavoidable;
+	// _tideLethalWarned fires the one-time cue (sound + center float) only on ENTERING that state.
+	private Label _tideLabel = null!;
+	private Tween? _tidePulse;
+	private readonly bool[] _tideLethalWarned = new bool[2]; // per-seat one-time-alert guard (hotseat flips seats)
 
 	private bool _busy;
 
@@ -261,6 +269,13 @@ public partial class BattleScene : Control
 		_turnLabel.Position = new Vector2(660, 20);
 		_turnLabel.Size = new Vector2(600, 44);
 		_hudLayer.AddChild(_turnLabel);
+
+		// docs/17: tide hint sits just under the turn label, same center column.
+		_tideLabel = BattleTheme.MakeOutlinedLabel("", 22, BattleTheme.TextDim, HorizontalAlignment.Center);
+		_tideLabel.Position = new Vector2(660, 62);
+		_tideLabel.Size = new Vector2(600, 30);
+		_tideLabel.Visible = false;
+		_hudLayer.AddChild(_tideLabel);
 
 		// Opponent strip: card-back chip + info + leader plate (avatar filled per-render, hotseat flips it).
 		if (_cardBackTex != null)
@@ -712,6 +727,94 @@ public partial class BattleScene : Control
 
 		if (_oppAvatar != null) _oppAvatar.Texture = BattleTheme.Tex($"leaders/{opp.LeaderId}.png");
 		if (_selfAvatar != null) _selfAvatar.Texture = BattleTheme.Tex($"leaders/{self.LeaderId}.png");
+
+		RefreshTideHint(view);
+	}
+
+	/// <summary>docs/17 压力潮汐提示 (all derived from PlayerView — no rules/protocol changes): before the tide
+	/// starts, a low-key "还有 N 轮"; once it bites, "下次潮汐 -X"; and a breathing red "将致命" when this seat's
+	/// next turn would take an unavoidable lethal hit. Perspective = <see cref="ViewSeat"/> (fixed seat online /
+	/// vs-AI, the active operator in hotseat). The tide is judged at YOUR turn start, so a pressing unit only
+	/// spares you *if it survives the opponent's turn* — hence the conditional wording.</summary>
+	private void RefreshTideHint(PlayerView view)
+	{
+		if (view.Result != null) { StopTidePulse(); _tideLabel.Visible = false; return; }
+
+		int seat = ViewSeat;
+		int start = RulesInfo.PressureTideStartRound;
+		int round = (view.TurnNumber + 1) / 2;
+
+		// Which round your NEXT turn falls in, and the bleed it would deal (round - start + 1; 0 before start).
+		int nextOwnTurn = view.ActiveSeat == seat ? view.TurnNumber + 2 : view.TurnNumber + 1;
+		int nextRound = (nextOwnTurn + 1) / 2;
+		int nextAmount = nextRound >= start ? nextRound - start + 1 : 0;
+
+		bool pressing = view.Units.Any(u => u.OwnerSeat == seat && !BoardGeometry.InOwnHalf(seat, u.Cell));
+		bool lethal = nextAmount > 0 && nextAmount >= view.Self.LeaderHp;
+		// On YOUR own turn the tide is judged at TurnNumber+2, so you can still push a unit forward this turn to
+		// dodge it — the kill is only truly unavoidable on the OPPONENT's turn (you can't act before it hits).
+		bool canStillAct = view.ActiveSeat == seat;
+
+		string text;
+		Color color;
+		if (nextAmount <= 0)
+		{
+			text = $"潮汐将至 · 还有 {System.Math.Max(0, start - round)} 轮";
+			color = BattleTheme.TextDim;
+		}
+		else if (lethal && !pressing && !canStillAct)
+		{
+			text = "⚠ 下次潮汐将致命!";
+			color = BattleTheme.DangerColor;
+		}
+		else if (lethal && !pressing) // your turn: still avoidable → conditional wording, no alarm cue
+		{
+			text = "⚠ 潮汐将致命 —— 需本回合压进敌方半场";
+			color = BattleTheme.DangerColor;
+		}
+		else if (pressing)
+		{
+			// Conditional: the pressing unit can be cleared on the opponent's turn, so never promise immunity.
+			text = lethal ? $"⚠ 潮汐 -{nextAmount}(已压制,若被逐回将致命)" : $"潮汐 -{nextAmount}(已压制,若被逐回则触发)";
+			color = lethal ? BattleTheme.DangerColor : BattleTheme.TextDim;
+		}
+		else
+		{
+			text = $"下次潮汐 -{nextAmount}";
+			color = BattleTheme.Accent;
+		}
+
+		_tideLabel.Text = text;
+		_tideLabel.AddThemeColorOverride("font_color", color);
+		_tideLabel.Visible = true;
+
+		// The strongest cue (pulse + one-time sound/float) is reserved for a kill you can no longer avoid.
+		// _tideLethalWarned is per-seat so hotseat's second player still gets their own one-time alert.
+		bool danger = lethal && !pressing && !canStillAct;
+		if (danger) StartTidePulse(); else StopTidePulse();
+		if (danger && !_tideLethalWarned[seat])
+		{
+			_tideLethalWarned[seat] = true;
+			_sfx.Play("tide");
+			FloatText(new Vector2(BattleTheme.ScreenW / 2f, 360), "⚠ 下次潮汐将致命!", BattleTheme.DangerColor);
+		}
+		else if (!danger)
+			_tideLethalWarned[seat] = false; // re-arm this seat once out of the unavoidable-lethal state
+	}
+
+	private void StartTidePulse()
+	{
+		if (_tidePulse != null && _tidePulse.IsValid()) return; // already breathing — don't restart each render
+		_tidePulse = CreateTween();
+		_tidePulse.SetLoops();
+		_tidePulse.TweenProperty(_tideLabel, "modulate:a", 0.35f, 0.5).SetTrans(Tween.TransitionType.Sine);
+		_tidePulse.TweenProperty(_tideLabel, "modulate:a", 1.0f, 0.5).SetTrans(Tween.TransitionType.Sine);
+	}
+
+	private void StopTidePulse()
+	{
+		if (_tidePulse != null) { _tidePulse.Kill(); _tidePulse = null; }
+		if (GodotObject.IsInstanceValid(_tideLabel)) _tideLabel.Modulate = Colors.White;
 	}
 
 	// ---------- interaction gating ----------

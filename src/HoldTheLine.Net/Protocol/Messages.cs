@@ -36,6 +36,9 @@ namespace HoldTheLine.Net.Protocol;
 // --- protocol v5 (docs/12 B1): username+password accounts on top of the persistent guest identity.
 [JsonDerivedType(typeof(Register), "register")]
 [JsonDerivedType(typeof(Login), "login")]
+// --- docs/16 (login flow): rename the display name in place, no reconnect. Additive like ClientVersion —
+//     an old server just skips the unknown "set_name" tag, so it is NOT a protocol-version bump.
+[JsonDerivedType(typeof(SetName), "set_name")]
 public abstract record ClientMessage
 {
     /// <summary>Client-assigned, monotonic per connection. Server echoes it in the matching reply
@@ -142,6 +145,14 @@ public sealed record Login : ClientMessage
 {
     public required string Username { get; init; }
     public required string Password { get; init; }
+}
+
+/// <summary>docs/16: change the display name of the current connection (guest or account). Applies to this
+/// connection immediately and persists to the identity's Profile; the server replies with a fresh
+/// <see cref="Profile"/> (carrying this message's Seq) on success, or an <see cref="ErrorMsg"/> on a bad name.</summary>
+public sealed record SetName : ClientMessage
+{
+    public required string Name { get; init; }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -279,6 +290,10 @@ public sealed record AuthOk : ServerMessage
 public sealed record Profile : ServerMessage
 {
     public required string Name { get; init; }
+    /// <summary>The bound account username, or null for a plain guest (docs/16). Lets the client know it is
+    /// a registered account after a silent reconnect, where no AuthOk is sent — additive/optional, so it is
+    /// null-skipped and NOT a protocol bump (old clients ignore it, an old server sends null).</summary>
+    public string? Username { get; init; }
     public required int Rating { get; init; }
     public required int Wins { get; init; }
     public required int Losses { get; init; }
@@ -316,8 +331,6 @@ public sealed record QueueStatus : ServerMessage
     /// <summary>1-based place in line; null while it's being computed / not queued.</summary>
     public int? Position { get; init; }
     public required int WaitedSeconds { get; init; }
-    /// <summary>Seconds until the practice-bot fallback kicks in (D-M3-4); null if not applicable.</summary>
-    public int? BotFallbackIn { get; init; }
 }
 
 public sealed record Ladder : ServerMessage

@@ -23,10 +23,20 @@ public static class Session
     public static GameServerClient? Client { get; private set; }
     public static RemoteGameHost? Remote { get; private set; }
     public static Profile? Profile { get; private set; }
-    /// <summary>The username bound/logged-in during THIS session (docs/12 B1); null while a plain guest.
-    /// Profile carries no username (frozen shape), so this is the only client-side signal of account state.</summary>
+    /// <summary>The bound account username, or null while a plain guest. Set from AuthOk on register/login and
+    /// (docs/16) from every <see cref="Profile"/> push — so it is correct even after a silent reconnect that
+    /// sends no AuthOk, not just during the session that authenticated.</summary>
     public static string? BoundUsername { get; private set; }
     public static bool Connected => Client is { State: ConnectionState.Connected };
+
+    /// <summary>The server URL of the live (or in-flight) connection, so the login page can tell whether an
+    /// edited address needs a reconnect (docs/16). Null when disconnected.</summary>
+    public static string? ConnectedUrl { get; private set; }
+
+    // The connect currently in flight (docs/16 fix): a second ConnectAsync while the first is still
+    // handshaking must AWAIT that one, not spin up a rival client that orphans the first / nulls the live
+    // one. Connects are always initiated on the main thread (menu), so this needs no locking.
+    private static Task<string?>? _connecting;
 
     /// <summary>The server's rejection code from the most recent failed <see cref="ConnectAsync"/> — one of the
     /// handshake codes (version_mismatch / data_mismatch / client_outdated / bad_identity / bad_resume) — or
@@ -50,47 +60,65 @@ public static class Session
     /// rotated + persisted by the time this fires; a fresh Profile push follows on the same socket.</summary>
     public static event Action<AuthOk>? AuthOkReceived;
 
-    /// <summary>Connect + hello (identity + data hash). Idempotent: a no-op if already connected. Returns
-    /// null on success, or a human-readable error. Arms the first match host so match_started is captured.</summary>
-    public static async Task<string?> ConnectAsync(string serverUrl, string nickname)
+    /// <summary>Connect + hello (identity + data hash). A no-op if already connected; if a connect is already
+    /// in flight, awaits THAT one instead of starting a rival. Returns null on success, or a human-readable
+    /// error. Arms the first match host so match_started is captured.</summary>
+    public static Task<string?> ConnectAsync(string serverUrl, string nickname)
     {
         if (Connected)
-            return null;
+            return Task.FromResult<string?>(null);
+        // Join a dial that's still in flight; a settled task (e.g. a synchronous fault before the first await)
+        // must not be cached and block every future connect, so only a not-yet-completed one short-circuits.
+        if (_connecting is { IsCompleted: false } inflight)
+            return inflight;
+        return _connecting = RunConnectAsync(serverUrl, nickname);
+    }
 
-        var client = new GameServerClient(() => new WebSocketTransport());
-        Client = client;
-        // Remote subscribes to MessageReceived in its ctor — do it FIRST so it applies match_started/events
-        // before the lobby handler below sees them.
-        Remote = new RemoteGameHost(client);
-        client.MessageReceived += OnMessage;
-        client.StateChanged += s => StateChanged?.Invoke(s);
-
-        var (guestId, secret) = Identity.Get();
-        _hello = new Hello
-        {
-            GuestId = guestId,
-            Secret = secret,
-            Name = string.IsNullOrWhiteSpace(nickname) ? "玩家" : nickname,
-            ProtocolVersion = ProtocolConstants.ProtocolVersion,
-            RulesVersion = HoldTheLine.Rules.RulesInfo.Version,
-            DataHash = HoldTheLine.Net.DataHash.Compute(GameData.LoadCards(), GameData.LoadLeaders(), GameData.LoadDecks()),
-            ClientVersion = GameConfig.ClientVersion, // docs/15 §2: soft update-gate signal
-        };
-
+    private static async Task<string?> RunConnectAsync(string serverUrl, string nickname)
+    {
         try
         {
-            await client.ConnectAsync(new Uri(serverUrl), _hello);
-            LastConnectErrorCode = null;
-            return null;
+            var client = new GameServerClient(() => new WebSocketTransport());
+            Client = client;
+            // Remote subscribes to MessageReceived in its ctor — do it FIRST so it applies match_started/events
+            // before the lobby handler below sees them.
+            Remote = new RemoteGameHost(client);
+            client.MessageReceived += OnMessage;
+            client.StateChanged += s => StateChanged?.Invoke(s);
+
+            var (guestId, secret) = Identity.Get();
+            _hello = new Hello
+            {
+                GuestId = guestId,
+                Secret = secret,
+                Name = string.IsNullOrWhiteSpace(nickname) ? "玩家" : nickname,
+                ProtocolVersion = ProtocolConstants.ProtocolVersion,
+                RulesVersion = HoldTheLine.Rules.RulesInfo.Version,
+                DataHash = HoldTheLine.Net.DataHash.Compute(GameData.LoadCards(), GameData.LoadLeaders(), GameData.LoadDecks()),
+                ClientVersion = GameConfig.ClientVersion, // docs/15 §2: soft update-gate signal
+            };
+
+            try
+            {
+                await client.ConnectAsync(new Uri(serverUrl), _hello);
+                LastConnectErrorCode = null;
+                ConnectedUrl = serverUrl;
+                return null;
+            }
+            catch (Exception ex)
+            {
+                LastConnectErrorCode = (ex as HandshakeRejectedException)?.Code; // null for transport errors
+                Client = null;
+                Remote = null;
+                _hello = null;
+                ConnectedUrl = null;
+                try { await client.DisposeAsync(); } catch { /* best-effort cleanup of the failed dial */ }
+                return ex.Message;
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            LastConnectErrorCode = (ex as HandshakeRejectedException)?.Code; // null for transport errors
-            Client = null;
-            Remote = null;
-            _hello = null;
-            try { await client.DisposeAsync(); } catch { /* best-effort cleanup of the failed dial */ }
-            return ex.Message;
+            _connecting = null; // let the next connect (after this settles) start fresh
         }
     }
 
@@ -123,6 +151,35 @@ public static class Session
     /// secret already rotated and persisted, Profile re-pushed), else the error code / a local error.</summary>
     public static Task<string?> LoginAsync(string username, string password) =>
         AuthAsync(new Login { Username = username, Password = password });
+
+    /// <summary>docs/16: change the display name. Success is the server re-pushing the Profile (carrying our
+    /// Seq); the shared Profile handler in <see cref="OnMessage"/> is what mirrors the server-trimmed name into
+    /// GameConfig/Prefs, so this method does NOT touch that state itself (avoids an off-main-thread write to
+    /// the shared _hello and duplicate, un-trimmed stores). The server ignores hello.Name on restore, so the
+    /// cached hello needs no update. Returns null on success, else the server code ("invalid_name") / a local error.</summary>
+    public static async Task<string?> SetNameAsync(string name)
+    {
+        var client = Client;
+        if (client is null)
+            return "未连接";
+
+        int seq = client.NextSeq();
+        var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Handler(ServerMessage m)
+        {
+            if (m is Profile p && p.Seq == seq) tcs.TrySetResult(null);
+            else if (m is ErrorMsg e && e.Seq == seq) tcs.TrySetResult(e.Code);
+        }
+        client.MessageReceived += Handler;
+        try
+        {
+            await client.SendWithSeqAsync(new SetName { Name = name }, seq);
+            return await tcs.Task.WaitAsync(TimeSpan.FromSeconds(8));
+        }
+        catch (TimeoutException) { return "服务器无响应"; }
+        catch (Exception ex) { return ex.Message; }
+        finally { client.MessageReceived -= Handler; }
+    }
 
     // Send an auth request and await its correlated reply (AuthOk → null; ErrorMsg → its Code). Uses a
     // pre-allocated seq so the reply can't beat the handler being wired up.
@@ -158,6 +215,7 @@ public static class Session
         Remote = null;
         Profile = null;
         BoundUsername = null;
+        ConnectedUrl = null;
         _hello = null;
         if (c is not null)
             await c.DisposeAsync();
@@ -167,7 +225,23 @@ public static class Session
     {
         switch (msg)
         {
-            case Profile p: Profile = p; ProfileUpdated?.Invoke(p); break;
+            case Profile p:
+                Profile = p;
+                // Account state now rides on every Profile (docs/16), so a SILENT reconnect (hello only, no
+                // AuthOk) still knows it is a registered account — fixes the "account shows as guest after
+                // relaunch" mislabel. Guests carry null → BoundUsername clears correctly.
+                BoundUsername = p.Username;
+                // Keep the persisted display name in lockstep with the server's: covers login (account name),
+                // set_name, and restore — so the next reconnect's hello won't clobber it back to a stale
+                // default. Prefs skips the disk write when unchanged (value equality), so redundant pushes are
+                // cheap; both writes are plain static/locked assignments, safe from the WS thread.
+                if (!string.IsNullOrWhiteSpace(p.Name))
+                {
+                    GameConfig.Nickname = p.Name;
+                    Prefs.Nickname = p.Name;
+                }
+                ProfileUpdated?.Invoke(p);
+                break;
             case QueueStatus q: QueueStatusReceived?.Invoke(q); break;
             case RatingChange rc: RatingChanged?.Invoke(rc); break;
             case DeckSaved ds: DeckSavedOk?.Invoke(ds); break;

@@ -60,6 +60,20 @@ public partial class MenuScene : Control
         AddVersionLabel();
         AddUpdateBanner();
         HookUpdateChecks();
+
+        // docs/16 login flow: nickname is a persisted display name now (was re-typed every connect).
+        if (!string.IsNullOrWhiteSpace(Prefs.Nickname)) GameConfig.Nickname = Prefs.Nickname;
+
+        // Credential gate driven SOLELY by Prefs.Entered (a deliberate entry), NOT by whether identity.json
+        // exists. ConnectAsync mints identity.json before it even dials, so keying off the file would treat a
+        // failed/aborted login (or a logout whose file-delete failed) as "entered" and silently drop the user
+        // into an auto-connected guest. Cost: an existing pre-docs/16 install shows the login page once —
+        // tapping 游客进入 reuses its saved identity (guest OR account, now labeled correctly via Profile.Username),
+        // so no progress is lost.
+        if (!Prefs.Entered)
+            ShowLoginPage();
+        else if (!Session.Connected)
+            _ = Session.ConnectAsync(GameConfig.ServerUrl, GameConfig.Nickname);
     }
 
     /// <summary>The persistent (initially hidden) update banner. Added here — before any overlay — so
@@ -212,6 +226,160 @@ public partial class MenuScene : Control
         }
     }
 
+    // ---------- login flow (docs/16): credential gate shown on first run / after logout ----------
+
+    /// <summary>The entry page (docs/16): login / register / guest, plus an editable server address for
+    /// LAN testing. Blocks the menu behind it until the player picks an entry; on success the overlay
+    /// closes onto the (already-connected) menu. Reachable again only via logout.</summary>
+    private void ShowLoginPage()
+    {
+        var p = NewPanel();
+        PanelLabel(p, "守 线", 120, 84, BattleTheme.TextMain);
+        PanelLabel(p, "HOLD THE LINE", 224, 26, BattleTheme.Accent);
+        PanelLabel(p, "登录、注册,或以游客身份进入", 296, 22, BattleTheme.TextDim);
+
+        // Server address (defaults to the public wss server; editable for LAN/local play). Captured into
+        // GameConfig before any entry so all three flows dial the same host.
+        PanelLabel(p, "服务器地址", 690, 20, BattleTheme.TextDim);
+        var url = Field(GameConfig.ServerUrl, "ws://主机IP:5210/ws", new Vector2(Cx, 724), 600);
+        url.AddThemeFontSizeOverride("font_size", 20);
+        p.AddChild(url);
+        void Go(System.Action next)
+        {
+            GameConfig.ServerUrl = string.IsNullOrWhiteSpace(url.Text) ? GameConfig.ServerUrl : url.Text.Trim();
+            next();
+        }
+
+        p.AddChild(Btn("登录", new Vector2(Cx, 392), new Vector2(600, 76), () => Go(() => ShowAuthForm(isRegister: false))));
+        p.AddChild(Btn("注册新账号", new Vector2(Cx, 484), new Vector2(600, 76), () => Go(() => ShowAuthForm(isRegister: true))));
+        p.AddChild(Btn("游客进入", new Vector2(Cx, 576), new Vector2(600, 76), () => Go(EnterAsGuest)));
+    }
+
+    /// <summary>Ensure a connection to the CURRENT server URL for the login-page entries. Reconnects when the
+    /// user edited the address since the live socket was opened (docs/16) — otherwise a stale connection to the
+    /// old host would silently absorb the new URL. Returns null on success, else the human-readable error
+    /// (LastConnectErrorCode carries the update code, if any).</summary>
+    private static async System.Threading.Tasks.Task<string?> EnsureConnectedAsync()
+    {
+        if (Session.Connected && Session.ConnectedUrl == GameConfig.ServerUrl) return null;
+        if (Session.Connected) await Session.DisconnectAsync(); // address changed → drop the old host first
+        return await Session.ConnectAsync(GameConfig.ServerUrl, GameConfig.Nickname);
+    }
+
+    /// <summary>If the last connect was rejected with an update-required code, raise the forced-update modal
+    /// and return true; else false. Single home for the docs/15 gate shared by every entry point.</summary>
+    private bool TryForcedUpdate()
+    {
+        if (IsUpdateCode(Session.LastConnectErrorCode)) { ShowForcedUpdate(Session.LastConnectErrorCode); return true; }
+        return false;
+    }
+
+    /// <summary>Login (isRegister=false) or register-a-new-account (isRegister=true) — one form; they differ
+    /// only in copy, password floor, the register-only fresh-identity, and which auth call + offerName.</summary>
+    private void ShowAuthForm(bool isRegister)
+    {
+        var p = NewPanel();
+        PanelLabel(p, isRegister ? "注 册 新 账 号" : "登 录", 150, 56, BattleTheme.TextMain);
+        PanelLabel(p, isRegister ? "创建一个全新账号(与任何游客进度无关),用户名+密码登录"
+                                 : "登录已有账号(会挤下其它已登录的设备)", 236, 22, BattleTheme.TextDim);
+        PanelLabel(p, "用户名", 320, 22, BattleTheme.Accent);
+        var user = Field(isRegister ? "" : Prefs.LastUsername, "2-20 个字符", new Vector2(Cx, 356), 600);
+        p.AddChild(user);
+        PanelLabel(p, "密码", 452, 22, BattleTheme.Accent);
+        var pass = Field("", "至少 8 位", new Vector2(Cx, 488), 600);
+        pass.Secret = true;
+        p.AddChild(pass);
+        var status = PanelLabel(p, "", 586, 24, BattleTheme.DangerColor);
+        var go = Btn(isRegister ? "注册" : "登录", new Vector2(Cx, 648), new Vector2(600, 72), null!);
+        // Guarded against the panel being freed mid-await (返回 during a slow connect/auth).
+        void Set(string t, Color c) { if (GodotObject.IsInstanceValid(status)) { status.Text = t; status.AddThemeColorOverride("font_color", c); } }
+        void Enable() { if (GodotObject.IsInstanceValid(go)) go.Disabled = false; }
+
+        go.Pressed += async () =>
+        {
+            string u = user.Text.Trim();
+            if (u.Length is < 2 or > 20) { Set("用户名需 2-20 个字符", BattleTheme.DangerColor); return; }
+            if (pass.Text.Length < (isRegister ? 8 : 1)) { Set(isRegister ? "密码至少 8 位" : "请输入密码", BattleTheme.DangerColor); return; }
+            if (GodotObject.IsInstanceValid(go)) go.Disabled = true;
+            Set("连接中…", BattleTheme.TextDim);
+            // 方案 A (docs/16 §2): a brand-new account = a brand-new guest identity. Clear only when NOT already
+            // connected — the login page appears solely when there is nothing to protect.
+            if (isRegister && !Session.Connected) Identity.Clear();
+            var connErr = await EnsureConnectedAsync();
+            if (connErr != null) { Enable(); if (!TryForcedUpdate()) Set($"连接失败:{connErr}", BattleTheme.DangerColor); return; }
+            if (!SecureChannelOk()) { Enable(); Set("密码功能需要加密连接(wss)", BattleTheme.DangerColor); return; }
+            var err = isRegister ? await Session.RegisterAsync(u, pass.Text) : await Session.LoginAsync(u, pass.Text);
+            if (err is null) { Prefs.LastUsername = u; FinishEntry(offerName: isRegister); }
+            else { Enable(); Set(AuthErrorText(err), BattleTheme.DangerColor); }
+        };
+        p.AddChild(go);
+        p.AddChild(Btn("返回", new Vector2(Cx, 736), new Vector2(600, 60), ShowLoginPage));
+    }
+
+    private async void EnterAsGuest()
+    {
+        // A guest reuses (or, on a fresh install, mints) the local identity via ConnectAsync. Offline is fine
+        // — the menu's vs-AI / hotseat work regardless; the credential just persists for next launch.
+        var err = await EnsureConnectedAsync();
+        if (err != null && TryForcedUpdate()) return;
+        FinishEntry(offerName: true);
+    }
+
+    /// <summary>Mark the player as entered and leave the login page. Guest/register may still lack a display
+    /// name → offer to set one (online only); login inherits the account's name via the profile push.</summary>
+    private void FinishEntry(bool offerName)
+    {
+        Prefs.Entered = true;
+        if (offerName && Session.Connected && (string.IsNullOrWhiteSpace(GameConfig.Nickname) || GameConfig.Nickname == "玩家"))
+            PromptFirstName();
+        else
+            CloseOverlay();
+    }
+
+    /// <summary>First-time display-name prompt (docs/16 §3). Skippable; changeable later in 账号.</summary>
+    private void PromptFirstName()
+    {
+        var p = NewPanel();
+        PanelLabel(p, "设 置 昵 称", 300, 52, BattleTheme.TextMain);
+        PanelLabel(p, "给自己起个显示名(之后可在“账号”里随时修改)", 380, 22, BattleTheme.TextDim);
+        var field = Field("", "1-20 个字符", new Vector2(Cx, 456), 600);
+        p.AddChild(field);
+        var status = PanelLabel(p, "", 540, 22, BattleTheme.DangerColor);
+        p.AddChild(Btn("确定", new Vector2(Cx, 596), new Vector2(290, 64), async () =>
+        {
+            string n = field.Text.Trim();
+            if (n.Length is < 1 or > 20) { if (GodotObject.IsInstanceValid(status)) status.Text = "昵称需 1-20 个字符"; return; }
+            var err = await Session.SetNameAsync(n);
+            if (!GodotObject.IsInstanceValid(status)) return; // panel closed during the call
+            if (err is null) CloseOverlay(); // Prefs.Nickname is synced by the resulting Profile push
+            else status.Text = AuthErrorText(err);
+        }));
+        p.AddChild(Btn("跳过", new Vector2(Cx + 310, 596), new Vector2(290, 64), CloseOverlay));
+    }
+
+    /// <summary>Logout (docs/16): drop the connection, wipe local credentials, and return to the login page.
+    /// Guests get an extra warning — their secret is unrecoverable once cleared.</summary>
+    private void ShowLogoutConfirm()
+    {
+        bool guest = Session.BoundUsername is null;
+        var p = NewPanel();
+        PanelLabel(p, "登 出", 320, 52, BattleTheme.DangerColor);
+        PanelLabel(p, guest
+            ? "游客身份登出后无法找回,建议先绑定账号(注册)。确定登出?"
+            : "登出后回到登录页,可用账号重新登录。确定登出?", 400, 22, BattleTheme.TextDim);
+        p.AddChild(Btn("登出", new Vector2(Cx, 512), new Vector2(290, 64), async () =>
+        {
+            await Session.DisconnectAsync();
+            Identity.Clear();
+            Prefs.Entered = false;
+            Prefs.Nickname = "";
+            Prefs.LastUsername = "";
+            GameConfig.Nickname = "玩家";
+            ShowLoginPage();
+        }));
+        p.AddChild(Btn("取消", new Vector2(Cx + 310, 512), new Vector2(290, 64), ShowAccountPanel));
+    }
+
     // ---------- online lobby (M3 C1): connect → profile → ranked queue / friend rooms ----------
 
     private string _lobbyDeck = ""; // resolved on lobby open: last used → newest edited → first option
@@ -259,32 +427,30 @@ public partial class MenuScene : Control
         return l;
     }
 
+    /// <summary>Reconnect helper reached from 联机对战 only when the startup auto-connect failed (offline).
+    /// No nickname field (docs/16 §4.7): the display name is a persisted profile value now, changed in 账号.</summary>
     private void ShowConnect()
     {
         var p = NewPanel();
         PanelLabel(p, "联 机 · 连接", 150, 60, BattleTheme.TextMain);
-        PanelLabel(p, "登录后可排位匹配、创建/加入好友房间", 236, 22, BattleTheme.TextDim);
+        PanelLabel(p, "连接到对战服务器,进入大厅后即可排位 / 好友对战", 236, 22, BattleTheme.TextDim);
 
-        PanelLabel(p, "昵称", 340, 22, BattleTheme.Accent);
-        var nick = Field(GameConfig.Nickname == "玩家" ? "" : GameConfig.Nickname, "你的昵称", new Vector2(Cx, 376), 600);
-        p.AddChild(nick);
-        PanelLabel(p, "服务器地址", 456, 22, BattleTheme.Accent);
-        var url = Field(GameConfig.ServerUrl, "ws://主机IP:5210/ws", new Vector2(Cx, 492), 600);
+        PanelLabel(p, "服务器地址", 400, 22, BattleTheme.Accent);
+        var url = Field(GameConfig.ServerUrl, "ws://主机IP:5210/ws", new Vector2(Cx, 436), 600);
         p.AddChild(url);
 
-        var status = PanelLabel(p, "", 610, 24, BattleTheme.TextDim);
-        p.AddChild(Btn("连接", new Vector2(Cx, 664), new Vector2(290, 76), async () =>
+        var status = PanelLabel(p, "", 560, 24, BattleTheme.TextDim);
+        p.AddChild(Btn("连接", new Vector2(Cx, 624), new Vector2(290, 76), async () =>
         {
             status.Text = "连接中…";
             status.AddThemeColorOverride("font_color", BattleTheme.TextDim);
-            GameConfig.Nickname = string.IsNullOrWhiteSpace(nick.Text) ? "玩家" : nick.Text.Trim();
             GameConfig.ServerUrl = string.IsNullOrWhiteSpace(url.Text) ? GameConfig.ServerUrl : url.Text.Trim();
             var err = await Session.ConnectAsync(GameConfig.ServerUrl, GameConfig.Nickname);
             if (err is null) ShowLobby();
             else if (IsUpdateCode(Session.LastConnectErrorCode)) ShowForcedUpdate(Session.LastConnectErrorCode);
             else { status.Text = $"连接失败:{err}"; status.AddThemeColorOverride("font_color", BattleTheme.DangerColor); }
         }));
-        p.AddChild(Btn("返回", new Vector2(Cx + 310, 664), new Vector2(290, 76), CloseOverlay));
+        p.AddChild(Btn("返回", new Vector2(Cx + 310, 624), new Vector2(290, 76), CloseOverlay));
     }
 
     private void ShowLobby()
@@ -346,8 +512,9 @@ public partial class MenuScene : Control
 
         void OnStatus(QueueStatus q) => Callable.From(() =>
         {
+            // Ranked is human-vs-human only — no practice-bot fallback. Just show how long we've waited.
             if (GodotObject.IsInstanceValid(status))
-                status.Text = q.BotFallbackIn is > 0 ? $"已等待 {q.WaitedSeconds}s   ·   {q.BotFallbackIn}s 后练习赛保底" : $"已等待 {q.WaitedSeconds}s";
+                status.Text = $"已等待 {q.WaitedSeconds}s   ·   正在寻找对手";
         }).CallDeferred();
         Session.QueueStatusReceived += OnStatus;
 
@@ -514,6 +681,7 @@ public partial class MenuScene : Control
         "too_many_attempts" => "尝试过于频繁,请稍后再试",
         "not_identified" => "当前为临时身份,无法注册",
         "already_bound" => "该身份已绑定过用户名",
+        "invalid_name" => "昵称需 1-20 个字符", // docs/16 set_name
         _ => codeOrText,
     };
 
@@ -533,45 +701,69 @@ public partial class MenuScene : Control
         catch { return false; }
     }
 
+    /// <summary>The in-lobby profile page (docs/16 §1): change the display name, bind a guest to an account
+    /// (register keeps its "把当前进度绑定" semantics) or switch accounts (login), and log out.</summary>
     private void ShowAccountPanel()
     {
         var p = NewPanel();
-        PanelLabel(p, "账 号", 130, 52, BattleTheme.TextMain);
-        PanelLabel(p, Session.BoundUsername is { } bound ? $"已绑定:{bound}" : "当前为游客身份(本机密钥)", 208, 24, BattleTheme.Accent);
-        PanelLabel(p, "注册:把当前进度绑定到用户名+密码。登录:切换到另一个已有账号(会挤下旧设备)。", 250, 20, BattleTheme.TextDim);
+        PanelLabel(p, "账 号", 90, 52, BattleTheme.TextMain);
+        PanelLabel(p, Session.BoundUsername is { } bound ? $"已绑定账号:{bound}" : "当前为游客身份(本机密钥)", 168, 24, BattleTheme.Accent);
 
-        PanelLabel(p, "用户名", 314, 22, BattleTheme.Accent);
-        var user = Field("", "2-20 个字符", new Vector2(Cx, 350), 600);
+        // --- display name (docs/16 §3): change it in place, applies immediately ---
+        PanelLabel(p, "显示名", 232, 22, BattleTheme.TextDim);
+        // Field + button share the same centered 660–1260 column the rest of the panel uses. Show the actual
+        // name (never blank on the '玩家' default) so a player named 玩家 sees and can confirm it.
+        var nameField = Field(GameConfig.Nickname, "1-20 个字符", new Vector2(Cx, 268), 420);
+        p.AddChild(nameField);
+        var nameStatus = PanelLabel(p, "", 344, 20, BattleTheme.Accent);
+        var renameBtn = Btn("改名", new Vector2(1100, 268), new Vector2(160, 60), null!);
+        void SetName(string t, Color c) { if (GodotObject.IsInstanceValid(nameStatus)) { nameStatus.Text = t; nameStatus.AddThemeColorOverride("font_color", c); } }
+        renameBtn.Pressed += async () =>
+        {
+            string n = nameField.Text.Trim();
+            if (n.Length is < 1 or > 20) { SetName("昵称需 1-20 个字符", BattleTheme.DangerColor); return; }
+            var err = await Session.SetNameAsync(n);
+            SetName(err is null ? "已更新" : AuthErrorText(err), err is null ? BattleTheme.Accent : BattleTheme.DangerColor);
+        };
+        p.AddChild(renameBtn);
+
+        // --- bind (guest) / switch account ---
+        PanelLabel(p, Session.BoundUsername is null
+            ? "绑定账号:注册用户名+密码,把当前游客进度存到账号"
+            : "切换账号:登录另一个已有账号(会挤下旧设备)", 396, 20, BattleTheme.TextDim);
+        PanelLabel(p, "用户名", 436, 22, BattleTheme.Accent);
+        var user = Field("", "2-20 个字符", new Vector2(Cx, 472), 600);
         p.AddChild(user);
-        PanelLabel(p, "密码", 432, 22, BattleTheme.Accent);
-        var pass = Field("", "至少 8 位", new Vector2(Cx, 468), 600);
+        PanelLabel(p, "密码", 552, 22, BattleTheme.Accent);
+        var pass = Field("", "至少 8 位", new Vector2(Cx, 588), 600);
         pass.Secret = true;
         p.AddChild(pass);
 
-        var status = PanelLabel(p, "", 566, 24, BattleTheme.DangerColor);
-        void SetStatus(string text, Color color) { status.Text = text; status.AddThemeColorOverride("font_color", color); }
+        var status = PanelLabel(p, "", 668, 22, BattleTheme.DangerColor);
+        void SetStatus(string text, Color color) { if (GodotObject.IsInstanceValid(status)) { status.Text = text; status.AddThemeColorOverride("font_color", color); } }
 
-        var register = Btn("注册(绑定当前进度)", new Vector2(Cx, 624), new Vector2(290, 64), null!);
-        var login = Btn("登录(切换到已有账号)", new Vector2(Cx + 310, 624), new Vector2(290, 64), null!);
-
+        var register = Btn("注册(绑定当前进度)", new Vector2(Cx, 716), new Vector2(290, 60), null!);
+        var login = Btn("登录(切换账号)", new Vector2(Cx + 310, 716), new Vector2(290, 60), null!);
         register.Pressed += async () =>
         {
+            string u = user.Text.Trim(); // capture before the await — the panel may be freed by then
             SetStatus("注册中…", BattleTheme.TextDim);
-            var err = await Session.RegisterAsync(user.Text.Trim(), pass.Text);
-            if (err is null) SetStatus($"注册成功,已绑定「{user.Text.Trim()}」", BattleTheme.Accent);
+            var err = await Session.RegisterAsync(u, pass.Text);
+            if (err is null) SetStatus($"注册成功,已绑定「{u}」", BattleTheme.Accent);
             else SetStatus(AuthErrorText(err), BattleTheme.DangerColor);
         };
         login.Pressed += async () =>
         {
+            string u = user.Text.Trim();
             SetStatus("登录中…", BattleTheme.TextDim);
-            var err = await Session.LoginAsync(user.Text.Trim(), pass.Text);
-            if (err is null) ShowLobby(); // profile re-pushed on the same socket → lobby shows the account's decks/rating
+            var err = await Session.LoginAsync(u, pass.Text);
+            if (err is null) { if (GodotObject.IsInstanceValid(this)) ShowLobby(); } // profile re-pushed → lobby shows the account's decks/rating
             else SetStatus(AuthErrorText(err), BattleTheme.DangerColor);
         };
         p.AddChild(register);
         p.AddChild(login);
 
-        // Plaintext gate: no passwords over an untrusted ws:// hop.
+        // Plaintext gate: no passwords over an untrusted ws:// hop (rename is fine — it carries no secret).
         if (!SecureChannelOk())
         {
             register.Disabled = true;
@@ -579,7 +771,8 @@ public partial class MenuScene : Control
             SetStatus("密码功能需要加密连接(wss)", BattleTheme.DangerColor);
         }
 
-        p.AddChild(Btn("返回", new Vector2(Cx, 712), new Vector2(600, 60), ShowLobby));
+        p.AddChild(Btn("登出", new Vector2(Cx, 792), new Vector2(290, 60), ShowLogoutConfirm));
+        p.AddChild(Btn("返回", new Vector2(Cx + 310, 792), new Vector2(290, 60), ShowLobby));
     }
 
     // ---------- vs-AI setup (docs/12 C1+C3): my deck × difficulty × opponent, one panel ----------

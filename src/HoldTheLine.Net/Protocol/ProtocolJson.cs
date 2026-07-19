@@ -14,7 +14,13 @@ public static class ProtocolConstants
     /// docs/15 §2 (2026-07-19): Hello gained the optional <c>ClientVersion</c> field. Deliberately NOT a
     /// version bump — it is null-skipped and both directions tolerate its absence (old server ignores the
     /// unknown property, new server treats a missing value as "0.0.0"), so the soft update-gate can roll
-    /// out without hard-rejecting the currently deployed v5 clients.</summary>
+    /// out without hard-rejecting the currently deployed v5 clients.
+    /// docs/16 / queue cleanup (2026-07-19): added the <c>set_name</c> C→S message, the optional
+    /// Profile.<c>Username</c> field (S→C, tells the client it is a registered account after a silent
+    /// reconnect), and dropped QueueStatus.<c>bot_fallback_in</c>. All NOT a bump, same reasoning — an old
+    /// server skips the unknown set_name tag / sends a null username, and an old client skips the extra /
+    /// now-absent properties (System.Text.Json ignores unmapped members), so mixed v5 builds stay compatible
+    /// while both ends are re-shipped.</summary>
     public const int ProtocolVersion = 5;
 }
 

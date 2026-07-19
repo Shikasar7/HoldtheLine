@@ -46,8 +46,11 @@ public sealed class AccountStore
 
     public enum AuthOutcome { Ok, NameTaken, BadCredentials, NotIdentified, AlreadyBound }
 
-    /// <summary>Register a brand-new identity, or restore an existing one after verifying its secret.
-    /// On success the display name and last-seen timestamp are refreshed.</summary>
+    /// <summary>Register a brand-new identity, or restore an existing one after verifying its secret. The
+    /// <paramref name="name"/> seeds the display name on first registration ONLY; on restore the stored name
+    /// is kept (docs/16: the display name is changed via set_name, not by a reconnecting hello — otherwise a
+    /// silent auto-connect carrying the default "玩家" would clobber the player's real name). last_seen always
+    /// refreshes.</summary>
     public (Outcome Outcome, Account Account) RegisterOrRestore(string guestId, string secret, string name)
     {
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -63,15 +66,12 @@ public sealed class AccountStore
                 return (Outcome.Registered, new Account(guestId, name));
             }
 
+            string storedName = QueryScalar(c, "SELECT name FROM accounts WHERE guest_id=$g", ("$g", guestId)) ?? name;
             if (!FixedTimeEquals(storedHash, hash))
-            {
-                string existingName = QueryScalar(c, "SELECT name FROM accounts WHERE guest_id=$g", ("$g", guestId)) ?? guestId;
-                return (Outcome.BadSecret, new Account(guestId, existingName));
-            }
+                return (Outcome.BadSecret, new Account(guestId, storedName));
 
-            Exec(c, "UPDATE accounts SET name=$n, last_seen=$t WHERE guest_id=$g",
-                ("$g", guestId), ("$n", name), ("$t", now));
-            return (Outcome.Restored, new Account(guestId, name));
+            Exec(c, "UPDATE accounts SET last_seen=$t WHERE guest_id=$g", ("$g", guestId), ("$t", now));
+            return (Outcome.Restored, new Account(guestId, storedName));
         });
     }
 
@@ -80,6 +80,16 @@ public sealed class AccountStore
         string? name = QueryScalar(c, "SELECT name FROM accounts WHERE guest_id=$g", ("$g", guestId));
         return name is null ? null : new Account(guestId, name);
     });
+
+    /// <summary>docs/16: change the persisted display name of an existing identity (guest or account). No-op
+    /// if the guest has no row (an anonymous connection keeps its name only in memory).</summary>
+    public void UpdateName(string guestId, string name) => _db.Run(c =>
+        Exec(c, "UPDATE accounts SET name=$n WHERE guest_id=$g", ("$n", name), ("$g", guestId)));
+
+    /// <summary>The bound username for a guest id, or null if it is a plain (unregistered) guest. Lets the
+    /// Profile tell the client it is a registered account even on a silent reconnect (docs/16).</summary>
+    public string? FindUsername(string guestId) => _db.Run(c =>
+        QueryScalar(c, "SELECT username FROM accounts WHERE guest_id=$g AND username IS NOT NULL", ("$g", guestId)));
 
     /// <summary>register (docs/12 B1): bind a username+password to an already-identified guest. The
     /// username_lower unique index rejects a collision as <see cref="AuthOutcome.NameTaken"/>; a guest that

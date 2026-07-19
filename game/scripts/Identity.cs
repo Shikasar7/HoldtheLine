@@ -16,6 +16,27 @@ public static class Identity
 
     private sealed record Stored(string GuestId, string Secret);
 
+    /// <summary>Whether a stored identity file exists and is non-empty — WITHOUT creating one (unlike
+    /// <see cref="Get"/>, which mints and persists a guest identity on demand). docs/16 uses this only as a
+    /// hint; the authoritative "has the player entered yet" gate is <see cref="Prefs.Entered"/>.</summary>
+    public static bool Exists()
+    {
+        if (_cached is not null) return true;
+        if (!Godot.FileAccess.FileExists(Path)) return false;
+        using var f = Godot.FileAccess.Open(Path, Godot.FileAccess.ModeFlags.Read);
+        return f != null && !string.IsNullOrWhiteSpace(f.GetAsText());
+    }
+
+    /// <summary>Wipe the stored identity and cache (docs/16 logout). The next <see cref="Get"/> mints a
+    /// brand-new guest — the old guest secret is gone for good (no server-side recovery), so callers warn first.</summary>
+    public static void Clear()
+    {
+        _cached = null;
+        using var dir = Godot.DirAccess.Open("user://");
+        if (dir != null && dir.FileExists("identity.json"))
+            dir.Remove("identity.json");
+    }
+
     public static (string GuestId, string Secret) Get()
     {
         if (_cached is { } c)

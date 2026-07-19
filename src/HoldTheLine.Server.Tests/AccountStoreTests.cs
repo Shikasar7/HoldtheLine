@@ -27,10 +27,14 @@ public class AccountStoreTests
         Assert.Equal(AccountStore.Outcome.Registered, first);
         Assert.Equal("Alice", acct.Name);
 
-        var (second, acct2) = store.RegisterOrRestore("g1", "secret-1", "Alice Renamed");
+        // docs/16: restore KEEPS the stored name — a reconnecting hello no longer renames (set_name does that),
+        // so a silent auto-connect carrying the default name can't clobber the player's real one.
+        var (second, acct2) = store.RegisterOrRestore("g1", "secret-1", "Ignored On Restore");
         Assert.Equal(AccountStore.Outcome.Restored, second);
-        Assert.Equal("Alice Renamed", acct2.Name); // name refreshes on restore
+        Assert.Equal("Alice", acct2.Name);
 
+        Assert.Equal("Alice", store.Find("g1")!.Name);
+        store.UpdateName("g1", "Alice Renamed"); // the supported way to change it (set_name path)
         Assert.Equal("Alice Renamed", store.Find("g1")!.Name);
     }
 

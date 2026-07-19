@@ -192,6 +192,7 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
         return new Profile
         {
             Name = Name,
+            Username = _accounts.FindUsername(GuestId), // docs/16: null for a plain guest
             Rating = rating,
             Wins = wins,
             Losses = losses,
@@ -247,7 +248,7 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
             case JoinQueue jq:
                 _rooms.AbandonForNewMatch(this); // a still-live old match concedes NOW, not into the new one
                 _queue.Join(this, jq.DeckId); // validates the deck; throws ProtocolError on a bad one
-                await SendAsync(new QueueStatus { Position = 1, WaitedSeconds = 0, BotFallbackIn = QueueManager.BotFallbackSeconds, Seq = msg.Seq }).ConfigureAwait(false);
+                await SendAsync(new QueueStatus { Position = 1, WaitedSeconds = 0, Seq = msg.Seq }).ConfigureAwait(false);
                 break;
 
             case LeaveQueue:
@@ -264,6 +265,10 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
 
             case Login l:
                 await HandleLoginAsync(l).ConfigureAwait(false);
+                break;
+
+            case SetName sn:
+                await HandleSetNameAsync(sn).ConfigureAwait(false);
                 break;
 
             case Hello:
@@ -329,6 +334,22 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
         _identified = true;
         await SendAsync(new AuthOk { Username = username, GuestId = guestId, Secret = newSecret, Seq = l.Seq }).ConfigureAwait(false);
         await SendAsync(BuildProfile()).ConfigureAwait(false);
+    }
+
+    /// <summary>set_name (docs/16): rename the display name in place. Applies to this connection immediately
+    /// (so a match started after it carries the new OpponentName) and persists to the identity's row when the
+    /// connection is a real one; then re-pushes the <see cref="Profile"/> (carrying the request Seq) so the
+    /// client can confirm. A malformed name is rejected with an ErrorMsg — the client also pre-validates.</summary>
+    private async Task HandleSetNameAsync(SetName sn)
+    {
+        string name = (sn.Name ?? "").Trim();
+        if (name.Length is < 1 or > 20)
+            throw new ProtocolError("invalid_name", "Display name must be 1-20 characters.");
+
+        Name = name;
+        if (_identified)
+            _accounts.UpdateName(GuestId, name);
+        await SendAsync(BuildProfile() with { Seq = sn.Seq }).ConfigureAwait(false);
     }
 
     /// <summary>Validate and persist a custom deck (B1). Server-authoritative: it derives the faction from

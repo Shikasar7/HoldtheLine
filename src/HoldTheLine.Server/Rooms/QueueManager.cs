@@ -7,13 +7,11 @@ namespace HoldTheLine.Server.Rooms;
 /// The single ranked matchmaking queue (M3 plan §3.3, B2). A joiner is paired with the closest-rated
 /// waiter; when two are matched a ranked <see cref="MatchSession"/> starts (reusing the whole room/
 /// reconnect/timer stack), and its result settles ELO and pushes rating_change to both. A background
-/// loop refreshes queue_status (waited time, bot-fallback countdown) for anyone still waiting.
+/// loop refreshes queue_status (waited time) for anyone still waiting. Ranked matching is human-vs-human
+/// only — there is no practice-bot fallback; a waiter either finds an opponent or cancels.
 /// </summary>
 public sealed class QueueManager : IDisposable
 {
-    /// <summary>Practice-bot fallback threshold (D-M3-4). The bot itself lands in B3; B2 surfaces the countdown.</summary>
-    public const int BotFallbackSeconds = 45;
-
     private readonly RoomManager _rooms;
     private readonly LadderStore _ladder;
     private readonly DeckSource _deckSource;
@@ -145,7 +143,6 @@ public sealed class QueueManager : IDisposable
                     {
                         Position = 1,
                         WaitedSeconds = waited,
-                        BotFallbackIn = Math.Max(0, BotFallbackSeconds - waited),
                     }).ConfigureAwait(false);
                 }
                 TryPair();
