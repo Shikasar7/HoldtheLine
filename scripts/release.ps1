@@ -16,8 +16,9 @@
 
 .PARAMETER Godot
   Godot 可执行文件路径(带超时看护,导出 wrapper 有挂十几分钟的前科,docs/15 §4)。默认取
-  $env:GODOT,否则用本机 godot.exe。控制台版能显示导出进度,但它需要同目录下标准命名的主程序;
-  本机主程序被改名为 godot.exe,故默认用它,导出日志改为落盘到 build/ 再在失败时回显。
+  $env:GODOT,否则用本机 .NET(mono)版 Godot。**必须是 .NET/mono 版**:标准版 Godot 无法加载 C#
+  脚本(报 "No loader found for .cs")、且找的是 export_templates/<ver>/ 而非 <ver>.mono/,导出必败
+  (docs/15 §4 标准版陷阱)。导出日志落盘到 build/ 再在失败时回显。
 
 .PARAMETER Publish
   开关:向 GitHub Releases 上传并发布(用 gh 已登录的 token)。不加则只本地 pack。
@@ -32,7 +33,7 @@
 [CmdletBinding()]
 param(
     [string]$Version,
-    [string]$Godot = $(if ($env:GODOT) { $env:GODOT } else { 'D:\Program Files\Godot\godot.exe' }),
+    [string]$Godot = $(if ($env:GODOT) { $env:GODOT } else { 'D:\Program Files\Godot .NET\Godot_v4.6.2-stable_mono_win64\Godot_v4.6.2-stable_mono_win64.exe' }),
     [switch]$Publish,
     [switch]$SkipExport
 )
@@ -85,7 +86,9 @@ if ($SkipExport) {
     $exeOut = Join-Path $ExportDir $ExeName
 
     $godotLog = Join-Path $Root 'build\godot-export.log'
-    $godotArgs = @('--headless','--path', $GameDir, '--export-release', $Preset, $exeOut)
+    # 用单个带引号的参数串:Start-Process 对数组元素不会自动加引号,预设名 "Windows Desktop"
+    # 含空格会被拆成两个参数(Godot 报 Invalid export preset name: Windows)。路径一并加引号防空格。
+    $godotArgs = "--headless --path `"$GameDir`" --export-release `"$Preset`" `"$exeOut`""
     $proc = Start-Process -FilePath $Godot -ArgumentList $godotArgs -PassThru -NoNewWindow `
         -RedirectStandardOutput $godotLog -RedirectStandardError "$godotLog.err"
     if (-not $proc.WaitForExit(300000)) {
