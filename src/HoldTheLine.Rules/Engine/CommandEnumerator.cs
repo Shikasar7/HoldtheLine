@@ -44,16 +44,21 @@ public static class CommandEnumerator
                 case CardType.Unit:
                     int homeRow = BoardGeometry.HomeRow(seat);
                     bool needsUnit = def.Effects.Any(e => e.Trigger == "battlecry" && e.NeedsUnitTarget);
+                    // Offer the bare (no-target) deploy unless a battlecry FORCES a target — for a no-target unit
+                    // it IS the play; for a target-needing battlecry it is the "先上随从再判战吼" fizzle, legal only
+                    // when the board has no valid target. Gating here (once per card, not per cell) skips the bare
+                    // deploys the resolver would just prune, sparing a full state-clone dry-run per free cell.
+                    bool offerBareDeploy = !needsUnit || !EffectEngine.BattlecryTargetMandatory(state, seat, def.Effects);
                     for (int col = 0; col < BoardGeometry.Cols; col++)
                     {
                         var cell = new Cell(col, homeRow);
                         if (state.UnitAt(cell) != null)
                             continue;
+                        if (offerBareDeploy)
+                            candidates.Add(new PlayCardCommand { Seat = seat, CardEntityId = card.EntityId, TargetCell = cell });
                         if (needsUnit)
                             candidates.AddRange(state.Units.Select(u => (Command)new PlayCardCommand
                                 { Seat = seat, CardEntityId = card.EntityId, TargetCell = cell, TargetUnitId = u.EntityId }));
-                        else
-                            candidates.Add(new PlayCardCommand { Seat = seat, CardEntityId = card.EntityId, TargetCell = cell });
                     }
                     break;
 
@@ -74,7 +79,6 @@ public static class CommandEnumerator
                     Seat = seat,
                     AttackerEntityId = unit.EntityId,
                     TargetUnitId = enemy.EntityId,
-                    OccupyCellOnKill = unit.HasKeyword(Keyword.Trample),
                 });
 
             candidates.Add(new AttackCommand { Seat = seat, AttackerEntityId = unit.EntityId, TargetLeader = true });

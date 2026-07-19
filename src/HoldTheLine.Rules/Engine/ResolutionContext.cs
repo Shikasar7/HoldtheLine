@@ -12,7 +12,9 @@ namespace HoldTheLine.Rules.Engine;
 /// </summary>
 internal sealed class ResolutionContext
 {
-    private const int MaxHandSize = 10;
+    // 9 gives the second player (6-card opener + 军令硬币 = 7) two draws of slack before hoarding starts
+    // burning cards, while still capping the 教团 recall engines below the old Hearthstone-style 10 (0.5.0).
+    private const int MaxHandSize = 9;
     private const int ManaCap = 10;
     private const int DeathCascadeLimit = 100;
 

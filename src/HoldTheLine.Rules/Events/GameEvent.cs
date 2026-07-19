@@ -74,7 +74,7 @@ public sealed record CardDrawnEvent : GameEvent
         viewerSeat == Seat ? this : this with { CardId = null };
 }
 
-/// <summary>Overdraw at the 10-card hand limit destroys the card. Publicly visible (as in Hearthstone).</summary>
+/// <summary>Overdraw at the 9-card hand limit destroys the card. Publicly visible (as in Hearthstone).</summary>
 public sealed record CardBurnedEvent : GameEvent
 {
     public required int Seat { get; init; }

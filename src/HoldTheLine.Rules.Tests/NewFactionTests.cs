@@ -133,7 +133,7 @@ public class EmplacementTests
         state.Player(0).Mana = 5;
         state.Player(0).Graveyard.Add("t_zap");
         int recaller = TestKit.GiveCard(state, 0, "t_recaller");
-        while (state.Player(0).Hand.Count < 11) // recaller leaves hand on play → 10 remain = full
+        while (state.Player(0).Hand.Count < 10) // recaller leaves hand on play → 9 remain = full
             TestKit.GiveCard(state, 0, "t_vanilla");
 
         var result = TestKit.NewResolver().Execute(state, new PlayCardCommand
@@ -432,6 +432,18 @@ public class AllyOrderPlayedTests
 
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal(2, result.State!.FindUnit(grower.EntityId)!.Atk); // coin is an Order → fires the engine
+    }
+
+    [Fact]
+    public void Token_orders_leave_the_game_instead_of_entering_the_graveyard()
+    {
+        var state = TestKit.NewGame();
+        int coin = TestKit.GiveCard(state, 0, "neutral_coin");
+
+        var result = TestKit.NewResolver().Execute(state, new PlayCardCommand { Seat = 0, CardEntityId = coin });
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Empty(result.State!.Player(0).Graveyard); // recall_order must never see the coin again
     }
 
     [Fact]

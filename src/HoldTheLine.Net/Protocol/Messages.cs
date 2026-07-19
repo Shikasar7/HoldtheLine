@@ -59,6 +59,11 @@ public sealed record Hello : ClientMessage
     /// Null skips the check (e.g. bots); when present and unequal to the server's, the handshake is
     /// rejected with a "data_mismatch" update prompt.</summary>
     public string? DataHash { get; init; }
+    /// <summary>Client app version (docs/15 §2), SemVer Major.Minor.Patch — distinct from
+    /// <see cref="RulesVersion"/>. Optional (bots / legacy clients omit it → the server treats it as
+    /// "0.0.0"). When the server has a configured min client version and this is below it, the handshake
+    /// is rejected with "client_outdated" (until then the server only logs — see ServerOptions).</summary>
+    public string? ClientVersion { get; init; }
 }
 
 public sealed record CreateRoom : ClientMessage

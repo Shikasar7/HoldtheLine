@@ -88,6 +88,15 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "battlecry", Action = "heal", Target = "target_unit", Amount = 2 }],
     };
 
+    /// <summary>2/2 unit whose battlecry buffs ANOTHER friendly unit +1/+1 (target_unit_ally). The
+    /// "先上随从再判战吼" fixture: on a board with no other ally it has no legal target, yet must still
+    /// deploy (battlecry fizzles); with an ally present the target choice stays mandatory.</summary>
+    public static readonly CardDefinition AllyBuffer = new()
+    {
+        Id = "t_ally_buffer", Name = "Ally Buffer 2/2", Cost = 2, Atk = 2, Hp = 2,
+        Effects = [new EffectSpec { Trigger = "battlecry", Action = "buff", Target = "target_unit_ally", Atk = 1, Hp = 1 }],
+    };
+
     public static readonly CardDefinition GrantGuardOrder = new()
     {
         Id = "t_grant_guard", Name = "Entrench", Type = CardType.Order, Cost = 2,
@@ -245,7 +254,7 @@ public static class TestKit
     public static CardDatabase Db { get; } = new([
         Vanilla, BigVanilla, Charger, Assaulter, Scout, Archer, GuardUnit, Holder,
         Trampler, Sneak, Shielded, BattlecryBuffer, Bomber, Coin, ZapOrder, DrawOrder,
-        Garrison, Leaper, PupToken, Medic, GrantGuardOrder, PounceOrder, GrantShieldOrder,
+        Garrison, Leaper, PupToken, Medic, AllyBuffer, GrantGuardOrder, PounceOrder, GrantShieldOrder,
         SpeedOrder, SummonOrder, ColumnOrder, HomeRowBuffOrder, OwnHalfSnipe, AllAlliesBuff,
         PackHunter, PackArcher,
         Turret, Barricade, Piercer, SacrificeOrder, RowBlastOrder, CrossBlastOrder,

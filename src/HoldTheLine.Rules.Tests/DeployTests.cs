@@ -123,4 +123,78 @@ public class DeployTests
         var attack = resolver.Execute(state, new AttackCommand { Seat = 0, AttackerEntityId = assaulter.EntityId, TargetUnitId = enemy.EntityId });
         Assert.True(attack.Success, attack.Error?.Message);
     }
+
+    // ---- 先上随从再判战吼: a target-needing battlecry never blocks the deploy on an empty board ----
+
+    [Fact]
+    public void Ally_buff_battlecry_deploys_with_no_target_when_no_ally_exists()
+    {
+        var state = TestKit.NewGame();
+        state.Player(0).Mana = 5;
+        int card = TestKit.GiveCard(state, 0, "t_ally_buffer"); // battlecry: +1/+1 to another ally
+
+        // No other unit on the board → no legal target. The unit must still deploy; the battlecry fizzles.
+        var result = TestKit.NewResolver().Execute(state, new PlayCardCommand
+        { Seat = 0, CardEntityId = card, TargetCell = new Cell(2, 0) });
+
+        Assert.True(result.Success, result.Error?.Message);
+        var unit = result.State!.UnitAt(new Cell(2, 0));
+        Assert.NotNull(unit);
+        Assert.Equal(2, unit!.Atk);          // unbuffed — the battlecry found no target and fizzled
+        Assert.Equal(2, unit.CurrentHp);
+    }
+
+    [Fact]
+    public void Ally_buff_battlecry_still_requires_a_target_when_an_ally_is_present()
+    {
+        var state = TestKit.NewGame();
+        state.Player(0).Mana = 5;
+        TestKit.Place(state, 0, "t_vanilla", new Cell(1, 0)); // a legal ally target exists
+        int card = TestKit.GiveCard(state, 0, "t_ally_buffer");
+
+        // A legal target exists, so a targetless deploy is rejected — the player must pick the ally.
+        var result = TestKit.NewResolver().Execute(state, new PlayCardCommand
+        { Seat = 0, CardEntityId = card, TargetCell = new Cell(2, 0) });
+
+        Assert.False(result.Success);
+        Assert.Equal(RuleErrorCode.InvalidTarget, result.Error!.Code);
+    }
+
+    [Fact]
+    public void Ally_buff_battlecry_applies_when_a_target_is_supplied()
+    {
+        var state = TestKit.NewGame();
+        state.Player(0).Mana = 5;
+        var ally = TestKit.Place(state, 0, "t_vanilla", new Cell(1, 0)); // 2/3
+        int card = TestKit.GiveCard(state, 0, "t_ally_buffer");
+
+        var result = TestKit.NewResolver().Execute(state, new PlayCardCommand
+        { Seat = 0, CardEntityId = card, TargetCell = new Cell(2, 0), TargetUnitId = ally.EntityId });
+
+        Assert.True(result.Success, result.Error?.Message);
+        var buffed = result.State!.FindUnit(ally.EntityId)!;
+        Assert.Equal(3, buffed.Atk);       // 2 + 1
+        Assert.Equal(4, buffed.CurrentHp); // 3 + 1
+    }
+
+    [Fact]
+    public void Enumerator_offers_the_fizzle_deploy_only_when_no_target_exists()
+    {
+        var state = TestKit.NewGame();
+        state.Player(0).Mana = 5;
+        int card = TestKit.GiveCard(state, 0, "t_ally_buffer");
+
+        // Empty board: the only legal plays for this card are bare (no-target) deploys.
+        var empty = CommandEnumerator.LegalCommands(state, TestKit.Db, TestKit.Leaders)
+            .OfType<PlayCardCommand>().Where(c => c.CardEntityId == card).ToList();
+        Assert.NotEmpty(empty);
+        Assert.All(empty, c => Assert.Null(c.TargetUnitId));
+
+        // With an ally present the fizzle candidate is pruned — every legal play now carries a target.
+        var ally = TestKit.Place(state, 0, "t_vanilla", new Cell(1, 0));
+        var withAlly = CommandEnumerator.LegalCommands(state, TestKit.Db, TestKit.Leaders)
+            .OfType<PlayCardCommand>().Where(c => c.CardEntityId == card).ToList();
+        Assert.NotEmpty(withAlly);
+        Assert.All(withAlly, c => Assert.Equal(ally.EntityId, c.TargetUnitId));
+    }
 }

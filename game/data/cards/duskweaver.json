@@ -385,7 +385,7 @@
     "faction": "duskweaver",
     "type": "unit",
     "rarity": "common",
-    "cost": 3,
+    "cost": 2,
     "atk": 1,
     "hp": 3,
     "effects": [
@@ -465,10 +465,11 @@
         "trigger": "play",
         "action": "sear",
         "target": "target_unit",
-        "amount": 3
+        "amount": 2,
+        "amount_max": 3
       }
     ],
-    "text": "对一个随从造成 3 点灼蚀伤害(无视坚守)。",
+    "text": "对一个随从随机造成 2 或 3 点灼蚀伤害(无视坚守)。",
     "art_prompt": "a white-hot branding sigil searing through armor, ignoring the shield, cruel light"
   },
   {
@@ -572,9 +573,9 @@
     "faction": "duskweaver",
     "type": "unit",
     "rarity": "legendary",
-    "cost": 8,
+    "cost": 9,
     "atk": 6,
-    "hp": 7,
+    "hp": 6,
     "effects": [
       {
         "trigger": "ally_order_played",

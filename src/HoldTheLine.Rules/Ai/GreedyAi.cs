@@ -92,7 +92,9 @@ public static class GreedyAi
                 foreach (var e in db.Get(unit.CardId).Effects.Where(e => e.Trigger == "self_moved"))
                     score += e.Action switch
                     {
-                        "buff" when e.Target == "self" => (e.Atk + e.Hp) * 1.2,
+                        // Atk gains stop at the per-turn cap (0.6.0) — a capped-out step is worth only its Hp part.
+                        "buff" when e.Target == "self" =>
+                            ((unit.SelfMovedAtkGainsThisTurn >= Engine.Resolver.SelfMovedAtkGainCap ? 0 : e.Atk) + e.Hp) * 1.2,
                         ("damage" or "sear") when e.Target == "adjacent_enemies" =>
                             BoardGeometry.AdjacentCells(m.To).Select(s.UnitAt)
                                 .Count(x => x != null && x.OwnerSeat != m.Seat) * e.Amount * 1.5,
@@ -361,7 +363,7 @@ public static class GreedyAi
         if (melee && attacker.HasKeyword(Keyword.PackTactics)
             && BoardGeometry.AdjacentCells(target.Cell).Select(s.UnitAt)
                 .Any(u => u != null && u.OwnerSeat == attacker.OwnerSeat && u.EntityId != attacker.EntityId))
-            dmg += 1;
+            dmg += 2;
         if (target.HasKeyword(Keyword.HoldFast) && !target.MovedThisRound)
             dmg -= 1;
         return Math.Max(0, dmg);

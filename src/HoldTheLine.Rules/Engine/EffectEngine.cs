@@ -32,13 +32,18 @@ internal static class EffectEngine
     }
 
     /// <summary>Pre-validation used before paying costs: do the effect's declared targets exist and satisfy filters?</summary>
+    /// <param name="allowFizzleWhenNoTarget">先上随从再判战吼: when true (unit deploy / battlecry), a required
+    /// unit target that has NO legal candidate on the board is waved through — the unit still deploys and the
+    /// battlecry simply fizzles. A legal target still makes the choice mandatory. Orders / leader skills pass
+    /// false: a targeted order with no target is a wasted card and stays illegal (docs/07, GDD battlecry rule).</param>
     public static RuleError? ValidateTargets(
         ResolutionContext ctx,
         int ownerSeat,
         IReadOnlyList<EffectSpec> effects,
         string trigger,
         int? targetUnitId,
-        Cell? targetCell)
+        Cell? targetCell,
+        bool allowFizzleWhenNoTarget = false)
     {
         foreach (var spec in effects)
         {
@@ -48,19 +53,20 @@ internal static class EffectEngine
             if (spec.NeedsUnitTarget)
             {
                 if (targetUnitId is null)
+                {
+                    // Fizzle only when the board offers no legal target for THIS effect; otherwise the
+                    // player must still pick one (an empty command can't skip an answerable battlecry).
+                    if (allowFizzleWhenNoTarget && !AnyLegalUnitTarget(ctx.State, ownerSeat, spec))
+                        continue;
                     return new RuleError(RuleErrorCode.InvalidTarget, "This effect requires a unit target.");
+                }
                 var target = ctx.State.FindUnit(targetUnitId.Value);
                 if (target is null)
                     return new RuleError(RuleErrorCode.UnknownEntity, $"Target unit {targetUnitId.Value} does not exist.");
-                if (spec.Target == "target_unit_own_half")
-                {
-                    if (target.OwnerSeat == ownerSeat)
-                        return new RuleError(RuleErrorCode.InvalidTarget, "This targets an enemy unit.");
-                    if (!BoardGeometry.InOwnHalf(ownerSeat, target.Cell))
-                        return new RuleError(RuleErrorCode.InvalidTarget, "Target must be in your half of the board.");
-                }
-                if (spec.Target == "target_unit_ally" && target.OwnerSeat != ownerSeat)
-                    return new RuleError(RuleErrorCode.InvalidTarget, "This targets a friendly unit.");
+                // Single source of truth for the owner/half filters — shared with AnyLegalUnitTarget so the
+                // "may I aim here?" and "does a legal target exist?" questions can never drift apart.
+                if (!IsLegalUnitTarget(ownerSeat, spec, target))
+                    return new RuleError(RuleErrorCode.InvalidTarget, $"That unit is not a legal target for a '{spec.Target}' effect.");
             }
 
             if (spec.NeedsCellTarget && targetCell is null)
@@ -69,9 +75,34 @@ internal static class EffectEngine
         return null;
     }
 
+    /// <summary>True when the card's battlecry FORCES a unit target — some needsUnit battlecry spec has a legal
+    /// target on the board. The enumerator uses this to skip the (would-be-pruned) bare-deploy candidate, sparing
+    /// a full resolver dry-run per free home cell in the AI search loop.</summary>
+    internal static bool BattlecryTargetMandatory(GameState state, int ownerSeat, IReadOnlyList<EffectSpec> effects) =>
+        effects.Any(e => e.Trigger == "battlecry" && e.NeedsUnitTarget && AnyLegalUnitTarget(state, ownerSeat, e));
+
+    /// <summary>Does at least one on-board unit satisfy this spec's unit-target filter? Shares <see
+    /// cref="IsLegalUnitTarget"/> with ValidateTargets, so the two can never disagree about "no legal target".</summary>
+    private static bool AnyLegalUnitTarget(GameState state, int ownerSeat, EffectSpec spec) =>
+        state.Units.Any(u => IsLegalUnitTarget(ownerSeat, spec, u));
+
+    private static bool IsLegalUnitTarget(int ownerSeat, EffectSpec spec, UnitInstance u) => spec.Target switch
+    {
+        "target_unit_ally" => u.OwnerSeat == ownerSeat,
+        "target_unit_own_half" => u.OwnerSeat != ownerSeat && BoardGeometry.InOwnHalf(ownerSeat, u.Cell),
+        // target_unit / unit_cross_all: no owner/half filter — any unit qualifies.
+        _ => true,
+    };
+
     private static void Run(ResolutionContext ctx, UnitInstance? source, int ownerSeat, EffectSpec spec, int? targetUnitId, Cell? targetCell)
     {
         var targets = ResolveTargets(ctx, source, ownerSeat, spec.Target, targetUnitId, targetCell);
+
+        // amount_max: a random magnitude in [Amount, AmountMax], rolled ONCE per effect (not per target)
+        // on the match Rng so replays stay deterministic (灼痕烙印's 2-或-3).
+        int amount = spec.AmountMax > spec.Amount
+            ? spec.Amount + ctx.State.Rng.NextInt(spec.AmountMax - spec.Amount + 1)
+            : spec.Amount;
 
         switch (spec.Action)
         {
@@ -80,7 +111,7 @@ internal static class EffectEngine
                 // +1 from EFFECT damage (orders, skills, battlecries; never from attacks). This is
                 // the 焰克械 counter interface (docs/06 §4): spell factions crack static formations.
                 foreach (var t in targets)
-                    ctx.DamageUnit(t, spec.Amount + (t.HasKeyword(Keyword.Emplacement) ? 1 : 0));
+                    ctx.DamageUnit(t, amount + (t.HasKeyword(Keyword.Emplacement) ? 1 : 0));
                 break;
 
             case "sear":
@@ -88,7 +119,7 @@ internal static class EffectEngine
                 // (v2.1 遗留#1: HoldFast otherwise eats the 教团's 1-2pt chip damage whole). 持盾 still
                 // absorbs; 架设's +1 effect-damage clause still stacks (灼蚀 is effect damage too).
                 foreach (var t in targets)
-                    ctx.DamageUnit(t, spec.Amount + (t.HasKeyword(Keyword.Emplacement) ? 1 : 0), ignoreHoldFast: true);
+                    ctx.DamageUnit(t, amount + (t.HasKeyword(Keyword.Emplacement) ? 1 : 0), ignoreHoldFast: true);
                 break;
 
             case "destroy":

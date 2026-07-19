@@ -124,57 +124,47 @@ public class KeywordTests
         Assert.Equal(0, second.State!.FindUnit(shielded.EntityId)?.CurrentHp ?? 0);
     }
 
-    // ---- 践踏 Trample ----
+    // ---- 践踏 Trample (0.6.0: melee splash around the target) ----
 
     [Fact]
-    public void Trample_occupies_the_vacated_cell_when_opted_in()
+    public void Trample_splashes_all_units_adjacent_to_the_target()
     {
         var state = TestKit.NewGame();
         var trampler = TestKit.Place(state, 0, "t_trampler", new Cell(2, 1)); // 4/3
+        var victim = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 2));    // 2/3 — dies to the main hit
+        var bystander = TestKit.Place(state, 1, "t_holder", new Cell(3, 2));  // 2/4 坚守 — splash 4-1=3
+        var friendly = TestKit.Place(state, 0, "t_vanilla", new Cell(1, 2));  // 2/3 friendly — splash hits it too
+
+        var result = TestKit.NewResolver().Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = trampler.EntityId, TargetUnitId = victim.EntityId });
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Null(result.State!.FindUnit(victim.EntityId));                     // 4 dmg main hit
+        Assert.Equal(1, result.State.FindUnit(bystander.EntityId)!.CurrentHp);    // 4 - (4-1 hold_fast)
+        Assert.Null(result.State.FindUnit(friendly.EntityId));                    // friend or foe — 4 splash kills it
+        // The attacker never moves into the vacated cell any more, and only eats the target's retaliation.
+        Assert.Equal(new Cell(2, 1), result.State.FindUnit(trampler.EntityId)!.Cell);
+        Assert.Equal(1, result.State.FindUnit(trampler.EntityId)!.CurrentHp);     // 3 - 2 retaliation only
+    }
+
+    [Fact]
+    public void Trample_splash_excludes_the_attacker_itself()
+    {
+        var state = TestKit.NewGame();
+        var trampler = TestKit.Place(state, 0, "t_trampler", new Cell(2, 1)); // adjacent to its own target
         var victim = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 2));    // 2/3
 
         var result = TestKit.NewResolver().Execute(state, new AttackCommand
-        { Seat = 0, AttackerEntityId = trampler.EntityId, TargetUnitId = victim.EntityId, OccupyCellOnKill = true });
+        { Seat = 0, AttackerEntityId = trampler.EntityId, TargetUnitId = victim.EntityId });
 
-        Assert.True(result.Success);
-        var moved = result.State!.FindUnit(trampler.EntityId)!;
-        Assert.Equal(new Cell(2, 2), moved.Cell);
-        Assert.True(moved.MovedThisRound); // occupying counts as movement (坚守 interaction)
-    }
-
-    [Fact]
-    public void Trample_stays_put_without_a_kill()
-    {
-        var state = TestKit.NewGame();
-        var trampler = TestKit.Place(state, 0, "t_trampler", new Cell(2, 1)); // 4/3
-        var tank = TestKit.Place(state, 1, "t_holder", new Cell(2, 2)); // 2/4 HoldFast: takes 3, survives; retaliates 2
-        var resolver = TestKit.NewResolver();
-
-        var noKill = resolver.Execute(state, new AttackCommand
-        { Seat = 0, AttackerEntityId = trampler.EntityId, TargetUnitId = tank.EntityId, OccupyCellOnKill = true });
-        Assert.True(noKill.Success, noKill.Error?.Message);
-        Assert.NotNull(noKill.State!.FindUnit(tank.EntityId)); // survived — no vacated cell
-        Assert.Equal(new Cell(2, 1), noKill.State!.FindUnit(trampler.EntityId)!.Cell);
-    }
-
-    [Fact]
-    public void Trample_stays_put_without_opt_in()
-    {
-        var state = TestKit.NewGame();
-        var trampler = TestKit.Place(state, 0, "t_trampler", new Cell(2, 1)); // 4/3
-        var victim = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 2));    // dies, retaliates 2
-
-        var result = TestKit.NewResolver().Execute(state, new AttackCommand
-        { Seat = 0, AttackerEntityId = trampler.EntityId, TargetUnitId = victim.EntityId, OccupyCellOnKill = false });
-        Assert.True(result.Success);
-        Assert.Null(result.State!.FindUnit(victim.EntityId));
-        Assert.Equal(new Cell(2, 1), result.State!.FindUnit(trampler.EntityId)!.Cell);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, result.State!.FindUnit(trampler.EntityId)!.CurrentHp); // retaliation 2 only — no self-splash
     }
 
     // ---- 围猎 PackTactics ----
 
     [Fact]
-    public void PackTactics_adds_one_damage_when_target_is_flanked()
+    public void PackTactics_adds_two_damage_when_target_is_flanked()
     {
         var state = TestKit.NewGame();
         var hunter = TestKit.Place(state, 0, "t_pack", new Cell(2, 1));   // 2/2 围猎
@@ -185,7 +175,7 @@ public class KeywordTests
         { Seat = 0, AttackerEntityId = hunter.EntityId, TargetUnitId = prey.EntityId });
 
         Assert.True(result.Success, result.Error?.Message);
-        Assert.Null(result.State!.FindUnit(prey.EntityId)); // 2 + 1 flank = 3 → dead
+        Assert.Null(result.State!.FindUnit(prey.EntityId)); // 2 + 2 flank = 4 → dead
     }
 
     [Fact]
@@ -233,14 +223,14 @@ public class KeywordTests
     public void PackTactics_bonus_is_reduced_by_HoldFast()
     {
         var state = TestKit.NewGame();
-        var hunter = TestKit.Place(state, 0, "t_pack", new Cell(2, 1));  // 2 atk + 1 flank
+        var hunter = TestKit.Place(state, 0, "t_pack", new Cell(2, 1));  // 2 atk + 2 flank
         TestKit.Place(state, 0, "t_vanilla", new Cell(3, 2));
         var holder = TestKit.Place(state, 1, "t_holder", new Cell(2, 2)); // 2/4 坚守 (stationary)
 
         var result = TestKit.NewResolver().Execute(state, new AttackCommand
         { Seat = 0, AttackerEntityId = hunter.EntityId, TargetUnitId = holder.EntityId });
 
-        Assert.Equal(2, result.State!.FindUnit(holder.EntityId)!.CurrentHp); // 4 - (2+1-1)
+        Assert.Equal(1, result.State!.FindUnit(holder.EntityId)!.CurrentHp); // 4 - (2+2-1)
     }
 
     // ---- 战吼 / 亡语 / 指令 ----

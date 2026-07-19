@@ -4,16 +4,16 @@
     "name": "瓦伦丁·铁誓",
     "faction": "iron_vow",
     "skill_cost": 2,
-    "skill_name": "筑垒",
-    "text": "筑垒(2费):使一个友方随从获得守护,直到你的下个回合。",
+    "skill_name": "授盾",
+    "text": "授盾(2费):使一个友方随从获得一次持盾(抵挡下一次受到的伤害)。",
     "art_prompt": "a veteran commander of the iron oath, greatshield planted, stern and grey",
     "skill_effects": [
       {
         "trigger": "leader_skill",
         "action": "grant_keyword",
-        "target": "target_unit",
-        "keyword": "guard",
-        "duration": "your_next_turn"
+        "target": "target_unit_ally",
+        "keyword": "shield",
+        "duration": "permanent"
       }
     ]
   },

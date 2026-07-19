@@ -52,7 +52,8 @@ public partial class DeckScene : Control
         }
 
         BuildStaticUi();
-        if (DeckEditContext.Editing is { } e2) _nameField.Text = e2.Name;
+        // Editing keeps its name; a new deck gets the first free numbered default (我的卡组1, 我的卡组2, …).
+        _nameField.Text = DeckEditContext.Editing is { } e2 ? e2.Name : DeckStorage.UniqueName("我的卡组1");
         RebuildCollection();
         RebuildDeck();
     }
@@ -290,8 +291,10 @@ public partial class DeckScene : Control
         if (DeckValidator.Validate(_deck, _cards) is { } err) { Flash(err.Message); return; }
         string faction = DeckFaction();
         if (!_factionLeader.TryGetValue(faction, out var leaderId)) { Flash("请加入一个阵营的卡牌"); return; }
-        string name = string.IsNullOrWhiteSpace(_nameField.Text) ? "我的卡组" : _nameField.Text.Trim();
+        string name = string.IsNullOrWhiteSpace(_nameField.Text) ? "我的卡组1" : _nameField.Text.Trim();
         string localId = string.IsNullOrEmpty(_deckId) ? DeckStorage.NewId() : _deckId;
+        name = DeckStorage.UniqueName(name, excludeId: localId); // no two decks share a name
+        _nameField.Text = name; // show the deduplicated name so what's saved is what's on screen
         _deckId = localId; // adopt the id at once — a re-save (server slow / DeckError) must upsert, not duplicate
 
         // Local storage is the source of truth (works offline). Save there first, always.

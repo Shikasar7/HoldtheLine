@@ -161,14 +161,19 @@ public sealed class RemoteGameHost : IGameHost
 
     private void OnMessage(ServerMessage message)
     {
+        // Until OUR match_started has been applied, drop match-scoped traffic. On the shared lobby
+        // socket a freshly-armed host can still receive stragglers from the PREVIOUS match (its
+        // concede/timeout event batch, final view, turn timer) — applying those here would poison the
+        // next match's cache and flash its game-over into a game that hasn't even begun.
+        bool started = _matchStarted.Task.IsCompletedSuccessfully;
         switch (message)
         {
             case MatchStarted ms: ApplyMatchStarted(ms); break;
-            case EventsMsg ev: ApplyEvents(ev); break;
-            case ResyncOk rs: ApplySnapshot(rs.View, rs.EventIndex, rs.LegalCommands, rs.MulliganSecondsLeft); break;
+            case EventsMsg ev when started: ApplyEvents(ev); break;
+            case ResyncOk rs when started: ApplySnapshot(rs.View, rs.EventIndex, rs.LegalCommands, rs.MulliganSecondsLeft); break;
             case CommandResultMsg cr: CompletePending(cr); break;
-            case OpponentStatus os: OpponentStatusChanged?.Invoke(os.Connected, os.GraceSeconds); break;
-            case TurnTimer tt: TurnTimerReceived?.Invoke(tt.Seat, tt.SecondsLeft); break;
+            case OpponentStatus os when started: OpponentStatusChanged?.Invoke(os.Connected, os.GraceSeconds); break;
+            case TurnTimer tt when started: TurnTimerReceived?.Invoke(tt.Seat, tt.SecondsLeft); break;
             case ErrorMsg err when !_matchStarted.Task.IsCompleted:
                 _matchStarted.TrySetException(new InvalidOperationException($"server error: {err.Code}: {err.Message}"));
                 break;

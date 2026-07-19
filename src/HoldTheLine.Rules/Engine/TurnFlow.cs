@@ -29,6 +29,7 @@ internal static class TurnFlow
             unit.AttacksUsed = 0;
             unit.MovedThisRound = false;
             unit.BonusMovement = 0;
+            unit.SelfMovedAtkGainsThisTurn = 0;
         }
 
         // "Until your next turn" grants (e.g. 筑垒) expire now; then re-check Garrison in case a grant lapsed.

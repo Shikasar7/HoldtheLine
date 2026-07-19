@@ -25,7 +25,8 @@ public enum Keyword
     /// <summary>坚守 — takes 1 less damage while it has not moved since its owner's last turn start.</summary>
     HoldFast,
 
-    /// <summary>践踏 — after destroying a unit with a melee attack, may occupy the vacated cell.</summary>
+    /// <summary>践踏 — its melee attacks also deal the attacker's Atk to every unit adjacent to the
+    /// target's cell (friend or foe; the attacker itself excepted; no retaliation from splash).</summary>
     Trample,
 
     /// <summary>驻防 — bonus while on its owner's home row. (Effect payload wired in P2.)</summary>
@@ -40,7 +41,7 @@ public enum Keyword
     /// <summary>跃障 — may move to a straight-line distance-2 empty cell in one step, crossing an intervening unit.</summary>
     Leap,
 
-    /// <summary>围猎 — its melee attacks deal +1 damage when another friendly unit is adjacent to the target.</summary>
+    /// <summary>围猎 — its melee attacks deal +2 damage when another friendly unit is adjacent to the target.</summary>
     PackTactics,
 
     /// <summary>伏兵 — untargetable until it deals damage; revealed by adjacent enemies. (Deferred; not implemented in P1.)</summary>

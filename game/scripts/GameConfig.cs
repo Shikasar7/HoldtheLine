@@ -1,3 +1,4 @@
+using System.Reflection;
 using HoldTheLine.Rules.Ai;
 
 namespace HoldTheLine.Game;
@@ -9,6 +10,19 @@ namespace HoldTheLine.Game;
 /// </summary>
 public static class GameConfig
 {
+    /// <summary>The client app version (docs/15 §1), the single source being the &lt;Version&gt; in
+    /// HoldtheLine.Game.csproj. Formatted Major.Minor.Patch (SemVer) so it matches the Velopack package /
+    /// git tag / version.json values. Sent on the wire (Hello.ClientVersion) and shown in the menu corner.</summary>
+    public static readonly string ClientVersion = ReadClientVersion();
+
+    private static string ReadClientVersion()
+    {
+        var v = Assembly.GetExecutingAssembly().GetName().Version;
+        // AssemblyVersion is 4-part (0.1.0.0); present the SemVer 3-part. Fallback keeps the menu label sane
+        // in the unlikely event the attribute is missing (e.g. some editor-play launches).
+        return v is null ? "0.0.0" : $"{v.Major}.{v.Minor}.{v.Build}";
+    }
+
     public static bool VsAi;
     public static int HumanSeat;      // seat the local player controls in vs-AI mode
     public static string Deck0 = "iron_wall";

@@ -43,6 +43,10 @@ public sealed class UnitInstance
     /// <summary>持盾 charge still available.</summary>
     public bool ShieldActive { get; set; }
 
+    /// <summary>How many times self_moved has granted this unit ATK this turn (capped at
+    /// <see cref="Engine.Resolver.SelfMovedAtkGainCap"/>); reset at the owner's turn start.</summary>
+    public int SelfMovedAtkGainsThisTurn { get; set; }
+
     /// <summary>Extra movement points this turn (move_bonus effects); reset at the owner's turn start.</summary>
     public int BonusMovement { get; set; }
 

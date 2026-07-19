@@ -44,7 +44,8 @@ public sealed record AttackCommand : Command
     public int? TargetUnitId { get; init; }
     /// <summary>Attack the enemy leader instead of a unit (requires standing on the enemy home row).</summary>
     public bool TargetLeader { get; init; }
-    /// <summary>践踏: occupy the vacated cell after a lethal melee attack (optional per GDD).</summary>
+    /// <summary>Obsolete since 0.6.0 (践踏 is now melee splash, no cell-occupy choice). Kept so pre-0.6.0
+    /// clients/logs still deserialize; the resolver ignores it.</summary>
     public bool OccupyCellOnKill { get; init; }
 }
 

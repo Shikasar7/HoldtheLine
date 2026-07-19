@@ -5,6 +5,17 @@ namespace HoldTheLine.Net.Client;
 public enum ConnectionState { Disconnected, Connecting, Connected, Reconnecting, Failed }
 
 /// <summary>
+/// Thrown from <see cref="GameServerClient.ConnectAsync"/> when the server rejects the handshake with an
+/// <see cref="ErrorMsg"/> instead of a hello_ok (version_mismatch / data_mismatch / client_outdated /
+/// bad_identity / bad_resume). Carries the machine-readable <see cref="Code"/> so the caller can branch —
+/// notably to raise the docs/15 forced-update prompt — rather than surfacing an opaque timeout.
+/// </summary>
+public sealed class HandshakeRejectedException(string code, string message) : Exception(message)
+{
+    public string Code { get; } = code;
+}
+
+/// <summary>
 /// Client-side connection to the battle server: owns the receive loop, assigns request sequence
 /// numbers, keeps the link alive with heartbeats, and — when <see cref="AutoReconnect"/> is set —
 /// transparently re-establishes a dropped connection with exponential backoff, re-sending a
@@ -145,6 +156,12 @@ public sealed class GameServerClient : IAsyncDisposable
 
                 if (message is HelloOk ok)
                     _helloTcs?.TrySetResult(ok);
+                // A handshake-phase ErrorMsg (server rejects before hello_ok) faults the pending connect so
+                // the caller sees the real reason immediately instead of the 10s hello timeout. Gated to the
+                // initial connect (State == Connecting): mid-session ErrorMsgs (auth, etc.) and reconnect-time
+                // rejections don't touch the TCS — the latter avoids an unobserved faulted task nobody awaits.
+                else if (message is ErrorMsg err && State == ConnectionState.Connecting)
+                    _helloTcs?.TrySetException(new HandshakeRejectedException(err.Code, err.Message));
 
                 MessageReceived?.Invoke(message);
             }

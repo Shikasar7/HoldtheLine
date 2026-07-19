@@ -97,6 +97,8 @@ public sealed class CardDatabase
             }
             if (spec.Action == "summon" && spec.Amount < 1)
                 throw new InvalidDataException($"Card '{card.Id}': summon needs amount >= 1.");
+            if (spec.AmountMax != 0 && (spec.Action is not ("damage" or "sear") || spec.AmountMax <= spec.Amount))
+                throw new InvalidDataException($"Card '{card.Id}': amount_max is for damage/sear and must exceed amount.");
         }
 
         foreach (var kw in card.Keywords)

@@ -105,6 +105,33 @@ public class SelfMovedTests
     }
 
     [Fact]
+    public void Self_moved_atk_gains_cap_at_two_per_turn()
+    {
+        var state = TestKit.NewGame();
+        var runner = TestKit.Place(state, 0, "t_moved_self", new Cell(2, 0)); // 2/2, self_moved: +1/+0
+        runner.BonusMovement = 5; // plenty of steps this turn
+        var resolver = TestKit.NewResolver();
+
+        foreach (var to in new[] { new Cell(2, 1), new Cell(2, 2), new Cell(2, 3), new Cell(2, 2) })
+        {
+            var step = resolver.Execute(state, new MoveUnitCommand
+            { Seat = 0, UnitEntityId = state.FindUnit(runner.EntityId)!.EntityId, To = to });
+            Assert.True(step.Success, step.Error?.Message);
+            state = step.State!;
+        }
+
+        Assert.Equal(4, state.FindUnit(runner.EntityId)!.Atk); // 2 + 1 + 1, moves 3 & 4 capped out
+
+        // The cap resets at the owner's next turn start.
+        state = resolver.Execute(state, new EndTurnCommand { Seat = 0 }).State!;
+        state = resolver.Execute(state, new EndTurnCommand { Seat = 1 }).State!;
+        var again = resolver.Execute(state, new MoveUnitCommand
+        { Seat = 0, UnitEntityId = runner.EntityId, To = new Cell(2, 3) });
+        Assert.True(again.Success, again.Error?.Message);
+        Assert.Equal(5, again.State!.FindUnit(runner.EntityId)!.Atk);
+    }
+
+    [Fact]
     public void A_plain_unit_move_does_not_fire_self_moved()
     {
         var state = TestKit.NewGame();

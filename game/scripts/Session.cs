@@ -28,6 +28,12 @@ public static class Session
     public static string? BoundUsername { get; private set; }
     public static bool Connected => Client is { State: ConnectionState.Connected };
 
+    /// <summary>The server's rejection code from the most recent failed <see cref="ConnectAsync"/> — one of the
+    /// handshake codes (version_mismatch / data_mismatch / client_outdated / bad_identity / bad_resume) — or
+    /// null when the failure was a transport error (unreachable server) with no code. Lets the menu raise the
+    /// docs/15 forced-update prompt for the "you must update" codes. Set on every ConnectAsync attempt.</summary>
+    public static string? LastConnectErrorCode { get; private set; }
+
     private static Hello? _hello;
 
     // Lobby-level server pushes (WS thread — subscribers marshal to the main thread).
@@ -68,15 +74,18 @@ public static class Session
             ProtocolVersion = ProtocolConstants.ProtocolVersion,
             RulesVersion = HoldTheLine.Rules.RulesInfo.Version,
             DataHash = HoldTheLine.Net.DataHash.Compute(GameData.LoadCards(), GameData.LoadLeaders(), GameData.LoadDecks()),
+            ClientVersion = GameConfig.ClientVersion, // docs/15 §2: soft update-gate signal
         };
 
         try
         {
             await client.ConnectAsync(new Uri(serverUrl), _hello);
+            LastConnectErrorCode = null;
             return null;
         }
         catch (Exception ex)
         {
+            LastConnectErrorCode = (ex as HandshakeRejectedException)?.Code; // null for transport errors
             Client = null;
             Remote = null;
             _hello = null;

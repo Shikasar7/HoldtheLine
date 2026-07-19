@@ -33,6 +33,18 @@ public sealed class ServerOptions
     /// <summary>Optional message-of-the-day returned in HelloOk.</summary>
     public string? Motd { get; set; }
 
+    /// <summary>docs/15 §2: minimum client app version (SemVer) the server accepts. Null/empty disables the
+    /// check entirely. When set, a hello whose <see cref="HoldTheLine.Net.Protocol.Hello.ClientVersion"/> is
+    /// below this (a missing value counts as "0.0.0") is either logged or hard-rejected, per
+    /// <see cref="EnforceMinClientVersion"/>. Distinct from the exact protocol/rules gate.</summary>
+    public string? MinClientVersion { get; set; }
+
+    /// <summary>docs/15 §2: when false (default) an outdated client is only logged and still allowed in —
+    /// the soft-launch stance while the auto-update channel (通道 A) is still being rolled out. Flip to true
+    /// (once enough players have the updater) to hard-reject with "client_outdated". No effect unless
+    /// <see cref="MinClientVersion"/> is set.</summary>
+    public bool EnforceMinClientVersion { get; set; }
+
     /// <summary>SQLite database file (M3 B0). Null / empty opens a private in-memory db (tests, throwaway
     /// runs); production sets <c>/var/lib/holdtheline/holdtheline.db</c> via HTL_Server__DbPath.</summary>
     public string? DbPath { get; set; }

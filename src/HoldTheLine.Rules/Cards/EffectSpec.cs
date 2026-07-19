@@ -22,6 +22,11 @@ public sealed record EffectSpec
     /// <summary>Generic magnitude: damage amount, cards drawn, mana gained, healing, summon count, movement bonus.</summary>
     public int Amount { get; init; }
 
+    /// <summary>Optional upper bound for a random magnitude (damage/sear only). When > <see cref="Amount"/>,
+    /// the effect rolls once on the match Rng in [Amount, AmountMax] — replay-deterministic (灼痕烙印).</summary>
+    [JsonPropertyName("amount_max")]
+    public int AmountMax { get; init; }
+
     /// <summary>Buff deltas (action == buff).</summary>
     public int Atk { get; init; }
     public int Hp { get; init; }

@@ -14,6 +14,16 @@ public partial class MenuScene : Control
 {
     private const string BattlePath = "res://scenes/battle/Battle.tscn";
 
+    // docs/15 通道 A: the update banner (one persistent button created in _Ready and updated IN PLACE —
+    // recreating it per Changed event would re-append it above any open overlay panel and free the button
+    // mid-click during progress ticks) + the last version.json we fetched for the portable/itch "you're
+    // behind" hint, and the handler we registered on UpdateService so _ExitTree can detach it (the
+    // autoload outlives this scene).
+    private Button _updateBanner = null!;
+    private System.Action? _bannerAction; // current click behavior; the Pressed hookup dispatches through it
+    private UpdateService.ServerVersionInfo? _serverVersion = UpdateService.LastServerVersion;
+    private System.Action? _updateChangedHandler;
+
     public override void _Ready()
     {
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
@@ -46,11 +56,165 @@ public partial class MenuScene : Control
         AddButton("联机对战", new Vector2(660, 628), BattleTheme.SeatColor1, ShowOnlinePanel);
         AddButton("卡组管理", new Vector2(660, 714), Color.FromHtml("8b5fa6"), ShowDeckManager);
         AddButton("退出", new Vector2(660, 806), BattleTheme.PanelDark, () => GetTree().Quit());
+
+        AddVersionLabel();
+        AddUpdateBanner();
+        HookUpdateChecks();
+    }
+
+    /// <summary>The persistent (initially hidden) update banner. Added here — before any overlay — so
+    /// overlays always render above it; RefreshUpdateBanner only mutates it, never re-adds it.</summary>
+    private void AddUpdateBanner()
+    {
+        _updateBanner = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2f - 460, 356), new Vector2(920, 56), BattleTheme.PanelDark, BattleTheme.Accent, 2, 10);
+        _updateBanner.AddThemeFontSizeOverride("font_size", 22);
+        _updateBanner.Visible = false;
+        _updateBanner.Pressed += () => _bannerAction?.Invoke();
+        AddChild(_updateBanner);
+    }
+
+    // ---------- auto-update surface (docs/15 通道 A) ----------
+
+    /// <summary>Small build-version stamp in the corner (docs/15 §1) — the value hello sends and the updater tracks.</summary>
+    private void AddVersionLabel()
+    {
+        var v = BattleTheme.MakeLabel($"v{GameConfig.ClientVersion}", 18, BattleTheme.TextDim);
+        v.Position = new Vector2(24, BattleTheme.ScreenH - 40);
+        v.Size = new Vector2(320, 28);
+        AddChild(v);
+    }
+
+    /// <summary>Kick the right update check for this install form and keep the banner in sync with it.
+    /// The Velopack form self-updates over GitHub; portable/itch just ask the server what's latest.</summary>
+    private void HookUpdateChecks()
+    {
+        var svc = UpdateService.Instance;
+        if (svc is null) return;
+
+        _updateChangedHandler = RefreshUpdateBanner;
+        svc.Changed += _updateChangedHandler;
+
+        if (svc.InstallForm == UpdateService.Form.Velopack)
+            _ = svc.CheckAndDownloadAsync();
+        else
+            _ = CheckServerVersionAsync();
+
+        RefreshUpdateBanner(); // reflect state the persistent autoload may already have reached
+    }
+
+    private async System.Threading.Tasks.Task CheckServerVersionAsync()
+    {
+        _serverVersion = await UpdateService.FetchServerVersionAsync(GameConfig.ServerUrl) ?? _serverVersion;
+        Callable.From(RefreshUpdateBanner).CallDeferred();
+    }
+
+    /// <summary>Repaint the top-of-menu banner from the current updater state: a ready Velopack update
+    /// (click → restart-and-apply), an in-progress download (progress %), or a "behind" hint for the
+    /// portable/itch forms (click → open the download page). Nothing to show → hidden. Mutates the
+    /// persistent button (see <see cref="AddUpdateBanner"/>) — no node churn on progress ticks.</summary>
+    private void RefreshUpdateBanner()
+    {
+        if (!GodotObject.IsInstanceValid(this) || !GodotObject.IsInstanceValid(_updateBanner)) return;
+
+        var svc = UpdateService.Instance;
+        if (svc is null) return;
+
+        string? text = null;
+        Color color = BattleTheme.PanelDark;
+        System.Action? onClick = null;
+
+        if (svc.InstallForm == UpdateService.Form.Velopack)
+        {
+            switch (svc.State)
+            {
+                case UpdateService.Phase.Downloading:
+                    text = $"正在下载新版本…  {Mathf.RoundToInt(svc.DownloadProgress * 100)}%";
+                    break;
+                case UpdateService.Phase.Ready:
+                    text = $"新版本 v{svc.LatestVersion} 已就绪 —— 点击重启更新";
+                    color = BattleTheme.SeatColor0;
+                    onClick = svc.ApplyAndRestart;
+                    break;
+            }
+        }
+        else if (UpdateService.IsBehind(_serverVersion))
+        {
+            text = $"发现新版本 v{_serverVersion!.Latest} —— 点击前往下载页";
+            color = BattleTheme.SeatColor0;
+            onClick = () => svc.OpenDownloadPage(_serverVersion);
+        }
+
+        _bannerAction = onClick;
+        if (text is null)
+        {
+            _updateBanner.Visible = false;
+            return;
+        }
+        _updateBanner.Text = text;
+        BattleTheme.SetButtonBg(_updateBanner, color, BattleTheme.Accent, 2, 10);
+        _updateBanner.Disabled = onClick is null;
+        _updateBanner.Visible = true;
+    }
+
+    public override void _ExitTree()
+    {
+        if (_updateChangedHandler is { } h && UpdateService.Instance is { } svc)
+            svc.Changed -= h;
+        _updateChangedHandler = null;
+    }
+
+    private static bool IsUpdateCode(string? code) =>
+        code is "client_outdated" or "version_mismatch" or "data_mismatch";
+
+    private static string ForcedUpdateReason(string? code) => code switch
+    {
+        "client_outdated" => "服务器要求更新的版本才能联机",
+        "version_mismatch" => "客户端与服务器版本不一致,需更新后联机",
+        "data_mismatch" => "本机卡表与服务器不一致,需更新后联机",
+        _ => "需要更新后才能联机",
+    };
+
+    /// <summary>The forced-update gate (docs/15 §3): shown when a connect is rejected with an update code.
+    /// Same affordances as the menu banner but modal — you can back out to the offline menu (vs-AI still
+    /// works) yet can't dismiss it into an online session without updating.</summary>
+    private void ShowForcedUpdate(string? code)
+    {
+        var svc = UpdateService.Instance;
+        var p = NewPanel();
+        PanelLabel(p, "需 要 更 新", 210, 56, BattleTheme.DangerColor);
+        PanelLabel(p, ForcedUpdateReason(code), 300, 24, BattleTheme.TextDim);
+        PanelLabel(p, $"当前版本 v{GameConfig.ClientVersion}", 344, 22, BattleTheme.TextDim);
+        var status = PanelLabel(p, "", 456, 24, BattleTheme.Accent);
+
+        if (svc is { InstallForm: UpdateService.Form.Velopack })
+        {
+            var action = Btn("下载并更新", new Vector2(Cx, 548), new Vector2(600, 72), null!);
+            action.Pressed += async () =>
+            {
+                if (svc.State == UpdateService.Phase.Ready) { svc.ApplyAndRestart(); return; }
+                action.Disabled = true;
+                SetStatusDeferred(status, "正在下载新版本…");
+                // force: explicit player action — bypass the recheck cooldown; if a background download is
+                // already in flight this awaits THAT task, so the outcome below reflects reality.
+                await svc.CheckAndDownloadAsync(force: true);
+                bool ready = svc.State == UpdateService.Phase.Ready;
+                SetStatusDeferred(status, ready ? "下载完成,点击重启更新" : "下载失败,请稍后重试或前往下载页");
+                Callable.From(() => { action.Disabled = false; if (ready) action.Text = "重启更新"; }).CallDeferred();
+            };
+            p.AddChild(action);
+            p.AddChild(Btn("前往下载页", new Vector2(Cx, 636), new Vector2(290, 60), () => svc.OpenDownloadPage(_serverVersion)));
+            p.AddChild(Btn("返回菜单", new Vector2(Cx + 310, 636), new Vector2(290, 60), CloseOverlay));
+        }
+        else
+        {
+            p.AddChild(Btn("前往下载页", new Vector2(Cx, 548), new Vector2(600, 72), () => svc?.OpenDownloadPage(_serverVersion)));
+            p.AddChild(Btn("返回菜单", new Vector2(Cx, 636), new Vector2(600, 60), CloseOverlay));
+        }
     }
 
     // ---------- online lobby (M3 C1): connect → profile → ranked queue / friend rooms ----------
 
-    private string _lobbyDeck = "iron_wall";
+    private string _lobbyDeck = ""; // resolved on lobby open: last used → newest edited → first option
     private const float Cx = 660f;
 
     private static readonly (string Id, string Label, Color Color)[] DeckOptions =
@@ -117,6 +281,7 @@ public partial class MenuScene : Control
             GameConfig.ServerUrl = string.IsNullOrWhiteSpace(url.Text) ? GameConfig.ServerUrl : url.Text.Trim();
             var err = await Session.ConnectAsync(GameConfig.ServerUrl, GameConfig.Nickname);
             if (err is null) ShowLobby();
+            else if (IsUpdateCode(Session.LastConnectErrorCode)) ShowForcedUpdate(Session.LastConnectErrorCode);
             else { status.Text = $"连接失败:{err}"; status.AddThemeColorOverride("font_color", BattleTheme.DangerColor); }
         }));
         p.AddChild(Btn("返回", new Vector2(Cx + 310, 664), new Vector2(290, 76), CloseOverlay));
@@ -130,13 +295,15 @@ public partial class MenuScene : Control
         PanelLabel(p, pf != null ? $"评分 {pf.Rating}   ·   胜 {pf.Wins} / 负 {pf.Losses}" : "", 224, 26, BattleTheme.Accent);
 
         PanelLabel(p, "当前卡组", 300, 22, BattleTheme.TextDim);
-        // Built-in starter decks first, then the player's saved decks (from the last profile push).
-        var options = new List<(string Id, string Label, Color Color)>();
-        foreach (var d in DeckOptions) options.Add((d.Id, d.Label, d.Color));
+        // The player's saved decks first (from the last profile push), then the built-in starters.
+        var options = new List<(string Id, string Label, Color Color, string Tip)>();
         if (pf != null)
-            foreach (var d in pf.Decks) options.Add((d.Id, d.Name, FactionTint(d.Faction)));
-        if (options.All(o => o.Id != _lobbyDeck)) _lobbyDeck = options[0].Id; // deleted deck → fall back
+            foreach (var d in pf.Decks) options.Add((d.Id, d.Name, FactionTint(d.Faction), DeckTip(d.Leader, d.CardIds)));
+        foreach (var d in DeckOptions) options.Add((d.Id, d.Label, d.Color, BuiltinDeckTip(d.Id)));
+        if (options.All(o => o.Id != _lobbyDeck)) // first open / deleted deck → last used, else newest edited
+            _lobbyDeck = DefaultLobbyDeck(options);
 
+        int ownCount = pf?.Decks.Count ?? 0;
         var deckBtns = new Button[options.Count];
         void Repaint() { for (int i = 0; i < options.Count; i++) BattleTheme.SetButtonBg(deckBtns[i], _lobbyDeck == options[i].Id ? options[i].Color : BattleTheme.PanelDark); }
         for (int i = 0; i < options.Count; i++)
@@ -144,12 +311,13 @@ public partial class MenuScene : Control
             var opt = options[i];
             var pos = new Vector2(Cx + (i % 2) * 310, 334 + (i / 2) * 66);
             deckBtns[i] = Btn(opt.Label, pos, new Vector2(290, 58), () => { _lobbyDeck = opt.Id; Repaint(); });
+            deckBtns[i].TooltipText = opt.Tip;
             p.AddChild(deckBtns[i]);
-            // Saved decks (after the builtins) get an edit chip — Profile.Decks carries the full card
+            // Saved decks (before the builtins) get an edit chip — Profile.Decks carries the full card
             // list (protocol v3), so the editor can open it directly, no extra round-trip.
-            if (i >= DeckOptions.Length && pf != null)
+            if (i < ownCount && pf != null)
             {
-                var ds = pf.Decks[i - DeckOptions.Length];
+                var ds = pf.Decks[i];
                 var edit = Btn("改", new Vector2(pos.X + 240, pos.Y + 5), new Vector2(46, 48), () => EditServerDeck(ds));
                 edit.AddThemeFontSizeOverride("font_size", 18);
                 p.AddChild(edit);
@@ -259,9 +427,52 @@ public partial class MenuScene : Control
 
     private void GoToBattleOnline()
     {
+        Prefs.LastLobbyDeck = _lobbyDeck; // a match actually started with it → preselect it next time
         GameConfig.SetOnlineAttached();
         GameConfig.LocalDeckCards = ResolveDeckCards(_lobbyDeck); // so the in-match 查看牌组 can show it
         GetTree().ChangeSceneToFile(BattlePath);
+    }
+
+    /// <summary>Default lobby deck when nothing is selected yet: the deck last taken into an online match,
+    /// else the newest-edited local deck that the server also has (matched by its server id), else the
+    /// first option (own decks sort before the builtins).</summary>
+    private static string DefaultLobbyDeck(List<(string Id, string Label, Color Color, string Tip)> options)
+    {
+        string last = Prefs.LastLobbyDeck;
+        if (options.Any(o => o.Id == last))
+            return last;
+        foreach (var d in DeckStorage.LoadAll().OrderByDescending(x => x.UpdatedAt))
+            if (d.ServerId is { } sid && options.Any(o => o.Id == sid))
+                return sid;
+        return options[0].Id;
+    }
+
+    // Card/leader lookups for the hover tooltips — loaded once, shared by every picker.
+    private static CardDatabase? _tipCards;
+    private static LeaderDatabase? _tipLeaders;
+
+    /// <summary>Hover tooltip for a deck option: leader plus the card list grouped as 「n× 名称(费)」,
+    /// cheapest first — so the picker shows a deck's composition without opening the editor.</summary>
+    private static string DeckTip(string? leader, IReadOnlyList<string> cardIds)
+    {
+        _tipCards ??= GameData.LoadCards();
+        _tipLeaders ??= GameData.LoadLeaders();
+        var sb = new System.Text.StringBuilder();
+        if (leader != null && _tipLeaders.TryGet(leader, out var ld))
+            sb.AppendLine($"领袖:{ld.Name}");
+        var known = cardIds.Where(id => _tipCards.TryGet(id, out _))
+            .GroupBy(id => id)
+            .Select(g => (Def: _tipCards.Get(g.Key), Count: g.Count()))
+            .OrderBy(x => x.Def.Cost).ThenBy(x => x.Def.Name, System.StringComparer.Ordinal);
+        foreach (var (def, count) in known)
+            sb.AppendLine($"{count}× {def.Name}({def.Cost}费)");
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string BuiltinDeckTip(string deckId)
+    {
+        var d = GameData.LoadDecks().FirstOrDefault(x => x.Id == deckId);
+        return d is null ? "" : DeckTip(d.Leader, d.Expand());
     }
 
     /// <summary>Resolve a lobby deck id to its flat card list: a built-in preconstructed deck, else a saved
@@ -373,18 +584,29 @@ public partial class MenuScene : Control
 
     // ---------- vs-AI setup (docs/12 C1+C3): my deck × difficulty × opponent, one panel ----------
 
-    private string _vsAiMyDeck = "iron_wall";               // built-in id, or "local:<StoredDeck.Id>"
+    private string _vsAiMyDeck = "";                        // resolved on panel open: last used → newest edited → first
     private AiLevel _vsAiLevel = AiLevel.Hard;
     private string _vsAiOppDeck = "random";                 // "random", a built-in id, or "local:<id>"
 
-    /// <summary>Options for a deck grid: the four built-ins then the player's local decks.</summary>
-    private static List<(string Key, string Label, Color Color)> DeckGridOptions(bool withRandom)
+    /// <summary>Options for a deck grid: the player's local decks first, then the four built-ins.</summary>
+    private static List<(string Key, string Label, Color Color, string Tip)> DeckGridOptions(bool withRandom)
     {
-        var opts = new List<(string Key, string Label, Color Color)>();
-        if (withRandom) opts.Add(("random", "随机对手", BattleTheme.Accent));
-        foreach (var d in DeckOptions) opts.Add((d.Id, d.Label, d.Color));
-        foreach (var d in DeckStorage.LoadAll()) opts.Add(($"local:{d.Id}", d.Name, FactionTint(d.Faction)));
+        var opts = new List<(string Key, string Label, Color Color, string Tip)>();
+        if (withRandom) opts.Add(("random", "随机对手", BattleTheme.Accent, "按难度随机挑一套对手卡组"));
+        foreach (var d in DeckStorage.LoadAll()) opts.Add(($"local:{d.Id}", d.Name, FactionTint(d.Faction), DeckTip(d.Leader, d.CardIds)));
+        foreach (var d in DeckOptions) opts.Add((d.Id, d.Label, d.Color, BuiltinDeckTip(d.Id)));
         return opts;
+    }
+
+    /// <summary>Default vs-AI deck when nothing is selected yet: last used → newest-edited local → first.</summary>
+    private static string DefaultVsAiDeck(List<(string Key, string Label, Color Color, string Tip)> opts)
+    {
+        string last = Prefs.LastVsAiDeck;
+        if (opts.Any(o => o.Key == last))
+            return last;
+        if (DeckStorage.NewestEdited() is { } newest && opts.Any(o => o.Key == $"local:{newest.Id}"))
+            return $"local:{newest.Id}";
+        return opts[0].Key;
     }
 
     private void ShowVsAiPanel(StoredDeck? preselect = null)
@@ -397,7 +619,7 @@ public partial class MenuScene : Control
         // 1) my deck
         PanelLabel(p, "我的卡组", 112, 22, BattleTheme.Accent);
         var myOpts = DeckGridOptions(withRandom: false);
-        if (myOpts.All(o => o.Key != _vsAiMyDeck)) _vsAiMyDeck = myOpts[0].Key; // preselect deleted → fall back
+        if (myOpts.All(o => o.Key != _vsAiMyDeck)) _vsAiMyDeck = DefaultVsAiDeck(myOpts); // first open / deleted → fall back
         DeckGrid(p, new Vector2(Cx, 146), new Vector2(620, 150), myOpts, () => _vsAiMyDeck, k => _vsAiMyDeck = k);
 
         // 2) difficulty
@@ -426,7 +648,7 @@ public partial class MenuScene : Control
 
     /// <summary>A scrollable two-column grid of selectable deck buttons; the selected key highlights.</summary>
     private void DeckGrid(Control parent, Vector2 pos, Vector2 size,
-        List<(string Key, string Label, Color Color)> opts, System.Func<string> get, System.Action<string> set)
+        List<(string Key, string Label, Color Color, string Tip)> opts, System.Func<string> get, System.Action<string> set)
     {
         var scroll = new ScrollContainer { Position = pos, Size = size };
         scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
@@ -442,6 +664,7 @@ public partial class MenuScene : Control
             var o = opts[i];
             var b = BattleTheme.MakeButton(new Vector2((i % 2) * 300, (i / 2) * 66), new Vector2(288, 58), BattleTheme.PanelDark, BattleTheme.Accent, 1, 8);
             b.Text = o.Label; b.AddThemeFontSizeOverride("font_size", 20); b.ClipText = true;
+            b.TooltipText = o.Tip;
             b.Pressed += () => { set(o.Key); repaint(); };
             inner.AddChild(b);
             btns[i] = b;
@@ -462,6 +685,7 @@ public partial class MenuScene : Control
 
     private void StartVsAiMatch()
     {
+        Prefs.LastVsAiDeck = _vsAiMyDeck; // preselect it next time the panel opens
         var (hb, hc, hl) = ResolveVsAiDeck(_vsAiMyDeck);
         // Random opponent is resolved to a concrete built-in now (the panel doesn't reveal which — you see it in-match).
         string oppKey = _vsAiOppDeck == "random" ? AiDeckPool.PickRandom(_vsAiLevel) : _vsAiOppDeck;
@@ -505,7 +729,7 @@ public partial class MenuScene : Control
 
     private Control DeckManagerRow(StoredDeck d, Label status)
     {
-        var row = new Panel { CustomMinimumSize = new Vector2(1140, 72) };
+        var row = new Panel { CustomMinimumSize = new Vector2(1140, 72), TooltipText = DeckTip(d.Leader, d.CardIds) };
         row.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.PanelDark, FactionTint(d.Faction), 2, 10));
 
         var name = BattleTheme.MakeOutlinedLabel(d.Name, 24, BattleTheme.TextMain);
@@ -531,7 +755,7 @@ public partial class MenuScene : Control
         Act("改名", 110, BattleTheme.PanelDark, () => PromptRename(d));
         Act("复制", 110, BattleTheme.PanelDark, () =>
         {
-            DeckStorage.Save(d with { Id = DeckStorage.NewId(), Name = d.Name + " 副本", ServerId = null });
+            DeckStorage.Save(d with { Id = DeckStorage.NewId(), Name = DeckStorage.UniqueName(d.Name + " 副本"), ServerId = null });
             ShowDeckManager();
         });
         Act("口令", 110, BattleTheme.PanelDark, () =>
@@ -601,7 +825,7 @@ public partial class MenuScene : Control
             DeckStorage.Save(new StoredDeck
             {
                 Id = DeckStorage.NewId(),
-                Name = "导入的卡组",
+                Name = DeckStorage.UniqueName("导入的卡组"),
                 Faction = faction,
                 Leader = p2.Leader,
                 CardIds = p2.Cards.ToList(),
@@ -621,6 +845,7 @@ public partial class MenuScene : Control
         p.AddChild(Btn("确定", new Vector2(Cx, 560), new Vector2(290, 64), () =>
         {
             string name = string.IsNullOrWhiteSpace(field.Text) ? d.Name : field.Text.Trim();
+            name = DeckStorage.UniqueName(name, excludeId: d.Id);
             DeckStorage.Save(d with { Name = name });
             if (Session.Connected && !string.IsNullOrEmpty(d.ServerId))
                 _ = Session.SendAsync(new SaveDeck { DeckId = d.ServerId, Name = name, Leader = d.Leader, CardIds = d.CardIds });

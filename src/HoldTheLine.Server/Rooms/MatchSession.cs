@@ -193,6 +193,13 @@ public sealed class MatchSession
     public void Reattach(int seat, ClientConnection conn) =>
         _inbox.Writer.TryWrite(new Envelope(Signal.Reattach, seat, null, conn, null, 0));
 
+    /// <summary>Forfeit a seat from outside the pump. Used when a player starts a NEW match activity
+    /// (queue / room) while this match is still live: the loss must settle HERE and NOW — left running,
+    /// this session's eventual timeout/abandon forfeit would be pushed down the same lobby socket into
+    /// the middle of the player's next match.</summary>
+    public void Forfeit(int seat, string reason) =>
+        _inbox.Writer.TryWrite(new Envelope(Signal.Forfeit, seat, null, null, reason, 0));
+
     public void Stop()
     {
         _inbox.Writer.TryComplete();

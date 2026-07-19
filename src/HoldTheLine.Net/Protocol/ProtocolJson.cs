@@ -10,7 +10,11 @@ public static class ProtocolConstants
     /// v3 (M3 收尾): <see cref="DeckSummary"/> carries leader + card_ids so saved decks are editable client-side.
     /// v4 (docs/11): 起手重抽 — MulliganCommand rides SubmitCommand (no new C→S message); match_started /
     /// resync_ok carry MulliganSecondsLeft.
-    /// v5 (docs/12 B1): 注册/登录 — Register / Login (C→S) + AuthOk (S→C); auth failures reuse ErrorMsg.</summary>
+    /// v5 (docs/12 B1): 注册/登录 — Register / Login (C→S) + AuthOk (S→C); auth failures reuse ErrorMsg.
+    /// docs/15 §2 (2026-07-19): Hello gained the optional <c>ClientVersion</c> field. Deliberately NOT a
+    /// version bump — it is null-skipped and both directions tolerate its absence (old server ignores the
+    /// unknown property, new server treats a missing value as "0.0.0"), so the soft update-gate can roll
+    /// out without hard-rejecting the currently deployed v5 clients.</summary>
     public const int ProtocolVersion = 5;
 }
 

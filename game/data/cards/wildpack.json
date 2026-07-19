@@ -35,7 +35,7 @@
 	"atk": 2,
 	"hp": 2,
 	"keywords": [{ "keyword": "swift", "value": 2 }, { "keyword": "pack_tactics" }],
-	"text": "疾行 2,围猎(攻击一个与你另一友方相邻的敌方随从时,伤害 +1)。",
+	"text": "疾行 2,围猎(攻击一个与你另一友方相邻的敌方随从时,伤害 +2)。",
 	"art_prompt": "a mounted flanker wheeling around the side, war-paint streaks"
   },
   {
@@ -48,7 +48,7 @@
 	"atk": 3,
 	"hp": 2,
 	"keywords": [{ "keyword": "charge" }, { "keyword": "pack_tactics" }],
-	"text": "冲锋,围猎(攻击一个与你另一友方相邻的敌方随从时,伤害 +1)。",
+	"text": "冲锋,围猎(攻击一个与你另一友方相邻的敌方随从时,伤害 +2)。",
 	"art_prompt": "a feral orc raider mid-leap swinging a jagged axe"
   },
   {
@@ -125,8 +125,8 @@
 	"cost": 5,
 	"atk": 4,
 	"hp": 5,
-	"keywords": [{ "keyword": "swift", "value": 2 }, { "keyword": "leap" }],
-	"text": "疾行 2,跃障(可跨过随从跳跃 2 格)。",
+	"keywords": [{ "keyword": "swift", "value": 1 }, { "keyword": "leap" }],
+	"text": "疾行 1,跃障(可跨过随从跳跃 2 格)。",
 	"art_prompt": "a long-limbed leaping beast vaulting clean over a soldier, rift-light trailing"
   },
   {
@@ -152,7 +152,7 @@
 	"atk": 6,
 	"hp": 6,
 	"keywords": [{ "keyword": "charge" }, { "keyword": "trample" }, { "keyword": "pack_tactics" }],
-	"text": "冲锋,践踏,围猎。落地,冲锋,踏穿,占位。",
+	"text": "冲锋,践踏,围猎。落地,冲锋,大地为之震颤。",
 	"art_prompt": "a towering warlord beast-king with a crown of tusks, pack surging at his heels"
   },
   {
@@ -216,7 +216,7 @@
 		"atk": 1
 	  }
 	],
-	"text": "移动后:本随从 +1/+0。",
+	"text": "移动后:本随从 +1/+0(每回合最多 2 次)。",
 	"art_prompt": "a young wolf-pup nose to the ground following a scent trail, ears perked"
   },
   {
@@ -437,7 +437,7 @@
 		"atk": 2
 	  }
 	],
-	"text": "疾行 3。移动后:本随从 +2/+0。",
+	"text": "疾行 3。移动后:本随从 +2/+0(每回合最多 2 次)。",
 	"art_prompt": "a spectral pale wolf blurring across the wilds, half-mist, glowing eyes, impossibly fast"
   },
   {
@@ -486,7 +486,7 @@
 		"atk": 2
 	  }
 	],
-	"text": "偷袭,疾行 2。移动后:本随从 +2/+0。月影之下,一击封喉。",
+	"text": "偷袭,疾行 2。移动后:本随从 +2/+0(每回合最多 2 次)。月影之下,一击封喉。",
 	"art_prompt": "a moonlit huntress-wolf spirit with silver-tipped fur, leaping under a full moon, deadly grace"
   }
 ]

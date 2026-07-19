@@ -16,6 +16,9 @@ namespace HoldTheLine.Rules.Engine;
 /// </summary>
 public sealed class Resolver
 {
+    /// <summary>Per-unit per-turn ceiling on self_moved ATK gains (0.6.0 speed-flow rein-in).</summary>
+    internal const int SelfMovedAtkGainCap = 2;
+
     private readonly CardDatabase _db;
     private readonly LeaderDatabase _leaders;
 
@@ -98,7 +101,11 @@ public sealed class Resolver
             return new RuleError(RuleErrorCode.NotHomeRow, "Units deploy on your home row (GDD §2.3).");
         if (ctx.State.UnitAt(cell) != null)
             return new RuleError(RuleErrorCode.CellOccupied, $"{cell} is occupied.");
-        if (EffectEngine.ValidateTargets(ctx, cmd.Seat, def.Effects, "battlecry", cmd.TargetUnitId, cmd.TargetCell) is { } targetError)
+        // 先上随从再判战吼: a target-needing battlecry (e.g. "+2 HP to another ally") does NOT block the
+        // deploy when the board has no legal target — the unit lands and the battlecry fizzles. RunTrigger
+        // below resolves it after the unit is on the board (docs/07; empty-board deploy fix).
+        if (EffectEngine.ValidateTargets(ctx, cmd.Seat, def.Effects, "battlecry", cmd.TargetUnitId, cmd.TargetCell,
+                allowFizzleWhenNoTarget: true) is { } targetError)
             return targetError;
 
         player.Mana -= def.Cost;
@@ -139,7 +146,10 @@ public sealed class Resolver
 
         player.Mana -= def.Cost;
         player.Hand.Remove(card);
-        player.Graveyard.Add(def.Id);
+        // Token orders (军令硬币) are removed from the game instead of hitting the graveyard — otherwise
+        // recall_order (火种循环) could fish the 0-cost coin back for endless order-trigger fuel (0.5.0).
+        if (def.Rarity != Rarity.Token)
+            player.Graveyard.Add(def.Id);
 
         ctx.Emit(new CardPlayedEvent { Seat = cmd.Seat, CardEntityId = card.EntityId, CardId = def.Id, ManaSpent = def.Cost });
         EffectEngine.RunTrigger(ctx, source: null, cmd.Seat, def.Effects, "play", cmd.TargetUnitId, cmd.TargetCell);
@@ -193,9 +203,18 @@ public sealed class Resolver
         if (ctx.State.FindUnit(unit.EntityId) is { } moved)
         {
             var def = ctx.Db.Get(moved.CardId);
-            if (def.Effects.Any(e => e.Trigger == "self_moved"))
+            var selfMoved = def.Effects.Where(e => e.Trigger == "self_moved").ToList();
+            // 移动加攻上限 (0.6.0): a unit's self_moved ATK gains fire at most twice per turn — the third+
+            // step still moves (and still fires non-atk payoffs like the move-ping), it just stops stacking
+            // attack. Reins in the 疾行3/移动+2攻 snowball without touching movement itself.
+            bool atkGain = selfMoved.Any(e => e.Action == "buff" && e.Atk > 0);
+            if (atkGain && moved.SelfMovedAtkGainsThisTurn >= SelfMovedAtkGainCap)
+                selfMoved = selfMoved.Where(e => !(e.Action == "buff" && e.Atk > 0)).ToList();
+            else if (atkGain)
+                moved.SelfMovedAtkGainsThisTurn++;
+            if (selfMoved.Count > 0)
             {
-                EffectEngine.RunTrigger(ctx, moved, moved.OwnerSeat, def.Effects, "self_moved", targetUnitId: null);
+                EffectEngine.RunTrigger(ctx, moved, moved.OwnerSeat, selfMoved, "self_moved", targetUnitId: null);
                 ctx.CheckGameEnd();
             }
         }
@@ -278,15 +297,28 @@ public sealed class Resolver
             && !attacker.HasKeyword(Keyword.CheapShot)
             && ReachesCell(target, attacker.Cell);
         // 围猎 (PackTactics): melee attacks on flanked prey — another friendly unit adjacent to the
-        // target — deal +1 damage. Speed buys the surround; the surround buys the kill.
+        // target — deal +2 damage. Speed buys the surround; the surround buys the kill.
         bool packFlank = range == 0
             && attacker.HasKeyword(Keyword.PackTactics)
             && BoardGeometry.AdjacentCells(target.Cell)
                 .Select(ctx.State.UnitAt)
                 .Any(u => u != null && u.OwnerSeat == cmd.Seat && u.EntityId != attacker.EntityId);
-        ctx.DamageUnit(target, attacker.Atk + (packFlank ? 1 : 0));
+        ctx.DamageUnit(target, attacker.Atk + (packFlank ? 2 : 0));
         if (retaliates)
             ctx.DamageUnit(attacker, target.Atk);
+
+        // 践踏 (Trample): a melee attack shakes the ground — every unit adjacent to the target's cell,
+        // friend or foe (the attacker excepted), takes the attacker's Atk as well. No retaliation from
+        // splash victims; simultaneous with the main strike (deaths sweep together below).
+        if (range == 0 && attacker.HasKeyword(Keyword.Trample))
+        {
+            foreach (var bystander in BoardGeometry.AdjacentCells(target.Cell)
+                         .Select(ctx.State.UnitAt)
+                         .Where(u => u != null && u.EntityId != attacker.EntityId))
+            {
+                ctx.DamageUnit(bystander!, attacker.Atk);
+            }
+        }
 
         // 贯穿 (Pierce): a ranged shot along a straight line (attacker and target share a row/column)
         // also strikes the cell one step directly behind the target — friend or foe, equal damage, no
@@ -299,27 +331,7 @@ public sealed class Resolver
             ctx.DamageUnit(behindUnit, attacker.Atk);
         }
 
-        bool targetDied = target.CurrentHp <= 0;
-        var vacated = target.Cell;
         ctx.ProcessDeaths();
-
-        // 践踏: melee kill + attacker survived + opted in + the cell is still free.
-        if (targetDied
-            && range == 0
-            && cmd.OccupyCellOnKill
-            && attacker.HasKeyword(Keyword.Trample)
-            && attacker.CurrentHp > 0
-            && ctx.State.FindUnit(attacker.EntityId) != null
-            && ctx.State.UnitAt(vacated) is null)
-        {
-            var from = attacker.Cell;
-            attacker.Cell = vacated;
-            attacker.MovedThisRound = true; // occupying counts as movement for 坚守
-            ctx.Emit(new UnitMovedEvent { UnitEntityId = attacker.EntityId, From = from, To = vacated });
-            ctx.RecomputeGarrison(attacker); // trampling forward leaves the home row
-            ctx.ProcessDeaths();
-        }
-
         ctx.CheckGameEnd();
         return null;
     }

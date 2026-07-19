@@ -24,6 +24,7 @@ public partial class BattleScene : Control
 	private LocalGameHost? _localHost;   // set for hotseat / vs-AI (SuggestCommand lives here)
 	private RemoteGameHost? _remoteHost; // set for online (the shared Session's match host)
 	private bool _onlineReady;           // match_started applied and local seat known
+	private bool _connFailed;            // reconnect permanently failed — a concede can no longer settle the match
 	private System.Action<ConnectionState>? _connHandler; // stored so it can be unhooked from the persistent client
 	private System.Action<RatingChange>? _ratingHandler;  // ranked ELO delta pushed post-match (C3); unhooked on exit
 	private RatingChange? _ratingChange; // latest rating_change (may arrive before or after the win overlay)
@@ -33,7 +34,7 @@ public partial class BattleScene : Control
 	private readonly Button[,] _cellButtons = new Button[BattleTheme.Cols, BattleTheme.Rows];
 	private readonly Dictionary<int, Button> _standees = new();
 	private readonly HashSet<int> _emplacementUnits = new(); // entityIds of 架设 units — drives the "架设 +1" effect-damage tag
-	private Button _oppLeaderBtn = null!, _endTurnBtn = null!, _leaderPowerBtn = null!;
+	private Button _oppLeaderBtn = null!, _endTurnBtn = null!, _leaderPowerBtn = null!, _cancelBtn = null!;
 	private Label _turnLabel = null!, _oppInfo = null!, _selfInfo = null!, _logLabel = null!;
 	private Panel _detailPanel = null!; // left-side card inspector (click a piece to show it)
 
@@ -86,6 +87,15 @@ public partial class BattleScene : Control
 	private List<Command> _candidates = new();
 	private Cell? _chosenCell;
 	private bool _crossPreview; // true while aiming a 十字 AOE order (cell_cross_all) — hover shows the footprint
+
+	// The hand card whose effect is currently being aimed — lifted + enlarged so the player never loses
+	// track of "which card am I resolving" while picking a target (paired with the 取消 button).
+	private readonly Dictionary<int, Button> _handCards = new(); // entityId → hand card button (rebuilt each RenderHand)
+	private Button? _liftedCard; // the node currently lifted; tracked separately so a transient un-lift keeps the model
+	// Which hand card is selected — DERIVED, never stored: every Card-kind candidate is a PlayCardCommand for the
+	// same card. Deriving it means a transient un-lift (mid-drag, a _busy pulse) can never forget it (review fix).
+	private int? SelectedCardId =>
+		_selKind == SelKind.Card && _candidates.FirstOrDefault() is PlayCardCommand p ? p.CardEntityId : null;
 
 	// Hand layout: cards nearly fill the hand strip; the leader panel stacks vertically on the left.
 	private static readonly Vector2 HandCardSize = new(196, 280);
@@ -311,6 +321,15 @@ public partial class BattleScene : Control
 		_endTurnBtn.Pressed += OnEndTurn;
 		_hudLayer.AddChild(_endTurnBtn);
 
+		// 取消: back out of a card/unit/leader selection (also bound to Esc). Hidden until something is
+		// being aimed — sits just above 结束回合, clear of the hand strip.
+		_cancelBtn = BattleTheme.MakeButton(new Vector2(1600, 752), new Vector2(260, 74), BattleTheme.PanelDark, BattleTheme.DangerColor, 2, 12);
+		_cancelBtn.Text = "✕ 取消 (Esc)";
+		_cancelBtn.AddThemeFontSizeOverride("font_size", 24);
+		_cancelBtn.Visible = false;
+		_cancelBtn.Pressed += OnCancelSelection;
+		_hudLayer.AddChild(_cancelBtn);
+
 		// Log sits between board and hand (bigger hand cards now cover the old bottom slot).
 		_logLabel = BattleTheme.MakeOutlinedLabel("", 20, BattleTheme.TextDim, HorizontalAlignment.Center);
 		_logLabel.Position = new Vector2(360, 752);
@@ -429,6 +448,7 @@ public partial class BattleScene : Control
 		HideCardPreview();
 		foreach (Node c in _handLayer.GetChildren())
 			c.QueueFree();
+		_handCards.Clear();
 
 		var hand = view.Self.Hand;
 		int n = hand.Count;
@@ -445,16 +465,21 @@ public partial class BattleScene : Control
 			bool isOrder = def.Type != CardType.Unit;
 			var pos = new Vector2(startX + i * spacing, HandY);
 			// Border color doubles as the card-type cue: faction color = unit, 辉尘 teal = order.
-			var card = BattleTheme.MakeButton(pos, HandCardSize, BattleTheme.PanelDark,
-				isOrder ? BattleTheme.Accent : FactionColor(def.Faction), 3, 10);
+			var border = isOrder ? BattleTheme.Accent : FactionColor(def.Faction);
+			var card = BattleTheme.MakeButton(pos, HandCardSize, BattleTheme.PanelDark, border, 3, 10);
 			int id = ch.EntityId;
 			float cardX = pos.X;
+			card.PivotOffset = HandCardSize / 2f;          // lift/scale the selected card about its centre
+			card.SetMeta("basePos", pos);                  // restored by ClearCardHighlight
+			card.SetMeta("border", border);                // the card-type cue, re-applied after de-selecting
 			card.ButtonDown += () => BeginCardDrag(id); // tap = select, drag = play (see _Input/EndCardDrag)
 			card.MouseEntered += () => ShowCardPreview(def, cardX);
 			card.MouseExited += HideCardPreview;
 			card.AddChild(BuildCardVisual(def, HandCardSize, compact: true));
 			_handLayer.AddChild(card);
+			_handCards[id] = card;
 		}
+		_liftedCard = null; // the old lifted node was just freed; the new nodes start un-lifted
 	}
 
 	// ---------- card visuals (shared by hand cards and the hover preview) ----------
@@ -700,6 +725,7 @@ public partial class BattleScene : Control
 		IReadOnlyList<Command> legal = canAct ? _host.LegalCommands(ActiveSeat) : [];
 		_leaderPowerBtn.Disabled = !canAct || !legal.Any(c => c is UseLeaderSkillCommand);
 		_leaderPowerBtn.Visible = LeaderSkillText(view.Self.LeaderId).Length > 0;
+		RefreshSelectionUi(); // keep 取消 / card-lift consistent whenever _busy or the turn changes
 	}
 
 	// ---------- selection ----------
@@ -711,6 +737,61 @@ public partial class BattleScene : Control
 		_chosenCell = null;
 		_crossPreview = false;
 		ClearHighlights();
+		RefreshSelectionUi(); // SelectedCardId now derives to null → hides 取消 and drops the card lift
+	}
+
+	/// <summary>Reconcile the transient selection UI — the 取消 button's visibility and the lifted/enlarged
+	/// "card in play" highlight — with the current selection. Called wherever a selection settles or clears.
+	/// Skipped while a card is being dragged (the drag ghost already shows which card is in flight).</summary>
+	private void RefreshSelectionUi()
+	{
+		if (_cancelBtn is null) return; // HUD not built yet
+		bool active = _selKind != SelKind.None && !_busy && _dragCardId is null;
+		_cancelBtn.Visible = active;
+		if (active && SelectedCardId is { } id)
+			HighlightSelectedCard(id);
+		else
+			ClearCardHighlight();
+	}
+
+	// item: 高亮当前生效卡 — pull the selected hand card half-out, enlarge it, and ring it in accent so a
+	// mid-target-pick player can't misread which card's effect they are resolving.
+	private void HighlightSelectedCard(int cardEntityId)
+	{
+		if (!_handCards.TryGetValue(cardEntityId, out var card) || !IsInstanceValid(card))
+		{
+			ClearCardHighlight();
+			return;
+		}
+		if (ReferenceEquals(_liftedCard, card)) return; // already lifted — idempotent, avoids restyle thrash
+		ClearCardHighlight();                            // drop any previously-lifted card first
+		card.SetMeta("baseIndex", card.GetIndex());      // restore draw/hit order on de-select (overlapping hands)
+		var basePos = (Vector2)card.GetMeta("basePos");
+		card.Position = basePos - new Vector2(0, 96); // 抽出半截
+		card.Scale = new Vector2(1.18f, 1.18f);        // 变大
+		card.MoveToFront();                            // above its hand neighbours (still under the HUD layer)
+		BattleTheme.SetButtonBg(card, BattleTheme.PanelDark, BattleTheme.Accent, 6, 10); // 高亮描边
+		_liftedCard = card;
+	}
+
+	private void ClearCardHighlight()
+	{
+		if (_liftedCard is { } card && IsInstanceValid(card))
+		{
+			card.Position = (Vector2)card.GetMeta("basePos");
+			card.Scale = Vector2.One;
+			BattleTheme.SetButtonBg(card, BattleTheme.PanelDark, (Color)card.GetMeta("border"), 3, 10);
+			if (card.GetParent() is { } parent) parent.MoveChild(card, (int)card.GetMeta("baseIndex")); // undo MoveToFront
+		}
+		_liftedCard = null;
+	}
+
+	private void OnCancelSelection()
+	{
+		if (_selKind == SelKind.None) return;
+		_sfx.Play("button");
+		ClearSelection();
+		Log("已取消。");
 	}
 
 	// 友伤确认 (docs/07 X3.2): while aiming a 十字 AOE order, hovering a legal cell previews the whole
@@ -796,6 +877,7 @@ public partial class BattleScene : Control
 		{ Submit(_candidates[0]); return; }
 
 		HighlightCardCandidates();
+		RefreshSelectionUi(); // lift the card + show 取消 (skipped mid-drag; re-applied once the drag drops)
 	}
 
 	private void HighlightCardCandidates()
@@ -845,6 +927,7 @@ public partial class BattleScene : Control
 		_chosenCell = null;
 		ClearHighlights();
 		HighlightUnit(entityId);
+		RefreshSelectionUi(); // a selected unit can also be backed out of with 取消
 
 		if (_candidates.Count == 0) { Log("这个随从本回合无法行动。"); return; }
 		foreach (var cmd in _candidates)
@@ -863,6 +946,7 @@ public partial class BattleScene : Control
 		_candidates = filtered;
 		ClearHighlights();
 		HighlightCardCandidates();
+		RefreshSelectionUi();
 		return true;
 	}
 
@@ -902,6 +986,7 @@ public partial class BattleScene : Control
 		_chosenCell = cell;
 		ClearHighlights();
 		HighlightCardCandidates();
+		RefreshSelectionUi(); // after a drag-drop this is where the lift + 取消 first appear
 	}
 
 	private void OnLeaderClicked(int leaderSeat) => PickLeader();
@@ -928,6 +1013,7 @@ public partial class BattleScene : Control
 		if (_candidates.Count == 1 && CellOf(_candidates[0]) is null && UnitOf(_candidates[0]) is null)
 		{ Submit(_candidates[0]); return; }
 		HighlightCardCandidates();
+		RefreshSelectionUi(); // leader skill is aiming — offer 取消
 	}
 
 	private void OnEndTurn()
@@ -943,7 +1029,11 @@ public partial class BattleScene : Control
 	{
 		if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
 		{
-			ToggleGameMenu(); // open/close the in-match menu (继续 / 查看牌组 / 投降 / 返回菜单)
+			GetViewport().SetInputAsHandled(); // consume Esc so it can't also reach a focused overlay button
+			// Priority: an open menu closes first; else back out of an active aim; else open the menu.
+			if (_gameMenu is { } m && GodotObject.IsInstanceValid(m)) { ToggleGameMenu(); return; }
+			if (_selKind != SelKind.None && !_busy && _dragCardId is null) { OnCancelSelection(); return; }
+			ToggleGameMenu(); // open the in-match menu (继续 / 查看牌组 / 投降 / 返回菜单)
 			return;
 		}
 		if (_dragCardId is null)
@@ -1198,10 +1288,12 @@ public partial class BattleScene : Control
 				SetConn("与服务器断线,重连中…");
 				break;
 			case ConnectionState.Connected when _onlineReady:
+				_connFailed = false;
 				SetConn("");
 				_busy = false; RefreshInteractable();
 				break;
 			case ConnectionState.Failed:
+				_connFailed = true; // unlocks LeaveAsConcede's direct exit — a concede can no longer land
 				_busy = true; RefreshInteractable();
 				SetConn("连接已断开,无法重连。Esc 返回菜单。");
 				break;
@@ -1886,7 +1978,48 @@ public partial class BattleScene : Control
 		Row("查看牌组", BattleTheme.PanelDark, ShowDeckList);
 		var surrender = Row("投降", BattleTheme.PanelDark, ConfirmSurrender);
 		surrender.Disabled = over; // nothing to surrender once the match has ended
-		Row("返回菜单", BattleTheme.PanelDark, () => { CloseGameMenu(); GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn"); });
+		Row("返回菜单", BattleTheme.PanelDark, () =>
+		{
+			if (_online && !over) { ConfirmLeaveOnline(); return; }
+			CloseGameMenu();
+			GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn");
+		});
+	}
+
+	/// <summary>返回菜单 mid-online-match: "离开 = 投降 = 看结算". The red 离开 concedes and STAYS in the
+	/// scene — GameEnded flows through the pump to the win overlay, and the player leaves from there like
+	/// any other finished match. No bypass path exists: the match always settles before the menu is
+	/// reachable, so no server-side clock forfeit can chase the player into their next game on the shared
+	/// lobby socket (the "sudden loss next match" bug).</summary>
+	private void ConfirmLeaveOnline()
+	{
+		var panel = NewMenuOverlay(new Vector2(480, 360));
+
+		var q = BattleTheme.MakeOutlinedLabel("还在对局中", 40, BattleTheme.DangerColor, HorizontalAlignment.Center);
+		q.Position = new Vector2(0, 60); q.Size = new Vector2(480, 60);
+		panel.AddChild(q);
+		var sub = BattleTheme.MakeLabel("如果返回将会视为投降输掉对局,是否继续?", 22, BattleTheme.TextDim, HorizontalAlignment.Center);
+		sub.Position = new Vector2(0, 132); sub.Size = new Vector2(480, 36);
+		panel.AddChild(sub);
+
+		var yes = BattleTheme.MakeButton(new Vector2(56, 220), new Vector2(180, 88), BattleTheme.DangerColor, BattleTheme.Accent, 2, 12);
+		yes.Text = "离开"; yes.AddThemeFontSizeOverride("font_size", 28);
+		yes.Pressed += () => { _sfx.Play("button"); CloseGameMenu(); LeaveAsConcede(); };
+		panel.AddChild(yes);
+		var no = BattleTheme.MakeButton(new Vector2(244, 220), new Vector2(180, 88), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12);
+		no.Text = "取消"; no.AddThemeFontSizeOverride("font_size", 28);
+		no.Pressed += () => { _sfx.Play("button"); ShowGameMenu(); };
+		panel.AddChild(no);
+	}
+
+	/// <summary>The 离开 action: concede, then wait in place for the settlement overlay (sub-second on a
+	/// live connection — same path as 投降). Dead-socket escape hatch: once reconnect has permanently
+	/// failed the concede can never reach the server NOR can GameEnded come back, so leave directly and
+	/// let the server's new-match guard settle the forfeit — otherwise the player is locked in the scene.</summary>
+	private void LeaveAsConcede()
+	{
+		if (_connFailed) { GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn"); return; }
+		ConcedeMatch();
 	}
 
 	private void ConfirmSurrender()
@@ -2508,12 +2641,12 @@ public partial class BattleScene : Control
 		Keyword.Range => "可攻击 N 步(横纵相加)内的任意敌人,越过其他随从;仅当目标能反击到你(在其射程/相邻内)时才吃反击。",
 		Keyword.Guard => "与其相邻的敌方随从必须优先攻击它。",
 		Keyword.HoldFast => "本回合未移动时,受到的伤害 -1。",
-		Keyword.Trample => "近战消灭敌方随从后,可立即占据其空出的格子。",
+		Keyword.Trample => "近战攻击时,对目标周围相邻的所有单位(含友方)也造成等量伤害。",
 		Keyword.CheapShot => "近战攻击不受反击。",
 		Keyword.Shield => "免疫下一次受到的伤害。",
 		Keyword.Garrison => "位于己方底线行时 +1/+1。",
 		Keyword.Leap => "移动时可跨过一个随从,直线跳跃 2 格。",
-		Keyword.PackTactics => "近战攻击一个与你另一友方相邻的敌人时,伤害 +1。",
+		Keyword.PackTactics => "近战攻击一个与你另一友方相邻的敌人时,伤害 +2。",
 		Keyword.Hidden => "不能被选为目标,直到它造成伤害。",
 		Keyword.Emplacement => "架设:不能移动;受到指令/技能/战吼等效果伤害 +1(普通攻击不加)。",
 		Keyword.Pierce => "贯穿:远程攻击时,同时对目标正后方一格的随从(不分敌我)造成等额伤害。",

@@ -114,6 +114,33 @@ public sealed class RoomManager(ServerOptions opts, GameContent content, DeckSou
         conn.Room = null;
     }
 
+    /// <summary>Settle-and-detach whatever room this connection is still bound to, called before it
+    /// enters the queue or creates/joins a room. A LIVE match is forfeited as a concede (the client
+    /// quit to the menu without conceding — old builds did exactly that): settling it immediately is
+    /// what stops its later timeout forfeit from landing mid-way through the player's NEXT match on
+    /// this same socket. A waiting or finished room is simply cleaned up.</summary>
+    public void AbandonForNewMatch(ClientConnection conn)
+    {
+        if (conn.Room is not { } room)
+            return;
+
+        if (!room.Started)
+        {
+            if (room.RemoveIfWaiting(conn))
+                _rooms.TryRemove(room.Code, out _);
+        }
+        else if (room.Session is { IsOver: false } session)
+        {
+            if (room.Contains(conn))
+                session.Forfeit(conn.Seat, "concede");
+        }
+        else
+        {
+            DiscardRoom(room);
+        }
+        conn.Room = null;
+    }
+
     private void DiscardRoom(Room room)
     {
         room.Teardown();

@@ -15,6 +15,7 @@ public sealed record StoredDeck
     public required string Leader { get; init; }
     public required List<string> CardIds { get; init; }
     public string? ServerId { get; init; }            // set once the server has a copy
+    public long UpdatedAt { get; init; }              // unix seconds of the last save (0 on pre-existing files)
 }
 
 /// <summary>
@@ -44,14 +45,38 @@ public static class DeckStorage
         }
     }
 
-    /// <summary>Upsert by <see cref="StoredDeck.Id"/> and persist. Returns the full list after the write.</summary>
+    /// <summary>Upsert by <see cref="StoredDeck.Id"/> and persist (stamping <see cref="StoredDeck.UpdatedAt"/>).
+    /// Returns the full list after the write.</summary>
     public static List<StoredDeck> Save(StoredDeck deck)
     {
+        deck = deck with { UpdatedAt = System.DateTimeOffset.UtcNow.ToUnixTimeSeconds() };
         var all = LoadAll();
         int i = all.FindIndex(d => d.Id == deck.Id);
         if (i >= 0) all[i] = deck; else all.Add(deck);
         Persist(all);
         return all;
+    }
+
+    /// <summary>The most recently saved deck, or null when the library is empty — the default pick when
+    /// no match has been played yet.</summary>
+    public static StoredDeck? NewestEdited() => LoadAll().OrderByDescending(d => d.UpdatedAt).FirstOrDefault();
+
+    /// <summary>
+    /// A deck name no other deck (excluding <paramref name="excludeId"/>) already uses. If
+    /// <paramref name="desired"/> is taken, its trailing digits are treated as a counter and bumped
+    /// until free: 我的卡组1 → 我的卡组2 → 我的卡组3; 狂猎快攻 → 狂猎快攻2.
+    /// </summary>
+    public static string UniqueName(string desired, string? excludeId = null)
+    {
+        var taken = LoadAll().Where(d => d.Id != excludeId).Select(d => d.Name).ToHashSet();
+        if (!taken.Contains(desired))
+            return desired;
+        string stem = desired.TrimEnd('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
+        string digits = desired[stem.Length..];
+        int n = digits.Length > 0 && int.TryParse(digits, out int parsed) ? parsed + 1 : 2;
+        while (taken.Contains(stem + n))
+            n++;
+        return stem + n;
     }
 
     public static void Delete(string id)

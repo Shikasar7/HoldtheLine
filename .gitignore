@@ -24,3 +24,18 @@ art_work/
 
 # Raw AI-generated art (regenerable; the game uses the processed game/assets output)
 tools/art/generated/
+
+# --- 隐私 / 安全排除 (2026-07-19) ---
+# 内部设计/策略文档(含服务器 IP 引用等)
+docs/
+
+# MCP / 本地 Agent 工具配置(本机绝对路径 + danger-full-access 等)
+.mcp.json
+.codex/
+game/addons/godot_mcp/
+
+# 部署/基础设施(真实服务器 IP + root SSH 目标 + nginx/systemd/TLS 细节)
+deploy/
+
+# 个人截图(含微信图片等)
+OutputScreenshot/

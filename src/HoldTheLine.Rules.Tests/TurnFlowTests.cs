@@ -136,10 +136,10 @@ public class TurnFlowTests
     }
 
     [Fact]
-    public void Overdraw_at_10_cards_burns_the_card()
+    public void Overdraw_at_9_cards_burns_the_card()
     {
         var state = TestKit.NewGame();
-        while (state.Player(1).Hand.Count < 10)
+        while (state.Player(1).Hand.Count < 9)
             TestKit.GiveCard(state, 1, "t_vanilla");
 
         int deckBefore = state.Player(1).Deck.Count;
@@ -147,7 +147,7 @@ public class TurnFlowTests
         Assert.True(result.Success);
 
         Assert.Contains(result.Events, e => e is CardBurnedEvent { Seat: 1 });
-        Assert.Equal(10, result.State!.Player(1).Hand.Count);
+        Assert.Equal(9, result.State!.Player(1).Hand.Count);
         Assert.Equal(deckBefore - 1, result.State.Player(1).Deck.Count);
     }
 

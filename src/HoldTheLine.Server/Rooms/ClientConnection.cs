@@ -122,6 +122,25 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
             return false;
         }
 
+        // Soft update gate (docs/15 §2): when a minimum client version is configured and this client is
+        // older (a missing ClientVersion counts as 0.0.0), either log-and-allow (the default soft-launch
+        // stance) or hard-reject with "client_outdated" once EnforceMinClientVersion is flipped on.
+        if (!string.IsNullOrEmpty(_opts.MinClientVersion) && SemVer.IsOlder(hello.ClientVersion, _opts.MinClientVersion))
+        {
+            if (_opts.EnforceMinClientVersion)
+            {
+                await SendAsync(new ErrorMsg
+                {
+                    Code = "client_outdated",
+                    Message = $"Your game (v{hello.ClientVersion ?? "?"}) is below the minimum v{_opts.MinClientVersion}. Please update.",
+                    Seq = hello.Seq,
+                }, ct).ConfigureAwait(false);
+                return false;
+            }
+            logger.LogInformation("Outdated client {Guest} v{Client} < min v{Min} (allowed — enforcement off)",
+                string.IsNullOrWhiteSpace(hello.GuestId) ? "?" : hello.GuestId, hello.ClientVersion ?? "0.0.0", _opts.MinClientVersion);
+        }
+
         GuestId = string.IsNullOrWhiteSpace(hello.GuestId) ? SessionAuth.NewGuestId() : hello.GuestId;
         Name = string.IsNullOrWhiteSpace(hello.Name) ? GuestId : hello.Name;
 
@@ -193,11 +212,13 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
                 break;
 
             case CreateRoom cr:
+                _rooms.AbandonForNewMatch(this); // a still-live old match concedes NOW, not into the new one
                 var room = _rooms.CreateRoom(this, cr.DeckId);
                 await SendAsync(new RoomCreated { Code = room.Code, Seq = msg.Seq }).ConfigureAwait(false);
                 break;
 
             case JoinRoom jr:
+                _rooms.AbandonForNewMatch(this);
                 await _rooms.JoinAsync(jr.Code, this, jr.DeckId).ConfigureAwait(false);
                 break;
 
@@ -224,6 +245,7 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
                 break;
 
             case JoinQueue jq:
+                _rooms.AbandonForNewMatch(this); // a still-live old match concedes NOW, not into the new one
                 _queue.Join(this, jq.DeckId); // validates the deck; throws ProtocolError on a bad one
                 await SendAsync(new QueueStatus { Position = 1, WaitedSeconds = 0, BotFallbackIn = QueueManager.BotFallbackSeconds, Seq = msg.Seq }).ConfigureAwait(false);
                 break;
