@@ -1,5 +1,7 @@
+using System.Net;
 using HoldTheLine.Server.Data;
 using HoldTheLine.Server.Rooms;
+using Microsoft.AspNetCore.HttpOverrides;
 
 namespace HoldTheLine.Server;
 
@@ -35,6 +37,15 @@ public static class ServerApp
             builder.Services.AddHostedService<BackupService>();
 
         var app = builder.Build();
+
+        // Behind the nginx/Caddy reverse proxy (docs/12 B0) the socket's peer is the loopback proxy, so read
+        // the real client IP from X-Forwarded-For — otherwise B1's per-IP auth throttle keys everyone as
+        // 127.0.0.1. Only trusted (loopback) proxies may set it; a direct connection keeps its own IP.
+        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor,
+            KnownProxies = { IPAddress.Loopback, IPAddress.IPv6Loopback },
+        });
         app.UseWebSockets();
 
         // /healthz is JSON (M3 B4): a glance tells you the Beta's live load.

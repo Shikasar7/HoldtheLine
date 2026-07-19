@@ -1,45 +1,35 @@
-﻿# 一次性:在 VPS 上装 Caddy,给对战服务器(5210)加 TLS 反代 → wss://htl.cicala.chat/ws。docs/12 B0。
-# 模式仿 deploy.ps1:本地 ssh 到 VPS 执行远端块;here-string 内避免内嵌双引号(PS5.1→ssh 会丢)。
+﻿# 一次性:用 VPS 上现有的 nginx 反代给对战服(5210)加 TLS → wss://htl.cicala.chat/ws。docs/12 B0(nginx 版)。
+# 这台机 80/443 已被现有 nginx 占用(www/@/podecho),所以走 nginx 反代,不装 Caddy、不动现有项目。
+# 用 scp 送配置文件(避免 here-string 丢内嵌双引号 / nginx $变量),ssh 只跑无引号命令。
 #
 # ⚠︎ 运行本脚本前必须先做(见 docs/12 §B0 手动步骤):
 #   1) DNS:给 cicala.chat 加 A 记录  htl → 212.64.21.174
-#   2) 腾讯云安全组:放行 TCP 80 + 443 入站(80 是 Let's Encrypt HTTP 挑战用)
+#   2) 腾讯云安全组:80 + 443 已放行(现有 HTTP(80)/HTTPS(443) 规则即可,无需另加)
+# 脚本跑完后,再由你手动 `certbot --nginx -d htl.cicala.chat` 签证书(首次要邮箱/同意条款)。
 # 用法:.\deploy\vps\setup-tls.ps1
 param([string]$Server = "root@212.64.21.174")
 
 $ErrorActionPreference = "Stop"
+Set-Location (Join-Path $PSScriptRoot "..\..")
 
-Write-Host "在 $Server 上安装 Caddy 并配置 htl.cicala.chat → 127.0.0.1:5210 反代 ..." -ForegroundColor Cyan
+Write-Host "[1/2] 上传 nginx 反代配置到 $Server:/etc/nginx/conf.d/htl.conf ..." -ForegroundColor Cyan
+scp -o ServerAliveInterval=10 deploy/vps/htl.nginx.conf "${Server}:/etc/nginx/conf.d/htl.conf"
+if ($LASTEXITCODE -ne 0) { throw "上传失败(多半是网络抖动),重跑即可" }
 
-# 远端块:无内嵌双引号;Caddyfile 用 heredoc 写入(内容无双引号);证书由 Caddy/Let's Encrypt 自动签发续期。
+Write-Host "[2/2] 校验并 reload nginx ..." -ForegroundColor Cyan
+# 远端块:无内嵌双引号 / 无重定向符(PS5.1 → ssh 会丢)
 ssh -o ServerAliveInterval=10 $Server @'
 set -e
-echo == os-release ==
-head -n 2 /etc/os-release
-export DEBIAN_FRONTEND=noninteractive
-echo == 安装 Caddy 官方源 ==
-apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
-rm -f /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt | tee /etc/apt/sources.list.d/caddy-stable.list
-apt update
-apt install -y caddy
-echo == 写 /etc/caddy/Caddyfile ==
-cat > /etc/caddy/Caddyfile <<EOF
-htl.cicala.chat {
-    reverse_proxy 127.0.0.1:5210
-}
-EOF
-systemctl reload caddy
-sleep 3
-set +e
-echo == 验证 https healthz ==
-curl -sf https://htl.cicala.chat/healthz && echo && echo tls-setup-ok || echo tls-verify-pending-检查DNS和安全组80-443
+nginx -t
+systemctl reload nginx
+echo nginx-reloaded
 '@
-if ($LASTEXITCODE -ne 0) { throw "远端配置失败,查看:ssh $Server 'journalctl -u caddy -n 50'" }
+if ($LASTEXITCODE -ne 0) { throw "nginx 校验/reload 失败,查看:ssh $Server nginx -t" }
 
 Write-Host ""
-Write-Host "完成。客户端默认地址已是 wss://htl.cicala.chat/ws。" -ForegroundColor Green
-Write-Host "  若上面 healthz 未显示 tls-setup-ok:多半是 DNS 未生效或安全组未放行 80/443,稍等重跑本脚本。" -ForegroundColor Yellow
-Write-Host "  浏览器验证:https://htl.cicala.chat/healthz 应显示 ok" -ForegroundColor DarkGray
-Write-Host "  排障:ssh $Server 'journalctl -u caddy -f'" -ForegroundColor DarkGray
+Write-Host "配置已就位。现在手动签证书(首次会问邮箱/同意条款):" -ForegroundColor Green
+Write-Host "  ssh $Server" -ForegroundColor Yellow
+Write-Host "  certbot --nginx -d htl.cicala.chat" -ForegroundColor Yellow
+Write-Host "  curl -sf https://htl.cicala.chat/healthz    # 看到 ok 即成" -ForegroundColor Yellow
+Write-Host "  (若没装 certbot:apt install -y certbot python3-certbot-nginx)" -ForegroundColor DarkGray
+Write-Host "客户端默认地址已是 wss://htl.cicala.chat/ws。" -ForegroundColor Green
