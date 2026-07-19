@@ -39,3 +39,6 @@ deploy/
 
 # 个人截图(含微信图片等)
 OutputScreenshot/
+
+# Claude Code 本地个人设置(含生产 SSH 放行规则,绝不提交)
+.claude/settings.local.json
