@@ -3,15 +3,16 @@ using Godot;
 namespace HoldTheLine.Game;
 
 /// <summary>
-/// Procedurally synthesized placeholder SFX — plan §10 item 7's ~12 cues, built as short 16-bit PCM
-/// tones (and two multi-note phrases for win/lose) at load time so the prototype needs no external
-/// audio assets. Swap for real samples later. A small voice pool lets rapid events (a multi-hit turn)
-/// overlap instead of cutting each other off.
+/// Sound-effect bank for the 12 gameplay cues.  The shipped CC0 OGG assets are loaded first; the
+/// procedural clips remain as a safe fallback when an asset was omitted from a partial export or
+/// could not be imported.  A small voice pool lets rapid events (a multi-hit turn) overlap instead
+/// of cutting each other off.
 /// </summary>
 public sealed class SfxBank
 {
     private const int MixRate = 22050;
-    private readonly Dictionary<string, AudioStreamWav> _sounds = new();
+    private const string AssetRoot = "res://assets/audio/sfx/";
+    private readonly Dictionary<string, AudioStream> _sounds = new();
     private readonly AudioStreamPlayer[] _voices;
     private int _next;
 
@@ -27,27 +28,27 @@ public sealed class SfxBank
         }
 
         // --- combat ---
-        _sounds["attack"] = Tone(120f, 0.12f, 10f, Wave.Square, 0.5f, noise: 0.4f);   // melee / ranged impact
-        _sounds["shoot"] = Tone(520f, 0.12f, 9f, Wave.Triangle, 0.4f, noise: 0.15f);  // ranged launch — airy "pew"
-        _sounds["cast"] = Tone(784f, 0.16f, 6f, Wave.Triangle, 0.42f);                // 指令施放 — shimmer
-        _sounds["death"] = Tone(90f, 0.22f, 7f, Wave.Square, 0.5f, noise: 0.55f);     // unit death — low crunch
-        _sounds["leaderhit"] = Tone(60f, 0.30f, 4f, Wave.Sine, 0.85f, noise: 0.15f);  // face damage — heavier low boom
+        LoadOrFallback("attack", Tone(120f, 0.12f, 10f, Wave.Square, 0.5f, noise: 0.4f));   // melee impact
+        LoadOrFallback("shoot", Tone(520f, 0.12f, 9f, Wave.Triangle, 0.4f, noise: 0.15f));   // ranged launch
+        LoadOrFallback("cast", Tone(784f, 0.16f, 6f, Wave.Triangle, 0.42f));                  // command cast
+        LoadOrFallback("death", Tone(90f, 0.22f, 7f, Wave.Square, 0.5f, noise: 0.55f));       // unit death
+        LoadOrFallback("leaderhit", Tone(60f, 0.30f, 4f, Wave.Sine, 0.85f, noise: 0.15f));    // leader damage
         // --- flow / feedback ---
-        _sounds["play"] = Tone(196f, 0.10f, 8f, Wave.Triangle, 0.5f);                 // deploy — soft "thup"
-        _sounds["move"] = Tone(392f, 0.05f, 14f, Wave.Sine, 0.35f);                   // move — light tick
-        _sounds["draw"] = Tone(1180f, 0.045f, 20f, Wave.Triangle, 0.28f, noise: 0.3f);// draw — paper flick
-        _sounds["turnstart"] = Tone(262f, 0.18f, 6f, Wave.Triangle, 0.45f);           // turn banner — soft horn
-        _sounds["tide"] = Tone(55f, 0.5f, 3f, Wave.Sine, 0.6f, noise: 0.1f);          // 压力潮汐 — ominous swell
-        _sounds["button"] = Tone(330f, 0.03f, 26f, Wave.Square, 0.3f);                // UI tick
+        LoadOrFallback("play", Tone(196f, 0.10f, 8f, Wave.Triangle, 0.5f));                   // deploy
+        LoadOrFallback("move", Tone(392f, 0.05f, 14f, Wave.Sine, 0.35f));                     // move
+        LoadOrFallback("draw", Tone(1180f, 0.045f, 20f, Wave.Triangle, 0.28f, noise: 0.3f));  // draw
+        LoadOrFallback("turnstart", Tone(262f, 0.18f, 6f, Wave.Triangle, 0.45f));              // turn banner
+        LoadOrFallback("tide", Tone(55f, 0.5f, 3f, Wave.Sine, 0.6f, noise: 0.1f));             // pressure tide
+        LoadOrFallback("button", Tone(330f, 0.03f, 26f, Wave.Square, 0.3f));                   // UI tick
         // --- win / lose stings (short arpeggio phrases, ~2s) ---
-        _sounds["victory"] = Phrase(new[]                                             // ascending major, resolves high
+        LoadOrFallback("victory", Phrase(new[]                                        // ascending major, resolves high
         {
             (523f, 0.00f, 0.45f), (659f, 0.16f, 0.45f), (784f, 0.32f, 0.55f), (1047f, 0.52f, 1.25f),
-        }, 0.5f);
-        _sounds["defeat"] = Phrase(new[]                                              // descending minor, settles low
+        }, 0.5f));
+        LoadOrFallback("defeat", Phrase(new[]                                         // descending minor, settles low
         {
             (440f, 0.00f, 0.55f), (349f, 0.34f, 0.65f), (262f, 0.72f, 1.5f),
-        }, 0.55f);
+        }, 0.55f));
     }
 
     public void Play(string name)
@@ -58,6 +59,22 @@ public sealed class SfxBank
         _next = (_next + 1) % _voices.Length;
         voice.Stream = wav;
         voice.Play();
+    }
+
+    private void LoadOrFallback(string name, AudioStreamWav fallback)
+    {
+        string path = AssetRoot + name + ".ogg";
+        if (ResourceLoader.Exists(path))
+        {
+            var stream = ResourceLoader.Load<AudioStream>(path);
+            if (stream != null)
+            {
+                _sounds[name] = stream;
+                return;
+            }
+        }
+
+        _sounds[name] = fallback;
     }
 
     private static AudioStreamWav Tone(float freq, float dur, float decay, Wave wave, float amp, float noise = 0f)
