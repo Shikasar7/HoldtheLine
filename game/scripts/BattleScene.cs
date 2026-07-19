@@ -32,6 +32,7 @@ public partial class BattleScene : Control
 	private Control _boardLayer = null!, _standeeLayer = null!, _handLayer = null!, _hudLayer = null!, _overlayLayer = null!;
 	private readonly Button[,] _cellButtons = new Button[BattleTheme.Cols, BattleTheme.Rows];
 	private readonly Dictionary<int, Button> _standees = new();
+	private readonly HashSet<int> _emplacementUnits = new(); // entityIds of 架设 units — drives the "架设 +1" effect-damage tag
 	private Button _oppLeaderBtn = null!, _endTurnBtn = null!, _leaderPowerBtn = null!;
 	private Label _turnLabel = null!, _oppInfo = null!, _selfInfo = null!, _logLabel = null!;
 	private Panel _detailPanel = null!; // left-side card inspector (click a piece to show it)
@@ -370,6 +371,7 @@ public partial class BattleScene : Control
 		foreach (var node in _standees.Values)
 			node.QueueFree();
 		_standees.Clear();
+		_emplacementUnits.Clear();
 
 		foreach (var u in view.Units)
 		{
@@ -417,6 +419,8 @@ public partial class BattleScene : Control
 			btn.SetMeta("bg", bg);
 			_standeeLayer.AddChild(btn);
 			_standees[u.EntityId] = btn;
+			if (u.Keywords.Any(k => k.Keyword == Keyword.Emplacement))
+				_emplacementUnits.Add(u.EntityId); // 架设 is innate & entityIds never recycle → never a false tag
 		}
 	}
 
@@ -1608,7 +1612,15 @@ public partial class BattleScene : Control
 		HitSpark(Center(node));
 		Vector2 dir = from is { } f && (Center(node) - f).LengthSquared() > 1f ? (Center(node) - f).Normalized() : new Vector2(0, 1);
 		await Knockback(node, dir * 7f);
-		if (d.Amount > 0) FloatNumber(Center(node), $"-{d.Amount}", BattleTheme.DangerColor, d.Amount);
+		if (d.Amount > 0)
+		{
+			FloatNumber(Center(node), $"-{d.Amount}", BattleTheme.DangerColor, d.Amount);
+			// 架设 second clause: EFFECT damage (order/skill/battlecry) deals +1 to bolted-down units — never
+			// attacks. `from is null` is exactly the standalone (non-attack) path, so it distinguishes the two.
+			// Surface WHY the number is 1 higher than the card's printed value.
+			if (from is null && _emplacementUnits.Contains(d.UnitEntityId))
+				FloatBonusTag(Center(node) + new Vector2(0, 20), "架设 +1");
+		}
 	}
 
 	private async Task Knockback(Control node, Vector2 offset)
@@ -2503,7 +2515,7 @@ public partial class BattleScene : Control
 		Keyword.Leap => "移动时可跨过一个随从,直线跳跃 2 格。",
 		Keyword.PackTactics => "近战攻击一个与你另一友方相邻的敌人时,伤害 +1。",
 		Keyword.Hidden => "不能被选为目标,直到它造成伤害。",
-		Keyword.Emplacement => "架设:不能移动(身材更硬,永远吃不到潮汐豁免)。",
+		Keyword.Emplacement => "架设:不能移动;受到指令/技能/战吼等效果伤害 +1(普通攻击不加)。",
 		Keyword.Pierce => "贯穿:远程攻击时,同时对目标正后方一格的随从(不分敌我)造成等额伤害。",
 		_ => "",
 	};
@@ -2556,6 +2568,21 @@ public partial class BattleScene : Control
 		t.TweenProperty(label, "scale", Vector2.One, 0.06);
 		t.TweenProperty(label, "position", p0 + new Vector2(0, -10), 0.35).SetTrans(Tween.TransitionType.Sine); // settle
 		t.Parallel().TweenProperty(label, "modulate:a", 0.0f, 0.35);
+		t.TweenCallback(Callable.From(label.QueueFree));
+	}
+
+	// A small attribution tag beside a damage number (e.g. "架设 +1"), explaining a bonus the card face
+	// doesn't print. Amber (fire) reads apart from the red damage number; offset right so they don't overlap.
+	private void FloatBonusTag(Vector2 center, string text)
+	{
+		var label = BattleTheme.MakeOutlinedLabel(text, 20, BattleTheme.AtkColor, HorizontalAlignment.Center);
+		label.Size = new Vector2(150, 30);
+		label.Position = center - label.Size / 2f + new Vector2(52, 4);
+		_overlayLayer.AddChild(label);
+		var p0 = label.Position;
+		var t = CreateTween();
+		t.TweenProperty(label, "position", p0 + new Vector2(0, -28), 0.55).SetTrans(Tween.TransitionType.Sine);
+		t.Parallel().TweenProperty(label, "modulate:a", 0.0f, 0.55);
 		t.TweenCallback(Callable.From(label.QueueFree));
 	}
 

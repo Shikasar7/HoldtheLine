@@ -346,7 +346,7 @@ public static class CardView
         Keyword.Leap => "移动时可跨过一个随从,直线跳跃 2 格。",
         Keyword.PackTactics => "近战攻击一个与你另一友方相邻的敌人时,伤害 +1。",
         Keyword.Hidden => "不能被选为目标,直到它造成伤害。",
-        Keyword.Emplacement => "架设:不能移动(身材更硬,永远吃不到潮汐豁免)。",
+        Keyword.Emplacement => "架设:不能移动;受到指令/技能/战吼等效果伤害 +1(普通攻击不加)。",
         Keyword.Pierce => "贯穿:远程攻击时,同时对目标正后方一格的随从(不分敌我)造成等额伤害。",
         _ => "",
     };
