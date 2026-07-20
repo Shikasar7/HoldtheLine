@@ -172,13 +172,13 @@ public class MulliganTests
         Assert.DoesNotContain(id, HandIds(dup, 0));
     }
 
-    // T7 — the coin is withheld during mulligan and handed out on completion; 4/6 opening counts hold.
+    // T7 — the coin is withheld during mulligan and handed out on completion; 4/5 opening counts hold.
     [Fact]
     public void Coin_is_deferred_until_both_seats_finish()
     {
         var s = NewGame(seed: 3);
         Assert.Equal(4, s.Player(0).Hand.Count);
-        Assert.Equal(6, s.Player(1).Hand.Count);
+        Assert.Equal(5, s.Player(1).Hand.Count);
         Assert.DoesNotContain(s.Player(1).Hand, c => c.CardId == "neutral_coin");
 
         var r = TestKit.NewResolver();
@@ -189,7 +189,7 @@ public class MulliganTests
         Assert.Null(s.Mulligan);
         Assert.Contains(s.Player(1).Hand, c => c.CardId == "neutral_coin");
         Assert.Equal(5, s.Player(0).Hand.Count); // 4 kept + turn-start draw
-        Assert.Equal(7, s.Player(1).Hand.Count); // 6 kept + coin
+        Assert.Equal(6, s.Player(1).Hand.Count); // 5 kept + coin
         Assert.Contains(res.Events, e => e is MulliganCompletedEvent);
         Assert.Contains(res.Events, e => e is TurnStartedEvent { Seat: 0, TurnNumber: 1 });
     }
