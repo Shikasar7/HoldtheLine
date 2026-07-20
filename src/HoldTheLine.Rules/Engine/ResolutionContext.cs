@@ -36,30 +36,61 @@ internal sealed class ResolutionContext
 
     // ---- damage ----
 
-    /// <summary>Applies damage with HoldFast/Shield semantics. Does NOT sweep deaths — callers batch that via
+    /// <summary>Applies damage with 守护/坚守/福泽/持盾 semantics. Does NOT sweep deaths — callers batch that via
     /// ProcessDeaths so simultaneous strikes resolve simultaneously. <paramref name="ignoreHoldFast"/> is set
-    /// by 灼蚀 (sear): the reduction is skipped, but 持盾 absorption is unchanged (docs/10 §6#2).</summary>
-    public void DamageUnit(UnitInstance target, int amount, bool ignoreHoldFast = false)
+    /// by 灼蚀 (sear): the 坚守 reduction is skipped, but 福泽/持盾 are unchanged (docs/10 §6#2).</summary>
+    /// <param name="guardRedirected">True only for the recursive call that lands redirected damage on a 守护
+    /// guardian: it does NOT redirect again (no loop) and every event it emits is tagged 守护 for the client.</param>
+    public void DamageUnit(UnitInstance target, int amount, bool ignoreHoldFast = false, bool guardRedirected = false)
     {
+        // 守护 (Guardian): a real hit (amount > 0) on a unit with an adjacent friendly guardian is soaked by
+        // that guardian instead — through ITS own reductions. The spared target shows 守护-0; the guardian's
+        // own DamageUnit shows 守护-<actual>. Only the original target redirects (guardRedirected guards the loop).
+        if (!guardRedirected && amount > 0 && GuardianFor(target) is { } guardian)
+        {
+            Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = 0, NewHp = target.CurrentHp, GuardRedirect = true });
+            DamageUnit(guardian, amount, ignoreHoldFast, guardRedirected: true);
+            return;
+        }
+
         if (!ignoreHoldFast && target.HasKeyword(Keyword.HoldFast) && !target.MovedThisRound)
+            amount = Math.Max(0, amount - 1);
+
+        // 福泽 (Blessing): an adjacent friendly aura shaves 1 more off (stacks with 坚守; sear does not skip it).
+        if (HasBlessingAura(target))
             amount = Math.Max(0, amount - 1);
 
         if (amount <= 0)
         {
-            Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = 0, NewHp = target.CurrentHp });
+            Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = 0, NewHp = target.CurrentHp, GuardRedirect = guardRedirected });
             return;
         }
 
         if (target.ShieldActive)
         {
             target.ShieldActive = false;
-            Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = 0, NewHp = target.CurrentHp, ShieldAbsorbed = true });
+            Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = 0, NewHp = target.CurrentHp, ShieldAbsorbed = true, GuardRedirect = guardRedirected });
             return;
         }
 
         target.CurrentHp -= amount;
-        Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = amount, NewHp = target.CurrentHp });
+        Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = amount, NewHp = target.CurrentHp, GuardRedirect = guardRedirected });
     }
+
+    /// <summary>The friendly 守护 guardian that soaks damage aimed at <paramref name="target"/>: an orthogonally
+    /// adjacent ally (never the target itself) with 守护. Deterministic (first in Units order). Null if none.</summary>
+    private UnitInstance? GuardianFor(UnitInstance target) =>
+        BoardGeometry.AdjacentCells(target.Cell)
+            .Select(State.UnitAt)
+            .FirstOrDefault(u => u != null && u.OwnerSeat == target.OwnerSeat
+                && u.EntityId != target.EntityId && u.HasKeyword(Keyword.Guardian));
+
+    /// <summary>Whether an orthogonally adjacent friendly unit carries 福泽 (so <paramref name="target"/> takes
+    /// 1 less damage). The unit's own 福泽 never counts — the aura helps neighbours, not the source.</summary>
+    private bool HasBlessingAura(UnitInstance target) =>
+        BoardGeometry.AdjacentCells(target.Cell)
+            .Select(State.UnitAt)
+            .Any(u => u != null && u.OwnerSeat == target.OwnerSeat && u.HasKeyword(Keyword.Blessing));
 
     /// <summary>
     /// 消灭 (destroy): drops the unit straight into the death sweep, bypassing DamageUnit — so 持盾
@@ -130,6 +161,10 @@ internal sealed class ResolutionContext
 
             if (player.Hand.Count >= MaxHandSize)
             {
+                // Overflow no longer removes the card from play — it goes to the graveyard (0.7.0). Still
+                // reported via CardBurnedEvent (the "couldn't hold it" beat); the card is now recyclable
+                // (an overdrawn Order can be fished back by 火种循环).
+                player.Graveyard.Add(card.CardId);
                 Emit(new CardBurnedEvent { Seat = seat, CardId = card.CardId });
                 continue;
             }
@@ -159,6 +194,9 @@ internal sealed class ResolutionContext
 
             if (player.Hand.Count >= MaxHandSize)
             {
+                // Overflow → graveyard (0.7.0): the recalled order simply stays in the graveyard (removed
+                // above, re-added here) rather than leaving the game, so it remains recyclable next time.
+                player.Graveyard.Add(pick);
                 Emit(new CardBurnedEvent { Seat = seat, CardId = pick });
                 continue;
             }

@@ -43,8 +43,8 @@
 	"cost": 2,
 	"atk": 0,
 	"hp": 5,
-	"keywords": [{ "keyword": "guard" }],
-	"text": "守护。它不还手,只挡路。",
+	"keywords": [{ "keyword": "taunt" }],
+	"text": "嘲讽。它不还手,只挡路。",
 	"art_prompt": "engineers stacking sandbags and steel barricades to form a living wall"
   },
   {
@@ -192,8 +192,8 @@
 	"type": "order",
 	"rarity": "rare",
 	"cost": 2,
-	"effects": [{ "trigger": "play", "action": "grant_keyword", "target": "target_unit", "keyword": "guard", "duration": "permanent" }],
-	"text": "使一个友方随从获得守护。",
+	"effects": [{ "trigger": "play", "action": "grant_keyword", "target": "target_unit", "keyword": "taunt", "duration": "permanent" }],
+	"text": "使一个友方随从获得嘲讽。",
 	"art_prompt": "soldiers hastily digging a foxhole and planting a shield-stake"
   },
   {
@@ -343,10 +343,10 @@
 	"hp": 6,
 	"keywords": [
 	  {
-		"keyword": "guard"
+		"keyword": "taunt"
 	  }
 	],
-	"text": "守护。",
+	"text": "嘲讽。",
 	"art_prompt": "a scarred veteran behind a huge battered tower shield, unmovable"
   },
   {
@@ -520,11 +520,11 @@
 		"trigger": "battlecry",
 		"action": "grant_keyword",
 		"target": "target_unit_ally",
-		"keyword": "guard",
+		"keyword": "taunt",
 		"duration": "permanent"
 	  }
 	],
-	"text": "战吼:一个友方随从获得守护。",
+	"text": "战吼:一个友方随从获得嘲讽。",
 	"art_prompt": "a stern watch commander directing a shield to the front, tor-lit rampart"
   },
   {

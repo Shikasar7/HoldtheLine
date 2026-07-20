@@ -52,11 +52,13 @@ public sealed class GameServerClient : IAsyncDisposable
     public ConnectionState State { get; private set; } = ConnectionState.Disconnected;
 
     /// <summary>When true, a dropped connection is retried with backoff, re-sending
-    /// <see cref="ReconnectHelloProvider"/>'s hello. Enable only after a match has started (the resume
-    /// token is issued in match_started).</summary>
+    /// <see cref="ReconnectHelloProvider"/>'s hello. Kept on for the whole persistent lobby+match session
+    /// (Session enables it at connect): the provider decides whether the reconnect carries a match resume
+    /// token (mid-match) or does a plain identity restore (lobby).</summary>
     public bool AutoReconnect { get; set; }
 
-    /// <summary>Builds the hello sent on each reconnect — must carry the resume token.</summary>
+    /// <summary>Builds the hello sent on each reconnect — carries the current match's resume token when in a
+    /// match, or none (identity restore) while in the lobby.</summary>
     public Func<Hello>? ReconnectHelloProvider { get; set; }
 
     public event Action<ServerMessage>? MessageReceived;
@@ -125,6 +127,10 @@ public sealed class GameServerClient : IAsyncDisposable
 
             if (!AutoReconnect || ReconnectHelloProvider is null)
             {
+                // Reflect the drop in the state BEFORE giving up: without this the socket dies but State stays
+                // Connected, so callers (Session.Connected) keep thinking they're online and the next send hits
+                // an Aborted socket — surfacing the raw "WebSocket is in an invalid state ('Aborted')".
+                SetState(ConnectionState.Disconnected);
                 Closed?.Invoke(_lastFault);
                 return;
             }

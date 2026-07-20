@@ -15,7 +15,7 @@ use; attribution is not required, but the source record is retained here for aud
 | `move` | `move.ogg` | RPG Audio / `footstep05.ogg` |
 | `draw` | `draw.ogg` | RPG Audio / `bookFlip2.ogg` |
 | `turnstart` | `turnstart.ogg` | [Interface Sounds](https://kenney.nl/assets/interface-sounds) / `bong_001.ogg` |
-| `tide` | `tide.ogg` | Sci-fi Sounds / `spaceEngineLow_002.ogg` |
+| `tide` | `tide.ogg` | [Impact Sounds](https://kenney.nl/assets/impact-sounds) / `impactSoft_heavy_003.ogg` |
 | `button` | `button.ogg` | Interface Sounds / `click_003.ogg` |
 | `victory` | `victory.ogg` | [Music Jingles](https://kenney.nl/assets/music-jingles) / `jingles_PIZZI00.ogg` |
 | `defeat` | `defeat.ogg` | Music Jingles / `jingles_HIT00.ogg` |

@@ -317,7 +317,7 @@ public static class CardView
     {
         Keyword.Charge => "冲锋",
         Keyword.Assault => "突袭",
-        Keyword.Guard => "守护",
+        Keyword.Taunt => "嘲讽",
         Keyword.HoldFast => "坚守",
         Keyword.Trample => "践踏",
         Keyword.CheapShot => "偷袭",
@@ -328,6 +328,8 @@ public static class CardView
         Keyword.Hidden => "伏兵",
         Keyword.Emplacement => "架设",
         Keyword.Pierce => "贯穿",
+        Keyword.Blessing => "福泽",
+        Keyword.Guardian => "守护",
         _ => k.ToString(),
     };
 
@@ -337,7 +339,7 @@ public static class CardView
         Keyword.Assault => "部署当回合可攻击,但不能移动。",
         Keyword.Swift => "每回合可移动的格数提升。",
         Keyword.Range => "可攻击 N 步(横纵相加)内的任意敌人,越过其他随从;仅当目标能反击到你(在其射程/相邻内)时才吃反击。",
-        Keyword.Guard => "与其相邻的敌方随从必须优先攻击它。",
+        Keyword.Taunt => "与其相邻的敌方随从必须优先攻击它。",
         Keyword.HoldFast => "本回合未移动时,受到的伤害 -1。",
         Keyword.Trample => "近战攻击时,对目标周围相邻的所有单位(含友方)也造成等量伤害。",
         Keyword.CheapShot => "近战攻击不受反击。",
@@ -348,6 +350,8 @@ public static class CardView
         Keyword.Hidden => "不能被选为目标,直到它造成伤害。",
         Keyword.Emplacement => "架设:不能移动;受到指令/技能/战吼等效果伤害 +1(普通攻击不加)。",
         Keyword.Pierce => "贯穿:远程攻击时,同时对目标正后方一格的随从(不分敌我)造成等额伤害。",
+        Keyword.Blessing => "福泽:与其相邻的友方随从受到的伤害 -1(不含自身,可与坚守叠加)。",
+        Keyword.Guardian => "守护:与其相邻的友方随从将要受到的伤害,转移到它身上承受(享受它自身的减伤)。",
         _ => "",
     };
 }

@@ -136,19 +136,24 @@ public class TurnFlowTests
     }
 
     [Fact]
-    public void Overdraw_at_9_cards_burns_the_card()
+    public void Overdraw_at_9_cards_sends_the_card_to_the_graveyard()
     {
         var state = TestKit.NewGame();
         while (state.Player(1).Hand.Count < 9)
             TestKit.GiveCard(state, 1, "t_vanilla");
 
         int deckBefore = state.Player(1).Deck.Count;
+        string overflowCard = state.Player(1).Deck[^1].CardId; // top of deck = what gets drawn into the full hand
+        Assert.Empty(state.Player(1).Graveyard);
+
         var result = TestKit.NewResolver().Execute(state, new EndTurnCommand { Seat = 0 });
         Assert.True(result.Success);
 
         Assert.Contains(result.Events, e => e is CardBurnedEvent { Seat: 1 });
         Assert.Equal(9, result.State!.Player(1).Hand.Count);
         Assert.Equal(deckBefore - 1, result.State.Player(1).Deck.Count);
+        // 0.7.0: the overflow card now lands in the graveyard rather than leaving the game.
+        Assert.Equal([overflowCard], result.State.Player(1).Graveyard);
     }
 
     [Fact]

@@ -446,6 +446,10 @@ public partial class BattleScene : Control
 				btn.AddChild(kwl);
 			}
 
+			// Status indicators (buffs/debuffs) on the card face — driven by LIVE state (u.ShieldActive), not
+			// the static keyword list, so 持盾 shows/clears the moment the charge is granted/spent.
+			SetStandeeStatuses(btn, StandeeStatuses(u.ShieldActive));
+
 			// Dim the active player's own units that can no longer act (集结中 or already spent).
 			if (u.OwnerSeat == view.ActiveSeat && !actionable.Contains(u.EntityId))
 				btn.Modulate = new Color(0.6f, 0.6f, 0.6f);
@@ -1632,6 +1636,12 @@ public partial class BattleScene : Control
 				Flash(bn, BattleTheme.Accent);
 				await Delay(0.08);
 				break;
+			case UnitKeywordGrantedEvent kg when kg.Keyword == Keyword.Shield && _standees.TryGetValue(kg.UnitEntityId, out var kn):
+				_sfx.Play("play");
+				Flash(kn, BattleTheme.CostColor);
+				SetStandeeStatuses(kn, StandeeStatuses(true)); // 持盾新增 → 立刻更新卡面指示器
+				await Delay(0.1);
+				break;
 			case PressureTideEvent tide:
 				// 压力潮汐: the bleed is explained here; the follow-up LeaderDamagedEvent animates the HP hit.
 				_sfx.Play("tide");
@@ -1800,7 +1810,29 @@ public partial class BattleScene : Control
 			_sfx.Play("attack");
 			Flash(node, BattleTheme.CostColor);
 			ShieldPop(Center(node)); // 蓝闪 + 盾纹章,与真实掉血区分
+			SetStandeeStatuses(node, StandeeStatuses(false)); // 持盾被消耗 → 立刻清掉卡面指示器
+			if (d.GuardRedirect) FloatBonusTag(Center(node) + new Vector2(0, 20), "守护-0"); // 守护单位被盾挡下
 			await Delay(0.12);
+			return;
+		}
+		// 守护 转移: the spared original target shows 守护-0 (a soft blue blink, no hit); the guardian that soaks
+		// it shows 守护-<实际伤害> with full hit feedback. Mirrors the 架设+1 attribution tag the user asked for.
+		if (d.GuardRedirect)
+		{
+			if (d.Amount > 0)
+			{
+				_sfx.Play("attack");
+				Flash(node, Colors.White);
+				HitSpark(Center(node));
+				Vector2 gdir = from is { } gf && (Center(node) - gf).LengthSquared() > 1f ? (Center(node) - gf).Normalized() : new Vector2(0, 1);
+				await Knockback(node, gdir * 7f);
+			}
+			else
+			{
+				Flash(node, BattleTheme.CostColor);
+			}
+			FloatBonusTag(Center(node) + new Vector2(0, d.Amount > 0 ? 0 : 20), $"守护-{d.Amount}");
+			await Delay(0.1);
 			return;
 		}
 		Flash(node, Colors.White);
@@ -2722,7 +2754,7 @@ public partial class BattleScene : Control
 	{
 		Keyword.Charge => "冲锋",
 		Keyword.Assault => "突袭",
-		Keyword.Guard => "守护",
+		Keyword.Taunt => "嘲讽",
 		Keyword.HoldFast => "坚守",
 		Keyword.Trample => "践踏",
 		Keyword.CheapShot => "偷袭",
@@ -2733,6 +2765,8 @@ public partial class BattleScene : Control
 		Keyword.Hidden => "伏兵",
 		Keyword.Emplacement => "架设",
 		Keyword.Pierce => "贯穿",
+		Keyword.Blessing => "福泽",
+		Keyword.Guardian => "守护",
 		_ => k.ToString(),
 	};
 
@@ -2742,7 +2776,7 @@ public partial class BattleScene : Control
 		Keyword.Assault => "部署当回合可攻击,但不能移动。",
 		Keyword.Swift => "每回合可移动的格数提升。",
 		Keyword.Range => "可攻击 N 步(横纵相加)内的任意敌人,越过其他随从;仅当目标能反击到你(在其射程/相邻内)时才吃反击。",
-		Keyword.Guard => "与其相邻的敌方随从必须优先攻击它。",
+		Keyword.Taunt => "与其相邻的敌方随从必须优先攻击它。",
 		Keyword.HoldFast => "本回合未移动时,受到的伤害 -1。",
 		Keyword.Trample => "近战攻击时,对目标周围相邻的所有单位(含友方)也造成等量伤害。",
 		Keyword.CheapShot => "近战攻击不受反击。",
@@ -2753,6 +2787,8 @@ public partial class BattleScene : Control
 		Keyword.Hidden => "不能被选为目标,直到它造成伤害。",
 		Keyword.Emplacement => "架设:不能移动;受到指令/技能/战吼等效果伤害 +1(普通攻击不加)。",
 		Keyword.Pierce => "贯穿:远程攻击时,同时对目标正后方一格的随从(不分敌我)造成等额伤害。",
+		Keyword.Blessing => "福泽:与其相邻的友方随从受到的伤害 -1(不含自身,可与坚守叠加)。",
+		Keyword.Guardian => "守护:与其相邻的友方随从将要受到的伤害,转移到它身上承受(享受它自身的减伤)。",
 		_ => "",
 	};
 
@@ -2904,19 +2940,81 @@ public partial class BattleScene : Control
 				Keyword.Assault => "突",
 				Keyword.Swift => $"疾{k.Value}",
 				Keyword.Range => $"程{k.Value}",
-				Keyword.Guard => "守",
 				Keyword.HoldFast => "坚",
 				Keyword.Trample => "踏",
 				Keyword.CheapShot => "偷",
-				Keyword.Shield => "盾",
+				// 持盾 is shown by the live status chip (SetStandeeStatuses), NOT here — the keyword can linger
+				// after its charge is spent, so a static "盾" would lie about protection. Chip tracks ShieldActive.
 				Keyword.Garrison => "防",
 				Keyword.Leap => "跃",
 				Keyword.PackTactics => "围",
 				Keyword.Emplacement => "架",
 				Keyword.Pierce => "贯",
+				Keyword.Taunt => "嘲",
+				Keyword.Blessing => "福",
+				Keyword.Guardian => "护",
 				_ => "",
 			});
 		return string.Join(" ", parts.Where(p => p.Length > 0));
+	}
+
+	// ---------- on-standee status indicators (buffs / debuffs) ----------
+
+	/// <summary>One status a unit advertises on its card face.</summary>
+	private readonly record struct StatusBadge(string Text, Color Bg, Color Border);
+
+	private const string StatusStripName = "__status_strip";
+
+	/// <summary>The statuses to show for a unit, computed from its LIVE view state (not the static keyword
+	/// list). Extensible: new buffs/debuffs add a line here. Today only 持盾 (the ShieldActive charge).</summary>
+	private static List<StatusBadge> StandeeStatuses(bool shieldActive)
+	{
+		var badges = new List<StatusBadge>();
+		if (shieldActive)
+			badges.Add(new StatusBadge("持盾", BattleTheme.ShieldStatusBg, BattleTheme.ShieldStatusBorder));
+		return badges;
+	}
+
+	/// <summary>(Re)build a standee's status strip — a centred row of chips near the top, clear of the corner
+	/// atk/hp pips. Removes any prior strip first so it can be called live mid-animation (shield pop/grant)
+	/// as well as during a full render.</summary>
+	private static void SetStandeeStatuses(Control standee, List<StatusBadge> badges)
+	{
+		if (standee.GetNodeOrNull(StatusStripName) is { } old) { standee.RemoveChild(old); old.QueueFree(); }
+		if (badges.Count == 0)
+			return;
+
+		var size = new Vector2(BattleTheme.CellW - 14, BattleTheme.CellH - 14);
+		const float chipH = 22f, gap = 3f;
+		var widths = badges.Select(b => (float)(b.Text.Length * 15 + 12)).ToArray();
+		float total = widths.Sum() + gap * (badges.Count - 1);
+
+		var strip = new Control
+		{
+			Name = StatusStripName,
+			Position = new Vector2((size.X - total) / 2f, 3f),
+			Size = new Vector2(total, chipH),
+			MouseFilter = MouseFilterEnum.Ignore,
+		};
+		float x = 0f;
+		for (int i = 0; i < badges.Count; i++)
+		{
+			strip.AddChild(StatusChip(badges[i], new Vector2(x, 0), new Vector2(widths[i], chipH)));
+			x += widths[i] + gap;
+		}
+		standee.AddChild(strip);
+	}
+
+	private static Control StatusChip(StatusBadge b, Vector2 pos, Vector2 size)
+	{
+		var chip = new Panel { Position = pos, Size = size, MouseFilter = MouseFilterEnum.Ignore };
+		chip.AddThemeStyleboxOverride("panel", BattleTheme.Box(b.Bg, b.Border, 2, 7));
+		var label = BattleTheme.MakeOutlinedLabel(b.Text, 13, BattleTheme.TextMain, HorizontalAlignment.Center);
+		label.VerticalAlignment = VerticalAlignment.Center;
+		label.Position = Vector2.Zero;
+		label.Size = size;
+		chip.AddChild(label);
+		return chip;
 	}
 
 	private void Log(string message) => _logLabel.Text = message;

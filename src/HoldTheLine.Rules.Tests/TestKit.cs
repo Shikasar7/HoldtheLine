@@ -27,7 +27,19 @@ public static class TestKit
     { Id = "t_archer", Name = "Archer 2/2", Cost = 3, Atk = 2, Hp = 2, Keywords = [new(Keyword.Range, 2)] };
 
     public static readonly CardDefinition GuardUnit = new()
-    { Id = "t_guard", Name = "Guard 1/4", Cost = 2, Atk = 1, Hp = 4, Keywords = [new(Keyword.Guard)] };
+    { Id = "t_guard", Name = "Guard 1/4", Cost = 2, Atk = 1, Hp = 4, Keywords = [new(Keyword.Taunt)] };
+
+    /// <summary>守护 (Guardian): soaks adjacent allies' damage. Big body so it survives the redirect.</summary>
+    public static readonly CardDefinition GuardianUnit = new()
+    { Id = "t_guardian", Name = "Guardian 2/8", Cost = 5, Atk = 2, Hp = 8, Keywords = [new(Keyword.Guardian)] };
+
+    /// <summary>守护 + 坚守: the redirected damage is resolved through its OWN 坚守 reduction.</summary>
+    public static readonly CardDefinition GuardianHolder = new()
+    { Id = "t_guardian_hold", Name = "Bulwark 2/8", Cost = 5, Atk = 2, Hp = 8, Keywords = [new(Keyword.Guardian), new(Keyword.HoldFast)] };
+
+    /// <summary>福泽 (Blessing): adjacent friendly units take 1 less damage (not itself).</summary>
+    public static readonly CardDefinition BlessUnit = new()
+    { Id = "t_bless", Name = "Blesser 1/6", Cost = 3, Atk = 1, Hp = 6, Keywords = [new(Keyword.Blessing)] };
 
     public static readonly CardDefinition Holder = new()
     { Id = "t_holder", Name = "Holder 2/4", Cost = 3, Atk = 2, Hp = 4, Keywords = [new(Keyword.HoldFast)] };
@@ -100,7 +112,7 @@ public static class TestKit
     public static readonly CardDefinition GrantGuardOrder = new()
     {
         Id = "t_grant_guard", Name = "Entrench", Type = CardType.Order, Cost = 2,
-        Effects = [new EffectSpec { Trigger = "play", Action = "grant_keyword", Target = "target_unit", GrantKeyword = Keyword.Guard, Duration = "permanent" }],
+        Effects = [new EffectSpec { Trigger = "play", Action = "grant_keyword", Target = "target_unit", GrantKeyword = Keyword.Taunt, Duration = "permanent" }],
     };
 
     public static readonly CardDefinition PounceOrder = new()
@@ -151,7 +163,7 @@ public static class TestKit
     { Id = "t_turret", Name = "Turret 2/4", Cost = 3, Atk = 2, Hp = 4, Keywords = [new(Keyword.Range, 2), new(Keyword.Emplacement)] };
 
     public static readonly CardDefinition Barricade = new()
-    { Id = "t_barricade", Name = "Barricade 1/5", Cost = 2, Atk = 1, Hp = 5, Keywords = [new(Keyword.Guard), new(Keyword.Emplacement)] };
+    { Id = "t_barricade", Name = "Barricade 1/5", Cost = 2, Atk = 1, Hp = 5, Keywords = [new(Keyword.Taunt), new(Keyword.Emplacement)] };
 
     public static readonly CardDefinition Piercer = new()
     { Id = "t_piercer", Name = "Piercer 3/3", Cost = 4, Atk = 3, Hp = 3, Keywords = [new(Keyword.Range, 2), new(Keyword.Pierce)] };
@@ -253,6 +265,7 @@ public static class TestKit
 
     public static CardDatabase Db { get; } = new([
         Vanilla, BigVanilla, Charger, Assaulter, Scout, Archer, GuardUnit, Holder,
+        GuardianUnit, GuardianHolder, BlessUnit,
         Trampler, Sneak, Shielded, BattlecryBuffer, Bomber, Coin, ZapOrder, DrawOrder,
         Garrison, Leaper, PupToken, Medic, AllyBuffer, GrantGuardOrder, PounceOrder, GrantShieldOrder,
         SpeedOrder, SummonOrder, ColumnOrder, HomeRowBuffOrder, OwnHalfSnipe, AllAlliesBuff,
@@ -266,7 +279,7 @@ public static class TestKit
     public static readonly LeaderDefinition Valen = new()
     {
         Id = "leader_valen", Name = "Valen", SkillCost = 2,
-        SkillEffects = [new EffectSpec { Trigger = "leader_skill", Action = "grant_keyword", Target = "target_unit", GrantKeyword = Keyword.Guard, Duration = "your_next_turn" }],
+        SkillEffects = [new EffectSpec { Trigger = "leader_skill", Action = "grant_keyword", Target = "target_unit", GrantKeyword = Keyword.Taunt, Duration = "your_next_turn" }],
     };
 
     public static readonly LeaderDefinition Saen = new()

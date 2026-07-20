@@ -19,8 +19,9 @@ public enum Keyword
     /// only when the target can reach back (i.e. the attacker is inside the target's own range/adjacency).</summary>
     Range,
 
-    /// <summary>守护 — adjacent enemy units that attack must target an adjacent Guard.</summary>
-    Guard,
+    /// <summary>嘲讽 — adjacent enemy units that attack must target an adjacent Taunt first. (Was named
+    /// 守护/Guard through 0.7.x; renamed to its true role so 守护 could become the redirect keyword below.)</summary>
+    Taunt,
 
     /// <summary>坚守 — takes 1 less damage while it has not moved since its owner's last turn start.</summary>
     HoldFast,
@@ -61,6 +62,15 @@ public enum Keyword
     /// move. Lifts only the emplacement move-block; ordinary movement rules (one step, MovementPerTurn) apply,
     /// so a bolted-down gun repositions exactly one cell and is immovable again next turn (docs/10 §11).</summary>
     Mobilized,
+
+    /// <summary>福泽 — an aura: every FRIENDLY unit orthogonally adjacent to this one takes 1 less damage
+    /// (stacks with 坚守; the 福泽 unit itself is not affected — only its neighbours). 0.8.0.</summary>
+    Blessing,
+
+    /// <summary>守护 — when a FRIENDLY unit orthogonally adjacent to this one would take damage, that damage is
+    /// redirected here instead, resolved through THIS unit's own reductions (坚守/福泽/持盾). Only the original
+    /// target redirects — redirected damage on the guardian is not re-redirected, so there is no loop. 0.8.0.</summary>
+    Guardian,
 }
 
 /// <summary>A keyword plus its numeric parameter (used by Swift/Range; 0 for the rest).</summary>

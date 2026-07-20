@@ -13,7 +13,7 @@ public sealed class CardInstance
 /// <summary>A keyword granted for a limited time (grant_keyword with a non-permanent duration).</summary>
 public sealed class TempKeywordGrant
 {
-    public KeywordSpec Spec { get; set; } = new(Keyword.Guard);
+    public KeywordSpec Spec { get; set; } = new(Keyword.Taunt);
     /// <summary>end_of_turn | your_next_turn.</summary>
     public string Expiry { get; set; } = "end_of_turn";
     /// <summary>Seat that granted it — needed to resolve "your next turn".</summary>

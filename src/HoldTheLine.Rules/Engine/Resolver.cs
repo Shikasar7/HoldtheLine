@@ -244,8 +244,8 @@ public sealed class Resolver
     {
         if (attacker.Cell.Row != BoardGeometry.EnemyHomeRow(cmd.Seat))
             return new RuleError(RuleErrorCode.NotOnEnemyHomeRow, "Leaders can only be attacked from their home row (GDD §2.5).");
-        if (AdjacentEnemyGuards(ctx.State, attacker).Count > 0)
-            return new RuleError(RuleErrorCode.GuardEnforced, "An adjacent enemy with 守护 must be attacked first.");
+        if (AdjacentEnemyTaunts(ctx.State, attacker).Count > 0)
+            return new RuleError(RuleErrorCode.GuardEnforced, "相邻的敌方嘲讽随从必须优先攻击。");
 
         attacker.AttacksUsed++;
         int defendingSeat = 1 - cmd.Seat;
@@ -281,10 +281,10 @@ public sealed class Resolver
                 return new RuleError(RuleErrorCode.OutOfRange, $"Target is {distance} steps away; range is {range}.");
         }
 
-        // 守护: an attacker adjacent to any enemy Guard must pick one of those Guards.
-        var guards = AdjacentEnemyGuards(ctx.State, attacker);
-        if (guards.Count > 0 && !guards.Contains(target.EntityId))
-            return new RuleError(RuleErrorCode.GuardEnforced, "An adjacent enemy with 守护 must be attacked first.");
+        // 嘲讽: an attacker adjacent to any enemy Taunt must pick one of those Taunts.
+        var taunts = AdjacentEnemyTaunts(ctx.State, attacker);
+        if (taunts.Count > 0 && !taunts.Contains(target.EntityId))
+            return new RuleError(RuleErrorCode.GuardEnforced, "相邻的敌方嘲讽随从必须优先攻击。");
 
         attacker.AttacksUsed++;
         ctx.Emit(new AttackedEvent { AttackerEntityId = attacker.EntityId, TargetUnitId = target.EntityId });
@@ -451,10 +451,10 @@ public sealed class Resolver
             : BoardGeometry.StepDistance(unit.Cell, cell) <= range;
     }
 
-    private static HashSet<int> AdjacentEnemyGuards(GameState state, UnitInstance attacker) =>
+    private static HashSet<int> AdjacentEnemyTaunts(GameState state, UnitInstance attacker) =>
         BoardGeometry.AdjacentCells(attacker.Cell)
             .Select(state.UnitAt)
-            .Where(u => u != null && u.OwnerSeat != attacker.OwnerSeat && u.HasKeyword(Keyword.Guard))
+            .Where(u => u != null && u.OwnerSeat != attacker.OwnerSeat && u.HasKeyword(Keyword.Taunt))
             .Select(u => u!.EntityId)
             .ToHashSet();
 }

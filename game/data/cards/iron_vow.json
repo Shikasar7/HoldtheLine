@@ -21,8 +21,8 @@
 	"cost": 2,
 	"atk": 1,
 	"hp": 4,
-	"keywords": [{ "keyword": "guard" }],
-	"text": "守护。",
+	"keywords": [{ "keyword": "taunt" }],
+	"text": "嘲讽。",
 	"art_prompt": "a stoic armored soldier bracing behind a tower shield etched with oaths"
   },
   {
@@ -60,9 +60,9 @@
 	"cost": 3,
 	"atk": 2,
 	"hp": 4,
-	"keywords": [{ "keyword": "guard" }, { "keyword": "hold_fast" }],
+	"keywords": [{ "keyword": "taunt" }, { "keyword": "hold_fast" }],
 	"effects": [{ "trigger": "battlecry", "action": "buff", "target": "adjacent_allies", "hp": 1 }],
-	"text": "守护,坚守。战吼:相邻友方随从 +0/+1。",
+	"text": "嘲讽,坚守。战吼:相邻友方随从 +0/+1。",
 	"art_prompt": "a knight-captain planting a banner-shield, allies rallying beside them"
   },
   {
@@ -72,8 +72,8 @@
 	"type": "unit",
 	"rarity": "common",
 	"cost": 3,
-	"atk": 2,
-	"hp": 3,
+	"atk": 3,
+	"hp": 2,
 	"keywords": [{ "keyword": "range", "value": 2 }],
 	"text": "射程 2。",
 	"art_prompt": "an archer perched atop a fortress rampart, drawing a longbow over the battlements"
@@ -113,8 +113,8 @@
 	"cost": 5,
 	"atk": 3,
 	"hp": 6,
-	"keywords": [{ "keyword": "guard" }],
-	"text": "守护。",
+	"keywords": [{ "keyword": "taunt" }],
+	"text": "嘲讽。",
 	"art_prompt": "a colossal iron gate-golem with a portcullis for a face, blocking a breach"
   },
   {
@@ -139,8 +139,8 @@
 	"cost": 7,
 	"atk": 6,
 	"hp": 8,
-	"keywords": [{ "keyword": "guard" }, { "keyword": "shield" }],
-	"text": "守护,持盾。",
+	"keywords": [{ "keyword": "taunt" }, { "keyword": "shield" }],
+	"text": "嘲讽,持盾。",
 	"art_prompt": "a radiant paragon knight with an enormous aegis shield emitting a protective halo"
   },
   {
@@ -152,8 +152,8 @@
 	"cost": 8,
 	"atk": 6,
 	"hp": 9,
-	"keywords": [{ "keyword": "guard" }, { "keyword": "hold_fast" }, { "keyword": "garrison" }],
-	"text": "守护,坚守,驻防。守在底线,便是一座城。",
+	"keywords": [{ "keyword": "taunt" }, { "keyword": "hold_fast" }, { "keyword": "garrison" }],
+	"text": "嘲讽,坚守,驻防。守在底线,便是一座城。",
 	"art_prompt": "an ancient warden-lord fused with fortress armor, banner of the iron oath, immovable"
   },
   {
@@ -195,9 +195,9 @@
 	"faction": "iron_vow",
 	"type": "order",
 	"rarity": "rare",
-	"cost": 4,
-	"effects": [{ "trigger": "play", "action": "damage", "target": "target_unit_own_half", "amount": 3 }],
-	"text": "对你半场内的一个敌方随从造成 3 点伤害。",
+	"cost": 3,
+	"effects": [{ "trigger": "play", "action": "damage", "target": "target_unit_own_half", "amount": 4 }],
+	"text": "对你半场内的一个敌方随从造成 4 点伤害。",
 	"art_prompt": "an executioner's greatsword slamming down on an intruder who crossed the line"
   },
   {
@@ -211,10 +211,10 @@
 	"hp": 3,
 	"keywords": [
 	  {
-		"keyword": "guard"
+		"keyword": "taunt"
 	  }
 	],
-	"text": "守护。",
+	"text": "嘲讽。",
 	"art_prompt": "a nervous young gate guard raising a wooden shield, oath-flame badge, first watch"
   },
   {
@@ -300,10 +300,13 @@
 	"hp": 7,
 	"keywords": [
 	  {
+		"keyword": "guardian"
+	  },
+	  {
 		"keyword": "hold_fast"
 	  }
 	],
-	"text": "坚守。",
+	"text": "守护,坚守。",
 	"art_prompt": "a stone-grey sentinel in heavy layered plate, standing like a boulder that won't budge"
   },
   {
@@ -422,7 +425,7 @@
 	"hp": 9,
 	"keywords": [
 	  {
-		"keyword": "guard"
+		"keyword": "guardian"
 	  },
 	  {
 		"keyword": "hold_fast"
@@ -468,22 +471,16 @@
 	"hp": 8,
 	"keywords": [
 	  {
-		"keyword": "guard"
+		"keyword": "taunt"
 	  },
 	  {
 		"keyword": "shield"
-	  }
-	],
-	"effects": [
+	  },
 	  {
-		"trigger": "deathrattle",
-		"action": "grant_keyword",
-		"target": "adjacent_allies",
-		"keyword": "guard",
-		"duration": "permanent"
+		"keyword": "blessing"
 	  }
 	],
-	"text": "守护,持盾。亡语:相邻友方随从获得守护。壁倒,而墙不倒。",
+	"text": "嘲讽,持盾,福泽。壁倒,而墙不倒。",
 	"art_prompt": "a saintly warden-woman with a radiant greatshield, halo of oath-light, resolute even in falling"
   }
 ]

@@ -103,6 +103,10 @@ public static class Session
                 await client.ConnectAsync(new Uri(serverUrl), _hello);
                 LastConnectErrorCode = null;
                 ConnectedUrl = serverUrl;
+                // Keep the persistent lobby connection alive across transient drops (server redeploys,
+                // sleep/wake, wifi blips). Before this, a lobby-phase drop left the client dead-but-"Connected"
+                // and the next 排位/房间 send threw the raw "WebSocket is in an invalid state ('Aborted')".
+                EnableAutoReconnect(client);
                 return null;
             }
             catch (Exception ex)
@@ -133,11 +137,47 @@ public static class Session
         }
     }
 
-    /// <summary>Turn on transparent reconnect for the current match's resume token (call once a match starts).</summary>
+    /// <summary>Turn on transparent reconnect (idempotent — Session already enables it at connect). The
+    /// provider reads <see cref="Remote"/> LIVE, so once a match has started its resume token is picked up
+    /// automatically; kept public because the battle scene calls it at match start.</summary>
     public static void EnableReconnect()
     {
-        if (Remote is { } r && _hello is { } h)
-            r.EnableReconnect(h);
+        if (Client is { } c)
+            EnableAutoReconnect(c);
+    }
+
+    /// <summary>Arm the client's transparent reconnect with a hello that adapts to the current phase: it
+    /// carries the live match's resume token when in a match (<see cref="Remote"/> is swapped per match via
+    /// <see cref="ArmMatchHost"/>) and none in the lobby → the server does a plain identity restore and
+    /// re-pushes the Profile. Reading Remote live is what keeps a post-match lobby drop from re-sending a
+    /// stale (finished-match) token and looping on bad_resume.</summary>
+    private static void EnableAutoReconnect(GameServerClient client)
+    {
+        client.AutoReconnect = true;
+        client.ReconnectHelloProvider = () => _hello! with { ResumeToken = Remote?.ResumeToken ?? "" };
+    }
+
+    /// <summary>Make sure the lobby socket is live before a lobby action (排位 / 好友房间). A connection that
+    /// quietly dropped while idling leaves the client dead; the old behavior let the next send hit that dead
+    /// socket and surface the raw ".NET WebSocket is in an invalid state ('Aborted')". This joins an in-flight
+    /// dial, otherwise disposes any dead husk and dials fresh. Returns null when connected, else a
+    /// human-readable reason.</summary>
+    public static async Task<string?> EnsureConnectedAsync(string serverUrl, string nickname)
+    {
+        if (Connected)
+            return null;
+        // A dial already running (initial connect, or a caller that raced us) — await it instead of racing.
+        if (_connecting is { IsCompleted: false } inflight)
+        {
+            await inflight;
+            if (Connected)
+                return null;
+        }
+        // Dead / failed / mid-backoff husk → drop it and dial clean. For a user-initiated action a fresh
+        // deterministic dial beats waiting out the background reconnect's backoff.
+        if (Client is not null)
+            await DisconnectAsync();
+        return await ConnectAsync(serverUrl, nickname);
     }
 
     public static Task SendAsync(ClientMessage message) => Client?.SendAsync(message) ?? Task.CompletedTask;

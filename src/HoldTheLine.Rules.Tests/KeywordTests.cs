@@ -8,7 +8,7 @@ namespace HoldTheLine.Rules.Tests;
 
 public class KeywordTests
 {
-    // ---- 守护 Guard ----
+    // ---- 嘲讽 Taunt (formerly named 守护/Guard) ----
 
     [Fact]
     public void Adjacent_guard_forces_target_choice()
@@ -51,6 +51,87 @@ public class KeywordTests
         var result = TestKit.NewResolver().Execute(state, new AttackCommand
         { Seat = 0, AttackerEntityId = attacker.EntityId, TargetLeader = true });
         Assert.Equal(RuleErrorCode.GuardEnforced, result.Error!.Code);
+    }
+
+    // ---- 福泽 Blessing (0.8.0) ----
+
+    [Fact]
+    public void Blessing_reduces_adjacent_ally_damage()
+    {
+        var state = TestKit.NewGame();
+        var attacker = TestKit.Place(state, 0, "t_vanilla", new Cell(2, 1)); // 2 atk
+        var ally = TestKit.Place(state, 1, "t_big", new Cell(2, 2));         // 5/6, adjacent to the attacker
+        TestKit.Place(state, 1, "t_bless", new Cell(1, 2));                  // 福泽, adjacent to the ally
+
+        var result = TestKit.NewResolver().Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = attacker.EntityId, TargetUnitId = ally.EntityId });
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(5, result.State!.FindUnit(ally.EntityId)!.CurrentHp); // 2 dmg − 1 福泽 = 1 → 6-1=5
+    }
+
+    [Fact]
+    public void Blessing_does_not_reduce_its_own_incoming_damage()
+    {
+        var state = TestKit.NewGame();
+        var attacker = TestKit.Place(state, 0, "t_vanilla", new Cell(2, 1)); // 2 atk
+        var blesser = TestKit.Place(state, 1, "t_bless", new Cell(2, 2));    // 福泽, no other blesser adjacent
+
+        var result = TestKit.NewResolver().Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = attacker.EntityId, TargetUnitId = blesser.EntityId });
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(4, result.State!.FindUnit(blesser.EntityId)!.CurrentHp); // full 2 dmg → 6-2=4 (aura never helps self)
+    }
+
+    // ---- 守护 Guardian (0.8.0) ----
+
+    [Fact]
+    public void Guardian_soaks_adjacent_ally_damage()
+    {
+        var state = TestKit.NewGame();
+        var attacker = TestKit.Place(state, 0, "t_big", new Cell(2, 1));      // 5 atk
+        var ally = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 2));      // 2/3, adjacent to the attacker
+        var guardian = TestKit.Place(state, 1, "t_guardian", new Cell(1, 2)); // 守护 2/8, adjacent to the ally
+
+        var result = TestKit.NewResolver().Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = attacker.EntityId, TargetUnitId = ally.EntityId });
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(3, result.State!.FindUnit(ally.EntityId)!.CurrentHp);    // spared — took 0
+        Assert.Equal(3, result.State.FindUnit(guardian.EntityId)!.CurrentHp); // soaked 5 → 8-5=3
+        Assert.Contains(result.Events, e => e is UnitDamagedEvent { GuardRedirect: true, Amount: 0 } d && d.UnitEntityId == ally.EntityId);
+        Assert.Contains(result.Events, e => e is UnitDamagedEvent { GuardRedirect: true, Amount: 5 } d && d.UnitEntityId == guardian.EntityId);
+    }
+
+    [Fact]
+    public void Guardian_resolves_redirect_through_its_own_holdfast()
+    {
+        var state = TestKit.NewGame();
+        var attacker = TestKit.Place(state, 0, "t_big", new Cell(2, 1));           // 5 atk
+        var ally = TestKit.Place(state, 1, "t_vanilla", new Cell(2, 2));
+        var guardian = TestKit.Place(state, 1, "t_guardian_hold", new Cell(1, 2)); // 守护+坚守 2/8, stationary
+
+        var result = TestKit.NewResolver().Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = attacker.EntityId, TargetUnitId = ally.EntityId });
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(3, result.State!.FindUnit(ally.EntityId)!.CurrentHp);         // spared
+        Assert.Equal(4, result.State.FindUnit(guardian.EntityId)!.CurrentHp);      // 5 − 1 坚守 = 4 → 8-4=4
+    }
+
+    [Fact]
+    public void Guardian_hit_directly_takes_it_itself_no_loop()
+    {
+        var state = TestKit.NewGame();
+        var attacker = TestKit.Place(state, 0, "t_big", new Cell(2, 1));      // 5 atk
+        var guardian = TestKit.Place(state, 1, "t_guardian", new Cell(2, 2)); // 守护, no other guardian adjacent
+
+        var result = TestKit.NewResolver().Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = attacker.EntityId, TargetUnitId = guardian.EntityId });
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(3, result.State!.FindUnit(guardian.EntityId)!.CurrentHp); // 8-5=3, no self-redirect
     }
 
     // ---- 坚守 HoldFast ----

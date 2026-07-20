@@ -70,10 +70,10 @@
     "hp": 3,
     "keywords": [
       {
-        "keyword": "guard"
+        "keyword": "taunt"
       }
     ],
-    "text": "守护。",
+    "text": "嘲讽。",
     "art_prompt": "a robed temple guardian bracing a charred greatshield before an altar flame"
   },
   {
@@ -429,10 +429,10 @@
     "hp": 5,
     "keywords": [
       {
-        "keyword": "guard"
+        "keyword": "taunt"
       }
     ],
-    "text": "守护。",
+    "text": "嘲讽。",
     "art_prompt": "a stalwart pyre-guardian with a shield of standing flame, holding the front line"
   },
   {

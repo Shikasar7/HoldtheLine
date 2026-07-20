@@ -261,9 +261,13 @@ public partial class MenuScene : Control
     /// (LastConnectErrorCode carries the update code, if any).</summary>
     private static async System.Threading.Tasks.Task<string?> EnsureConnectedAsync()
     {
-        if (Session.Connected && Session.ConnectedUrl == GameConfig.ServerUrl) return null;
-        if (Session.Connected) await Session.DisconnectAsync(); // address changed → drop the old host first
-        return await Session.ConnectAsync(GameConfig.ServerUrl, GameConfig.Nickname);
+        // Address edited since the live socket opened (docs/16) → drop the old host first so the new URL isn't
+        // silently absorbed by a stale connection to the old one.
+        if (Session.Connected && Session.ConnectedUrl != GameConfig.ServerUrl)
+            await Session.DisconnectAsync();
+        // Session.EnsureConnectedAsync handles the rest: no-op when already live, join an in-flight dial, and
+        // (crucially) dispose a dead/failed husk before dialing fresh so a broken lobby socket doesn't leak.
+        return await Session.EnsureConnectedAsync(GameConfig.ServerUrl, GameConfig.Nickname);
     }
 
     /// <summary>If the last connect was rejected with an update-required code, raise the forced-update modal
@@ -504,8 +508,6 @@ public partial class MenuScene : Control
 
     private async void StartQueue()
     {
-        Session.ArmMatchHost();
-        var remote = Session.Remote!;
         var p = NewPanel();
         PanelLabel(p, "排位匹配中…", 380, 48, BattleTheme.Accent);
         var status = PanelLabel(p, "正在寻找对手", 460, 26, BattleTheme.TextDim);
@@ -516,14 +518,22 @@ public partial class MenuScene : Control
             if (GodotObject.IsInstanceValid(status))
                 status.Text = $"已等待 {q.WaitedSeconds}s   ·   正在寻找对手";
         }).CallDeferred();
-        Session.QueueStatusReceived += OnStatus;
 
         p.AddChild(Btn("取消", new Vector2(Cx, 540), new Vector2(600, 64), async () =>
         {
             Session.QueueStatusReceived -= OnStatus;
-            await Session.SendAsync(new LeaveQueue());
+            try { await Session.SendAsync(new LeaveQueue()); } catch { /* socket may be down; back out anyway */ }
             ShowLobby();
         }));
+
+        // The lobby socket may have quietly dropped while idling — re-establish it before queuing so JoinQueue
+        // never lands on a dead socket (which used to surface the raw "WebSocket is in an invalid state").
+        if (!await EnsureLobbyLinkAsync(status))
+            return;
+
+        Session.ArmMatchHost();
+        var remote = Session.Remote!;
+        Session.QueueStatusReceived += OnStatus;
 
         try
         {
@@ -535,7 +545,7 @@ public partial class MenuScene : Control
         catch (System.Exception ex)
         {
             Session.QueueStatusReceived -= OnStatus;
-            SetStatusDeferred(status, $"匹配失败:{ex.Message}");
+            SetStatusDeferred(status, $"匹配失败:{FriendlyNetError(ex)}");
         }
     }
 
@@ -558,6 +568,7 @@ public partial class MenuScene : Control
 
     private async void HostRoom(Label status)
     {
+        if (!await EnsureLobbyLinkAsync(status)) return;
         Session.ArmMatchHost();
         var remote = Session.Remote!;
         void OnCreated(RoomCreated rc) => SetStatusDeferred(status, $"房间号  {rc.Code}   ·   等待朋友加入…");
@@ -569,12 +580,13 @@ public partial class MenuScene : Control
             Session.RoomCreatedOk -= OnCreated;
             Callable.From(GoToBattleOnline).CallDeferred();
         }
-        catch (System.Exception ex) { Session.RoomCreatedOk -= OnCreated; SetStatusDeferred(status, $"失败:{ex.Message}"); }
+        catch (System.Exception ex) { Session.RoomCreatedOk -= OnCreated; SetStatusDeferred(status, $"失败:{FriendlyNetError(ex)}"); }
     }
 
     private async void JoinRoomCode(string code, Label status)
     {
         if (string.IsNullOrWhiteSpace(code)) return;
+        if (!await EnsureLobbyLinkAsync(status)) return;
         Session.ArmMatchHost();
         var remote = Session.Remote!;
         void OnErr(ErrorMsg e) => SetStatusDeferred(status, $"错误:{e.Code}");
@@ -586,8 +598,30 @@ public partial class MenuScene : Control
             Session.Errored -= OnErr;
             Callable.From(GoToBattleOnline).CallDeferred();
         }
-        catch (System.Exception ex) { Session.Errored -= OnErr; SetStatusDeferred(status, $"失败:{ex.Message}"); }
+        catch (System.Exception ex) { Session.Errored -= OnErr; SetStatusDeferred(status, $"失败:{FriendlyNetError(ex)}"); }
     }
+
+    /// <summary>Before a lobby action that sends on the shared socket: if the persistent lobby connection
+    /// quietly dropped while idling (server redeploy, sleep/wake, wifi blip), re-establish it so the send
+    /// doesn't hit a dead socket. Returns true when the link is live, false (with a status message) otherwise.</summary>
+    private static async System.Threading.Tasks.Task<bool> EnsureLobbyLinkAsync(Label status)
+    {
+        if (Session.Connected) return true;
+        SetStatusDeferred(status, "连接已断开,正在重连…");
+        var err = await EnsureConnectedAsync();
+        if (err is null) return true;
+        SetStatusDeferred(status, $"重连失败:{err}");
+        return false;
+    }
+
+    /// <summary>Map raw transport faults to actionable Chinese copy — a dead/aborted socket must never show the
+    /// player ".NET WebSocket is in an invalid state ('Aborted')".</summary>
+    private static string FriendlyNetError(System.Exception ex) => ex switch
+    {
+        System.Net.WebSockets.WebSocketException or System.InvalidOperationException => "连接已断开,请稍候重试",
+        System.TimeoutException => "服务器无响应,请稍候重试",
+        _ => ex.Message,
+    };
 
     private static void SetStatusDeferred(Label status, string text) =>
         Callable.From(() => { if (GodotObject.IsInstanceValid(status)) status.Text = text; }).CallDeferred();
@@ -865,6 +899,15 @@ public partial class MenuScene : Control
         repaint();
     }
 
+    /// <summary>The faction of the deck grid key the player picked, used to steer the random opponent away
+    /// from a mirror match. Local decks carry their faction; built-ins map through the AI pool.</summary>
+    private static string? SelectedDeckFaction(string key)
+    {
+        if (key.StartsWith("local:"))
+            return DeckStorage.Get(key["local:".Length..])?.Faction;
+        return AiDeckPool.FactionOf(key);
+    }
+
     /// <summary>Resolve a grid key to a seat deck: a built-in id (cards null) or a local card list + leader.</summary>
     private static (string? Builtin, IReadOnlyList<string>? Cards, string? Leader) ResolveVsAiDeck(string key)
     {
@@ -881,7 +924,8 @@ public partial class MenuScene : Control
         Prefs.LastVsAiDeck = _vsAiMyDeck; // preselect it next time the panel opens
         var (hb, hc, hl) = ResolveVsAiDeck(_vsAiMyDeck);
         // Random opponent is resolved to a concrete built-in now (the panel doesn't reveal which — you see it in-match).
-        string oppKey = _vsAiOppDeck == "random" ? AiDeckPool.PickRandom(_vsAiLevel) : _vsAiOppDeck;
+        // Avoid mirroring the player's own faction (an even 1/4 pick otherwise reads as "always the same faction").
+        string oppKey = _vsAiOppDeck == "random" ? AiDeckPool.PickRandom(_vsAiLevel, SelectedDeckFaction(_vsAiMyDeck)) : _vsAiOppDeck;
         var (ab, ac, al) = ResolveVsAiDeck(oppKey);
         GameConfig.SetVsAiMatch(hb, hc, hl, ab, ac, al, _vsAiLevel);
         GetTree().ChangeSceneToFile(BattlePath);

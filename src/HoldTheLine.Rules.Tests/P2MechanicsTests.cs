@@ -167,7 +167,7 @@ public class GrantKeywordTests
         { Seat = 0, CardEntityId = order, TargetUnitId = target.EntityId });
 
         Assert.True(result.Success, result.Error?.Message);
-        Assert.True(result.State!.FindUnit(target.EntityId)!.HasKeyword(Keyword.Guard));
+        Assert.True(result.State!.FindUnit(target.EntityId)!.HasKeyword(Keyword.Taunt));
     }
 
     [Fact]
@@ -387,16 +387,16 @@ public class LeaderSkillTests
         var result = resolver.Execute(state, new UseLeaderSkillCommand { Seat = 0, TargetUnitId = target.EntityId });
         Assert.True(result.Success, result.Error?.Message);
         state = result.State!;
-        Assert.True(state.FindUnit(target.EntityId)!.HasKeyword(Keyword.Guard));
+        Assert.True(state.FindUnit(target.EntityId)!.HasKeyword(Keyword.Taunt));
         Assert.Equal(3, state.Player(0).Mana); // 5 - 2
         Assert.True(state.Player(0).LeaderSkillUsedThisTurn);
 
         // Survives the opponent's turn...
         state = resolver.Execute(state, new EndTurnCommand { Seat = 0 }).State!;
-        Assert.True(state.FindUnit(target.EntityId)!.HasKeyword(Keyword.Guard));
+        Assert.True(state.FindUnit(target.EntityId)!.HasKeyword(Keyword.Taunt));
         // ...and expires at the start of seat 0's next turn.
         state = resolver.Execute(state, new EndTurnCommand { Seat = 1 }).State!;
-        Assert.False(state.FindUnit(target.EntityId)!.HasKeyword(Keyword.Guard));
+        Assert.False(state.FindUnit(target.EntityId)!.HasKeyword(Keyword.Taunt));
     }
 
     [Fact]

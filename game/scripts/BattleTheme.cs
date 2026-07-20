@@ -40,6 +40,10 @@ public static class BattleTheme
     public static readonly Color DangerColor = Color.FromHtml("d05a4a");
     public static readonly Color PanelDark = Color.FromHtml("2c2822");
 
+    // Card-face status chips (buff/debuff indicators drawn on the board standee).
+    public static readonly Color ShieldStatusBg = Color.FromHtml("2b4a63");     // 持盾 chip fill — deep steel blue
+    public static readonly Color ShieldStatusBorder = Color.FromHtml("6fc0e0"); // 持盾 chip rim — bright ice
+
     // ---------- fonts (bundled Source Han Sans SC, OFL; falls back to system YaHei if missing) ----------
 
     public static readonly Font UiFont = LoadUiFont("res://assets/fonts/SourceHanSansSC-Regular.otf", 400);

@@ -12,7 +12,7 @@ public class CardDataTests
         [{
           "id": "iv_test", "name": "测试盾卫", "faction": "iron_vow", "type": "unit",
           "rarity": "rare", "cost": 3, "atk": 2, "hp": 5,
-          "keywords": [{"keyword": "guard"}, {"keyword": "hold_fast"}],
+          "keywords": [{"keyword": "taunt"}, {"keyword": "hold_fast"}],
           "effects": [{"trigger": "battlecry", "action": "buff", "target": "adjacent_allies", "hp": 1}],
           "art_prompt": "a dwarven shield bearer"
         }]
@@ -21,7 +21,7 @@ public class CardDataTests
         var card = Assert.Single(defs);
         Assert.Equal(CardType.Unit, card.Type);
         Assert.Equal(Rarity.Rare, card.Rarity);
-        Assert.True(card.HasKeyword(Keyword.Guard));
+        Assert.True(card.HasKeyword(Keyword.Taunt));
         Assert.True(card.HasKeyword(Keyword.HoldFast));
         Assert.Equal("adjacent_allies", card.Effects[0].Target);
         Assert.Equal("a dwarven shield bearer", card.ArtPrompt);

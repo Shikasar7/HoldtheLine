@@ -30,13 +30,10 @@
     "hp": 5,
     "keywords": [
       {
-        "keyword": "guard"
-      },
-      {
-        "keyword": "emplacement"
+        "keyword": "taunt"
       }
     ],
-    "text": "守护,架设(不能移动;受到指令等效果伤害 +1)。",
+    "text": "嘲讽。",
     "art_prompt": "a riveted iron barricade frame bolted into the ground, sandbag skirt at its base"
   },
   {
@@ -130,11 +127,11 @@
         "trigger": "battlecry",
         "action": "grant_keyword",
         "target": "target_unit_ally",
-        "keyword": "guard",
+        "keyword": "taunt",
         "duration": "permanent"
       }
     ],
-    "text": "战吼:一个友方随从获得守护。",
+    "text": "战吼:一个友方随从获得嘲讽。",
     "art_prompt": "a foreman dwarf unrolling blueprints while a wall frame rises behind him"
   },
   {
@@ -190,10 +187,10 @@
     "hp": 7,
     "keywords": [
       {
-        "keyword": "guard"
+        "keyword": "taunt"
       }
     ],
-    "text": "守护。",
+    "text": "嘲讽。",
     "art_prompt": "a walking ironclad automaton with a furnace chest and shield-plate arms"
   },
   {
@@ -352,13 +349,10 @@
     "hp": 4,
     "keywords": [
       {
-        "keyword": "guard"
-      },
-      {
-        "keyword": "emplacement"
+        "keyword": "taunt"
       }
     ],
-    "text": "守护,架设。",
+    "text": "嘲讽。",
     "art_prompt": "a bolted-down spiked barricade frame, wooden stakes and iron braces, immovable"
   },
   {
@@ -517,7 +511,7 @@
         "trigger": "play",
         "action": "grant_keyword",
         "target": "target_unit_ally",
-        "keyword": "guard",
+        "keyword": "taunt",
         "duration": "permanent"
       },
       {
@@ -528,7 +522,7 @@
         "duration": "permanent"
       }
     ],
-    "text": "一个友方随从 +0/+2 并获得守护和坚守。",
+    "text": "一个友方随从 +0/+2 并获得嘲讽和坚守。",
     "art_prompt": "a unit being welded into a lockdown bunker of plates and clamps, sealed tight"
   },
   {
@@ -602,11 +596,11 @@
     "type": "unit",
     "rarity": "epic",
     "cost": 8,
-    "atk": 6,
-    "hp": 8,
+    "atk": 5,
+    "hp": 10,
     "keywords": [
       {
-        "keyword": "guard"
+        "keyword": "guardian"
       },
       {
         "keyword": "hold_fast"

@@ -127,7 +127,7 @@ public class EmplacementTests
     }
 
     [Fact]
-    public void Recall_order_burns_on_a_full_hand()
+    public void Recall_order_on_a_full_hand_leaves_it_in_the_graveyard()
     {
         var state = TestKit.NewGame();
         state.Player(0).Mana = 5;
@@ -142,6 +142,8 @@ public class EmplacementTests
         Assert.True(result.Success, result.Error?.Message);
         Assert.Contains(result.Events, e => e is CardBurnedEvent { CardId: "t_zap" });
         Assert.DoesNotContain(result.State!.Player(0).Hand, c => c.CardId == "t_zap");
+        // 0.7.0: an order recalled into a full hand stays in the graveyard rather than leaving the game.
+        Assert.Contains("t_zap", result.State.Player(0).Graveyard);
     }
 
     [Fact]

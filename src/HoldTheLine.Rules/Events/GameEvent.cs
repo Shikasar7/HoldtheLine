@@ -74,7 +74,8 @@ public sealed record CardDrawnEvent : GameEvent
         viewerSeat == Seat ? this : this with { CardId = null };
 }
 
-/// <summary>Overdraw at the 9-card hand limit destroys the card. Publicly visible (as in Hearthstone).</summary>
+/// <summary>A card could not enter a full (9-card) hand. Since 0.7.0 it goes to the owner's graveyard
+/// rather than leaving the game; this event still reports the "couldn't hold it" beat. Publicly visible.</summary>
 public sealed record CardBurnedEvent : GameEvent
 {
     public required int Seat { get; init; }
@@ -123,10 +124,13 @@ public sealed record AttackedEvent : GameEvent
 public sealed record UnitDamagedEvent : GameEvent
 {
     public required int UnitEntityId { get; init; }
-    /// <summary>Damage actually applied after HoldFast/Shield. 0 when fully absorbed.</summary>
+    /// <summary>Damage actually applied after HoldFast/福泽/Shield. 0 when fully absorbed.</summary>
     public required int Amount { get; init; }
     public required int NewHp { get; init; }
     public bool ShieldAbsorbed { get; init; }
+    /// <summary>守护 (Guardian, 0.8.0): this damage event is part of a redirect. On the spared original target it
+    /// carries Amount 0; on the guardian that soaked it, the actual amount. Lets the client tag both "守护-N".</summary>
+    public bool GuardRedirect { get; init; }
 }
 
 public sealed record UnitHealedEvent : GameEvent

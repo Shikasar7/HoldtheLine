@@ -11,21 +11,39 @@ namespace HoldTheLine.Game;
 /// </summary>
 public static class AiDeckPool
 {
-    private static readonly (string DeckId, AiLevel[] Levels)[] Pool =
+    private static readonly (string DeckId, string Faction, AiLevel[] Levels)[] Pool =
     [
-        ("iron_wall",          [AiLevel.Easy, AiLevel.Normal, AiLevel.Hard]),
-        ("wildpack_hunt",      [AiLevel.Easy, AiLevel.Normal, AiLevel.Hard]),
-        ("duskweaver_vesper",  [AiLevel.Easy, AiLevel.Normal, AiLevel.Hard]),
-        ("undervault_sunline", [AiLevel.Easy, AiLevel.Normal, AiLevel.Hard]),
+        ("iron_wall",          "iron_vow",   [AiLevel.Easy, AiLevel.Normal, AiLevel.Hard]),
+        ("wildpack_hunt",      "wildpack",   [AiLevel.Easy, AiLevel.Normal, AiLevel.Hard]),
+        ("duskweaver_vesper",  "duskweaver", [AiLevel.Easy, AiLevel.Normal, AiLevel.Hard]),
+        ("undervault_sunline", "undervault", [AiLevel.Easy, AiLevel.Normal, AiLevel.Hard]),
     ];
 
-    /// <summary>A random built-in deck id eligible at <paramref name="level"/> (falls back to the whole pool
-    /// if a tier were ever left without any eligible deck).</summary>
-    public static string PickRandom(AiLevel level)
+    /// <summary>The faction of a built-in pool deck, or null if the id is not a pool deck.</summary>
+    public static string? FactionOf(string deckId)
     {
-        var eligible = Pool.Where(p => p.Levels.Contains(level)).Select(p => p.DeckId).ToArray();
-        if (eligible.Length == 0)
-            eligible = Pool.Select(p => p.DeckId).ToArray();
-        return eligible[(int)(GD.Randi() % (uint)eligible.Length)];
+        foreach (var p in Pool)
+            if (p.DeckId == deckId)
+                return p.Faction;
+        return null;
+    }
+
+    /// <summary>A random built-in deck id eligible at <paramref name="level"/>. When <paramref name="excludeFaction"/>
+    /// is given, a "random opponent" prefers a DIFFERENT faction than the player's (so picking 随机对手 no longer
+    /// keeps mirroring your own faction ~1/4 of the time). Falls back gracefully: if excluding leaves nothing, the
+    /// exclusion is dropped; if a tier were ever left with no eligible deck, the whole pool is used.</summary>
+    public static string PickRandom(AiLevel level, string? excludeFaction = null)
+    {
+        var atTier = Pool.Where(p => p.Levels.Contains(level)).ToArray();
+        if (atTier.Length == 0)
+            atTier = Pool;
+
+        var eligible = excludeFaction != null
+            ? atTier.Where(p => p.Faction != excludeFaction).ToArray()
+            : atTier;
+        if (eligible.Length == 0) // player's faction was the only option at this tier — allow the mirror rather than fail
+            eligible = atTier;
+
+        return eligible[(int)(GD.Randi() % (uint)eligible.Length)].DeckId;
     }
 }
