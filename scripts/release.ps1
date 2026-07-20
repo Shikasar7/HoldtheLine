@@ -80,27 +80,40 @@ if ($SkipExport) {
     if (-not (Test-Path -LiteralPath $Godot)) {
         throw "找不到 Godot:$Godot(用 -Godot 指定,或设 `$env:GODOT)"
     }
-    Info "Godot 导出中(超时 5 分钟看护)…"
-    if (Test-Path -LiteralPath $ExportDir) { Remove-Item -Recurse -Force -LiteralPath $ExportDir }
-    New-Item -ItemType Directory -Force -Path $ExportDir | Out-Null
-    $exeOut = Join-Path $ExportDir $ExeName
+    # 发布前临时剥离 MCP 开发用 autoload(godot_mcp 的截图/输入/inspector 服务;文件轮询 IPC,不开端口,
+    # 但 inspector 能从 user:// 请求文件执行 GDScript,属开发工具,不该随包发给玩家)。仅导出期间注释,
+    # finally 里按原文还原(与 git 状态无关,即使用户有未提交改动也安全)。
+    $ProjectGodot   = Join-Path $GameDir 'project.godot'
+    $godotProjOrig  = Get-Content -Raw -LiteralPath $ProjectGodot
+    $stripped       = [regex]::Replace($godotProjOrig, '(?m)^(\s*)(\w+="\*res://addons/godot_mcp/[^"]*")', '$1; $2')
+    [System.IO.File]::WriteAllText($ProjectGodot, $stripped, (New-Object System.Text.UTF8Encoding($false)))
+    Info "已临时注释 MCP autoload(发布包不含开发工具,导出后自动还原)"
+    try {
+        Info "Godot 导出中(超时 5 分钟看护)…"
+        if (Test-Path -LiteralPath $ExportDir) { Remove-Item -Recurse -Force -LiteralPath $ExportDir }
+        New-Item -ItemType Directory -Force -Path $ExportDir | Out-Null
+        $exeOut = Join-Path $ExportDir $ExeName
 
-    $godotLog = Join-Path $Root 'build\godot-export.log'
-    # 用单个带引号的参数串:Start-Process 对数组元素不会自动加引号,预设名 "Windows Desktop"
-    # 含空格会被拆成两个参数(Godot 报 Invalid export preset name: Windows)。路径一并加引号防空格。
-    $godotArgs = "--headless --path `"$GameDir`" --export-release `"$Preset`" `"$exeOut`""
-    $proc = Start-Process -FilePath $Godot -ArgumentList $godotArgs -PassThru -NoNewWindow `
-        -RedirectStandardOutput $godotLog -RedirectStandardError "$godotLog.err"
-    if (-not $proc.WaitForExit(300000)) {
-        try { $proc.Kill() } catch {}
-        throw "Godot 导出超时(>5min)—— 多半是导出 wrapper 挂住,重跑一次(docs/15 §4 排雷)。日志:$godotLog"
+        $godotLog = Join-Path $Root 'build\godot-export.log'
+        # 用单个带引号的参数串:Start-Process 对数组元素不会自动加引号,预设名 "Windows Desktop"
+        # 含空格会被拆成两个参数(Godot 报 Invalid export preset name: Windows)。路径一并加引号防空格。
+        $godotArgs = "--headless --path `"$GameDir`" --export-release `"$Preset`" `"$exeOut`""
+        $proc = Start-Process -FilePath $Godot -ArgumentList $godotArgs -PassThru -NoNewWindow `
+            -RedirectStandardOutput $godotLog -RedirectStandardError "$godotLog.err"
+        if (-not $proc.WaitForExit(300000)) {
+            try { $proc.Kill() } catch {}
+            throw "Godot 导出超时(>5min)—— 多半是导出 wrapper 挂住,重跑一次(docs/15 §4 排雷)。日志:$godotLog"
+        }
+        if ($proc.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $exeOut)) {
+            Get-Content -Tail 30 -LiteralPath $godotLog -ErrorAction SilentlyContinue | Write-Host
+            Get-Content -Tail 30 -LiteralPath "$godotLog.err" -ErrorAction SilentlyContinue | Write-Host
+            throw "Godot 导出失败(ExitCode=$($proc.ExitCode))。日志:$godotLog"
+        }
+        Info "导出完成:$exeOut"
+    } finally {
+        [System.IO.File]::WriteAllText($ProjectGodot, $godotProjOrig, (New-Object System.Text.UTF8Encoding($false)))
+        Info "已还原 project.godot 的 MCP autoload"
     }
-    if ($proc.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $exeOut)) {
-        Get-Content -Tail 30 -LiteralPath $godotLog -ErrorAction SilentlyContinue | Write-Host
-        Get-Content -Tail 30 -LiteralPath "$godotLog.err" -ErrorAction SilentlyContinue | Write-Host
-        throw "Godot 导出失败(ExitCode=$($proc.ExitCode))。日志:$godotLog"
-    }
-    Info "导出完成:$exeOut"
 }
 
 # ③ vpk pack —— 产出 Setup.exe + 完整包 + 与上一版的 delta + releases.win.json
