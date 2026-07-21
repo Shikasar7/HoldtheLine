@@ -1,5 +1,6 @@
 using HoldTheLine.Rules.Cards;
 using Xunit;
+using KW = HoldTheLine.Rules.Cards.Keyword;
 
 namespace HoldTheLine.Rules.Tests;
 
@@ -121,6 +122,16 @@ public class Patch4DataTests
     public void Pyre_channeler_ping_is_tagged_kindle()
     {
         Assert.Equal("spell.kindle", Effect("dw_pyre_channeler", "damage").School);
+    }
+
+    [Fact]
+    public void Chick_grows_into_phoenix_and_both_are_kindle_immune()
+    {
+        var chick = Db.Get("dw_phoenix_chick");
+        Assert.True(chick.HasKeyword(KW.KindleImmune));
+        Assert.Equal(4, chick.Growth!.Turns);
+        Assert.Equal("dw_ash_phoenix", chick.Growth!.IntoCardId);
+        Assert.True(Db.Get("dw_ash_phoenix").HasKeyword(KW.KindleImmune));
     }
 
     // ---- §1.3 引导者差异化 + 蓄能 reworks ----

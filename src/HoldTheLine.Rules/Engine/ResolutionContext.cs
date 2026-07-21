@@ -51,15 +51,29 @@ internal sealed class ResolutionContext
     /// by 灼蚀 (sear): the 坚守 reduction is skipped, but 福泽/持盾 are unchanged (docs/10 §6#2).</summary>
     /// <param name="guardRedirected">True only for the recursive call that lands redirected damage on a 守护
     /// guardian: it does NOT redirect again (no loop) and every event it emits is tagged 守护 for the client.</param>
-    public void DamageUnit(UnitInstance target, int amount, bool ignoreHoldFast = false, bool guardRedirected = false)
+    public void DamageUnit(UnitInstance target, int amount, bool ignoreHoldFast = false, bool guardRedirected = false, string school = "physical")
     {
+        bool kindle = amount > 0 && school.StartsWith("spell", StringComparison.Ordinal);
+
+        // 成长加速 (docs/21 §1.8): a 薪炎 hit on a 成长 unit adds +1 (may transform it in place) — this runs even
+        // when the hit is immune, so the 雏凤/凤凰 loop turns on being burned. Top of the pipeline (docs/21 §4.7).
+        if (kindle && Db.Get(target.CardId).Growth is not null)
+            AccelerateGrowth(target);
+
+        // 免疫薪炎 (docs/21 §1.1/§4.7): the (possibly just-transformed) unit zeroes spell.* damage entirely.
+        if (kindle && target.HasKeyword(Keyword.KindleImmune))
+        {
+            Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = 0, NewHp = target.CurrentHp, GuardRedirect = guardRedirected });
+            return;
+        }
+
         // 守护 (Guardian): a real hit (amount > 0) on a unit with an adjacent friendly guardian is soaked by
         // that guardian instead — through ITS own reductions. The spared target shows 守护-0; the guardian's
         // own DamageUnit shows 守护-<actual>. Only the original target redirects (guardRedirected guards the loop).
         if (!guardRedirected && amount > 0 && GuardianFor(target) is { } guardian)
         {
             Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = 0, NewHp = target.CurrentHp, GuardRedirect = true });
-            DamageUnit(guardian, amount, ignoreHoldFast, guardRedirected: true);
+            DamageUnit(guardian, amount, ignoreHoldFast, guardRedirected: true, school);
             return;
         }
 
@@ -108,6 +122,38 @@ internal sealed class ResolutionContext
     /// so this adds no new event type. Deathrattles fire as normal.
     /// </summary>
     public void DestroyUnit(UnitInstance target) => target.CurrentHp = 0;
+
+    // ---- 成长 (docs/21 §1.8) ----
+
+    /// <summary>Advances a unit's 成长 by one step (a turn-start tick or a 薪炎 hit) and transforms it in place
+    /// when it reaches the threshold. No-op on a unit whose card has no growth.</summary>
+    public void AccelerateGrowth(UnitInstance unit)
+    {
+        if (Db.Get(unit.CardId).Growth is not { } growth)
+            return;
+        unit.GrowthProgress++;
+        Emit(new UnitGrowthEvent { UnitEntityId = unit.EntityId, Progress = unit.GrowthProgress, Turns = growth.Turns });
+        if (unit.GrowthProgress >= growth.Turns)
+            TransformUnit(unit, growth.IntoCardId);
+    }
+
+    /// <summary>原地转化 (docs/21 §1.8): re-skin the same unit into <paramref name="intoCardId"/> at full stats
+    /// with statuses cleared (雏凤 → 灰烬凤凰). EntityId/owner/cell are preserved.</summary>
+    private void TransformUnit(UnitInstance unit, string intoCardId)
+    {
+        var into = Db.Get(intoCardId);
+        unit.CardId = into.Id;
+        unit.Atk = into.Atk;
+        unit.MaxHp = into.Hp;
+        unit.CurrentHp = into.Hp;               // 满血满攻
+        unit.Keywords = into.Keywords.ToList();  // 状态清空 → the new form's own keywords
+        unit.TempGrants.Clear();
+        unit.GrowthProgress = 0;
+        unit.GarrisonApplied = false;
+        unit.ShieldActive = into.HasKeyword(Keyword.Shield);
+        Emit(new UnitTransformedEvent { UnitEntityId = unit.EntityId, IntoCardId = into.Id, Atk = unit.Atk, Hp = unit.CurrentHp });
+        RecomputeGarrison(unit); // the new form may (re)gain 驻防 on the home row
+    }
 
     public void DamageLeader(int seat, int amount)
     {
@@ -355,7 +401,7 @@ internal sealed class ResolutionContext
         int amount = TrapSearDamage + (victim.HasKeyword(Keyword.Emplacement) ? 1 : 0);
         Emit(new TrapTriggeredEvent
         { OwnerSeat = trap.OwnerSeat, Cell = trap.Cell, VictimUnitId = victim.EntityId, Damage = amount, Revealed = revealed });
-        DamageUnit(victim, amount, ignoreHoldFast: true); // 薪炎灼蚀 ignores 坚守 (福泽/守护/持盾 still apply)
+        DamageUnit(victim, amount, ignoreHoldFast: true, school: "spell.kindle"); // 薪炎灼蚀 ignores 坚守 (福泽/守护/持盾 still apply)
     }
 
     // ---- 秘密区: 焰誓反制 (docs/21 §1.7 / §3.2) ----
@@ -390,7 +436,7 @@ internal sealed class ResolutionContext
         if (victims.Count > 0 && spec.Amount > 0)
         {
             var victim = victims[State.Rng.NextInt(victims.Count)];
-            DamageUnit(victim, spec.Amount + (victim.HasKeyword(Keyword.Emplacement) ? 1 : 0));
+            DamageUnit(victim, spec.Amount + (victim.HasKeyword(Keyword.Emplacement) ? 1 : 0), school: spec.School);
             ProcessDeaths();
         }
         return true;

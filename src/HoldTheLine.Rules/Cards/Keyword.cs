@@ -81,6 +81,10 @@ public enum Keyword
     /// (those are granted alongside), and this keyword drives the client's equip status icon. Carries no rule
     /// of its own.</summary>
     MoltenSword,
+
+    /// <summary>免疫薪炎 — takes 0 from spell.* (薪炎) damage (docs/21 §1.1): the hit is zeroed at the top of the
+    /// damage pipeline, BUT a 薪炎 hit on a 成长 unit still accelerates its growth. Drives the 雏凤/凤凰 loop.</summary>
+    KindleImmune,
 }
 
 /// <summary>A keyword plus its numeric parameter (used by Swift/Range; 0 for the rest).</summary>

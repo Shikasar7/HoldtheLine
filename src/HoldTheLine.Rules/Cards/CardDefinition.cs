@@ -29,6 +29,8 @@ public sealed record CardDefinition
     public int Hp { get; init; }
     public IReadOnlyList<KeywordSpec> Keywords { get; init; } = [];
     public IReadOnlyList<EffectSpec> Effects { get; init; } = [];
+    /// <summary>成长 (docs/21 §1.8): if set, this unit transforms into another card after enough steps (雏凤→凤凰).</summary>
+    public GrowthSpec? Growth { get; init; }
     public string Text { get; init; } = "";
     /// <summary>Prompt fragment for the AI-art pipeline (plan §9.4). Lives with the card so art is regenerable.</summary>
     public string ArtPrompt { get; init; } = "";
@@ -36,4 +38,13 @@ public sealed record CardDefinition
     public bool HasKeyword(Keyword k) => Keywords.Any(s => s.Keyword == k);
 
     public int KeywordValue(Keyword k) => Keywords.FirstOrDefault(s => s.Keyword == k)?.Value ?? 0;
+}
+
+/// <summary>成长规格 (docs/21 §1.8): after <see cref="Turns"/> growth steps the unit transforms into
+/// <see cref="IntoCardId"/> at full stats with statuses cleared.</summary>
+public sealed record GrowthSpec
+{
+    public required int Turns { get; init; }
+    [System.Text.Json.Serialization.JsonPropertyName("into_card_id")]
+    public required string IntoCardId { get; init; }
 }

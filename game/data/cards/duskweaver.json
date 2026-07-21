@@ -174,6 +174,11 @@
     "cost": 6,
     "atk": 5,
     "hp": 6,
+    "keywords": [
+      {
+        "keyword": "kindle_immune"
+      }
+    ],
     "effects": [
       {
         "trigger": "deathrattle",
@@ -187,7 +192,7 @@
         "amount": 1
       }
     ],
-    "text": "亡语:在你的底线行召唤一只 2/2 烬火雏凤,并将一张随机指令牌从你的墓地移回手牌。",
+    "text": "免疫薪炎。亡语:在你的底线行召唤一只 2/2 烬火雏凤,并将一张随机指令牌从你的墓地移回手牌。",
     "art_prompt": "a phoenix of grey ash and orange embers rising, loose feathers scattering as sparks"
   },
   {
@@ -357,7 +362,16 @@
     "cost": 2,
     "atk": 2,
     "hp": 2,
-    "text": "烬火雏凤。",
+    "keywords": [
+      {
+        "keyword": "kindle_immune"
+      }
+    ],
+    "growth": {
+      "turns": 4,
+      "into_card_id": "dw_ash_phoenix"
+    },
+    "text": "免疫薪炎。成长:4 个己方回合后转化为灰烬凤凰(每次受到薪炎伤害额外 +1 回合)。",
     "art_prompt": "a small ember-feathered phoenix chick with wobbly flame wings"
   },
   {

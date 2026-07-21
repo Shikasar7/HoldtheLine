@@ -42,6 +42,8 @@ namespace HoldTheLine.Rules.Events;
 [JsonDerivedType(typeof(StatTransferredEvent), "stat_transferred")]
 [JsonDerivedType(typeof(CardDiscardedEvent), "card_discarded")]
 [JsonDerivedType(typeof(OrderEchoedEvent), "order_echoed")]
+[JsonDerivedType(typeof(UnitGrowthEvent), "unit_growth")]
+[JsonDerivedType(typeof(UnitTransformedEvent), "unit_transformed")]
 [JsonDerivedType(typeof(MulliganResolvedEvent), "mulligan_resolved")]
 [JsonDerivedType(typeof(MulliganCompletedEvent), "mulligan_completed")]
 [JsonDerivedType(typeof(GameEndedEvent), "game_ended")]
@@ -320,6 +322,23 @@ public sealed record OrderEchoedEvent : GameEvent
 {
     public required int Seat { get; init; }
     public required string CardId { get; init; }
+}
+
+/// <summary>成长 progressed (docs/21 §1.8) — a turn-start tick or a 薪炎 hit advanced the countdown.</summary>
+public sealed record UnitGrowthEvent : GameEvent
+{
+    public required int UnitEntityId { get; init; }
+    public required int Progress { get; init; }
+    public required int Turns { get; init; }
+}
+
+/// <summary>成长 completed (docs/21 §1.8): the unit transformed in place into another card at full stats.</summary>
+public sealed record UnitTransformedEvent : GameEvent
+{
+    public required int UnitEntityId { get; init; }
+    public required string IntoCardId { get; init; }
+    public required int Atk { get; init; }
+    public required int Hp { get; init; }
 }
 
 /// <summary>

@@ -50,6 +50,12 @@ internal static class TurnFlow
         });
 
         ApplyPressureTide(ctx, seat);
+
+        // 成长 (docs/21 §1.8): each of your growth units advances one step at your turn start (may transform).
+        // Snapshot first — AccelerateGrowth rewrites CardId on transform, which would disturb a live filter.
+        foreach (var unit in state.Units.Where(u => u.OwnerSeat == seat && ctx.Db.Get(u.CardId).Growth is not null).ToList())
+            ctx.AccelerateGrowth(unit);
+
         ctx.DrawCards(seat, 1);
     }
 

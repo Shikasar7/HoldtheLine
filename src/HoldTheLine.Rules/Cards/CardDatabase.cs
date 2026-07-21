@@ -22,9 +22,13 @@ public sealed class CardDatabase
         }
         // Cross-references (e.g. summon target ids) can only be checked once every card is loaded.
         foreach (var card in _cards.Values)
+        {
             foreach (var spec in card.Effects)
                 if (spec.Action == "summon" && (spec.SummonCardId is null || !_cards.ContainsKey(spec.SummonCardId)))
                     throw new InvalidDataException($"Card '{card.Id}': summon references unknown card '{spec.SummonCardId}'.");
+            if (card.Growth is { } g && !_cards.ContainsKey(g.IntoCardId))
+                throw new InvalidDataException($"Card '{card.Id}': growth into_card '{g.IntoCardId}' is unknown.");
+        }
     }
 
     public IReadOnlyCollection<CardDefinition> All => _cards.Values;
@@ -60,6 +64,8 @@ public sealed class CardDatabase
             throw new InvalidDataException($"Unit '{card.Id}' must have Hp > 0.");
         if (card.Type is CardType.Structure or CardType.Equipment)
             throw new InvalidDataException($"Card '{card.Id}': type {card.Type} is reserved and not implemented in the prototype.");
+        if (card.Growth is { Turns: < 1 })
+            throw new InvalidDataException($"Card '{card.Id}': growth turns must be >= 1.");
 
         foreach (var spec in card.Effects)
         {

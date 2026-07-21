@@ -381,6 +381,20 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "add_secret", SecretKind = "counter_order", Amount = 3, School = "spell.kindle" }],
     };
 
+    /// <summary>凤凰 pattern: 5/6, 免疫薪炎 — the 成长 target (docs/21 §3.1).</summary>
+    public static readonly CardDefinition PhoenixForm = new()
+    {
+        Id = "t_phoenix", Name = "Phoenix 5/6", Rarity = Rarity.Epic, Cost = 6, Atk = 5, Hp = 6, Keywords = [new(Keyword.KindleImmune)],
+    };
+
+    /// <summary>雏凤 pattern: 2/2, 免疫薪炎, grows into t_phoenix after 2 己方回合 (short for tests); 薪炎 hits accelerate.</summary>
+    public static readonly CardDefinition ImmuneGrower = new()
+    {
+        Id = "t_chick", Name = "Chick 2/2", Rarity = Rarity.Token, Cost = 2, Atk = 2, Hp = 2,
+        Keywords = [new(Keyword.KindleImmune)],
+        Growth = new GrowthSpec { Turns = 2, IntoCardId = "t_phoenix" },
+    };
+
     /// <summary>薪火回响 (门德) pattern: echoes your first 薪炎 damage order each turn (docs/21 §3.1).</summary>
     public static readonly CardDefinition EchoUnit = new()
     {
@@ -434,7 +448,7 @@ public static class TestKit
         AnchorBomber, ChannelZap, ChannelColumn, ChannelMana,
         ChargeUnit, DeepenChanneler, DiscountChanneler, SoulReturnUnit, UncappedGrower, RootOrder,
         ScatterOrder, AllEnemiesSear, SmokeOrder, TrapOrder, SummonOneOrder, CounterSecret, FlameLash, MoltenPriest,
-        EchoUnit, BehemothUnit, BigDrawOrder,
+        EchoUnit, BehemothUnit, BigDrawOrder, PhoenixForm, ImmuneGrower,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.

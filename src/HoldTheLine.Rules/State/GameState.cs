@@ -61,6 +61,10 @@ public sealed class UnitInstance
     /// <summary>Whether the 驻防 (Garrison) +1/+1 is currently applied (unit is on its home row).</summary>
     public bool GarrisonApplied { get; set; }
 
+    /// <summary>成长 (docs/21 §1.8): steps accumulated toward transformation — +1 at the owner's turn start and
+    /// +1 per 薪炎 hit. Reset on transform. Inert unless the unit's card carries a <see cref="Cards.GrowthSpec"/>.</summary>
+    public int GrowthProgress { get; set; }
+
     /// <summary>Runtime copy of the definition's keywords (permanent grants append here).</summary>
     public List<KeywordSpec> Keywords { get; set; } = new();
 

@@ -207,7 +207,7 @@ internal static class EffectEngine
                 // +1 from EFFECT damage (orders, skills, battlecries; never from attacks). This is
                 // the 焰克械 counter interface (docs/06 §4): spell factions crack static formations.
                 foreach (var t in targets)
-                    ctx.DamageUnit(t, amount + (t.HasKeyword(Keyword.Emplacement) ? 1 : 0));
+                    ctx.DamageUnit(t, amount + (t.HasKeyword(Keyword.Emplacement) ? 1 : 0), school: spec.School);
                 break;
 
             case "damage_scatter":
@@ -220,7 +220,7 @@ internal static class EffectEngine
                     if (live.Count == 0)
                         break;
                     var victim = live[ctx.State.Rng.NextInt(live.Count)];
-                    ctx.DamageUnit(victim, 1 + (victim.HasKeyword(Keyword.Emplacement) ? 1 : 0));
+                    ctx.DamageUnit(victim, 1 + (victim.HasKeyword(Keyword.Emplacement) ? 1 : 0), school: spec.School);
                 }
                 break;
 
@@ -229,7 +229,7 @@ internal static class EffectEngine
                 // (v2.1 遗留#1: HoldFast otherwise eats the 教团's 1-2pt chip damage whole). 持盾 still
                 // absorbs; 架设's +1 effect-damage clause still stacks (灼蚀 is effect damage too).
                 foreach (var t in targets)
-                    ctx.DamageUnit(t, amount + (t.HasKeyword(Keyword.Emplacement) ? 1 : 0), ignoreHoldFast: true);
+                    ctx.DamageUnit(t, amount + (t.HasKeyword(Keyword.Emplacement) ? 1 : 0), ignoreHoldFast: true, school: spec.School);
                 break;
 
             case "destroy":
