@@ -177,6 +177,11 @@ internal static class EffectEngine
                     ctx.PlaceTrap(ownerSeat, trapCell);
                 break;
 
+            case "sacrifice_equip":
+                // 熔剑祭士 (docs/21 §3.2): a marker — the resolver performs it (it needs the command's
+                // SacrificeEntityIds + hand access), so RunTrigger sees nothing to do here.
+                break;
+
             case "stat_transfer":
                 // 焰鞭 friendly mode (docs/21 §1.8): consume the primary ally (A) and add its CURRENT atk/hp to
                 // the 二段目标 (B). Secondary validity is pre-checked in the resolver; guard again defensively.

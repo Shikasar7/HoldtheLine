@@ -141,6 +141,8 @@ public sealed class CardDatabase
                 throw new InvalidDataException($"Card '{card.Id}': unknown target_side '{spec.TargetSide}'.");
             if (spec.Action == "stat_transfer" && !spec.NeedsUnitTarget)
                 throw new InvalidDataException($"Card '{card.Id}': stat_transfer (焰鞭) needs a unit target.");
+            if (spec.Action == "sacrifice_equip" && (card.Type != CardType.Unit || spec.Trigger != "battlecry" || spec.Target != "none"))
+                throw new InvalidDataException($"Card '{card.Id}': sacrifice_equip (熔剑祭士) is a targetless unit battlecry.");
 
             // 归魂 (docs/21 §1.4): a targetless 辉尘 (gain_mana) reaction, fired from ProcessDeaths.
             if (spec.Trigger == "ally_died_your_turn")

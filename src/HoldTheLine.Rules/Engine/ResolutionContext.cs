@@ -553,6 +553,38 @@ internal sealed class ResolutionContext
     private static bool IsCappedSelfGrowth(EffectSpec e) =>
         e.Trigger == "ally_order_played" && e.Action == "buff" && e.Target == "self" && !e.Uncapped;
 
+    // ---- 熔剑祭士: 献祭装备 (docs/21 §3.2) ----
+
+    /// <summary>Discards the 2 chosen order cards to the graveyard and equips the 熔岩巨剑 on <paramref name="unit"/>.
+    /// Assumes the resolver already validated the sacrifice (exactly 2 in-hand orders); re-checks defensively and
+    /// no-ops if the sacrifice was declined or invalid — the battlecry is optional (你可以).</summary>
+    public void TrySacrificeEquip(UnitInstance unit, IReadOnlyList<int>? sacrificeIds)
+    {
+        if (sacrificeIds is null)
+            return;
+        var player = State.Player(unit.OwnerSeat);
+        var cards = sacrificeIds.Distinct().Select(id => player.Hand.FirstOrDefault(h => h.EntityId == id)).ToList();
+        if (cards.Count != 2 || cards.Any(c => c is null || Db.Get(c!.CardId).Type != CardType.Order))
+            return;
+        foreach (var c in cards)
+        {
+            player.Hand.Remove(c!);
+            player.Graveyard.Add(c!.CardId); // recyclable by 复燃/信使 — the 阵营闭环 (docs/21 §3.2)
+            Emit(new CardDiscardedEvent { Seat = unit.OwnerSeat, CardEntityId = c.EntityId, CardId = c.CardId });
+        }
+        EquipMoltenSword(unit);
+    }
+
+    /// <summary>熔岩巨剑: +3 攻, 射程 2, 贯穿 (permanent), plus the equip marker keyword for the client icon.</summary>
+    private void EquipMoltenSword(UnitInstance unit)
+    {
+        unit.Atk += 3;
+        Emit(new UnitBuffedEvent { UnitEntityId = unit.EntityId, AtkDelta = 3, HpDelta = 0, NewAtk = unit.Atk, NewHp = unit.CurrentHp });
+        GrantKeyword(unit, Keyword.Range, 2, "permanent", unit.OwnerSeat);
+        GrantKeyword(unit, Keyword.Pierce, 0, "permanent", unit.OwnerSeat);
+        GrantKeyword(unit, Keyword.MoltenSword, 0, "permanent", unit.OwnerSeat);
+    }
+
     // ---- game end ----
 
     public void CheckGameEnd()

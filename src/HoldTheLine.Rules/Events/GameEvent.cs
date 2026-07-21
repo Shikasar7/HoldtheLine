@@ -40,6 +40,7 @@ namespace HoldTheLine.Rules.Events;
 [JsonDerivedType(typeof(SecretRevealedEvent), "secret_revealed")]
 [JsonDerivedType(typeof(OrderCounteredEvent), "order_countered")]
 [JsonDerivedType(typeof(StatTransferredEvent), "stat_transferred")]
+[JsonDerivedType(typeof(CardDiscardedEvent), "card_discarded")]
 [JsonDerivedType(typeof(MulliganResolvedEvent), "mulligan_resolved")]
 [JsonDerivedType(typeof(MulliganCompletedEvent), "mulligan_completed")]
 [JsonDerivedType(typeof(GameEndedEvent), "game_ended")]
@@ -297,6 +298,19 @@ public sealed record StatTransferredEvent : GameEvent
     public required int ToUnitId { get; init; }
     public required int Atk { get; init; }
     public required int Hp { get; init; }
+}
+
+/// <summary>A hand card was discarded to the graveyard by an effect (docs/21 §3.2, 熔剑祭士 献祭). The opponent
+/// learns a card left the hand (count drops) but not which — <see cref="CardId"/> is redacted for them.</summary>
+public sealed record CardDiscardedEvent : GameEvent
+{
+    public required int Seat { get; init; }
+    public required int CardEntityId { get; init; }
+    /// <summary>Null when redacted for the opponent.</summary>
+    public string? CardId { get; init; }
+
+    public override GameEvent RedactFor(int viewerSeat) =>
+        viewerSeat == Seat ? this : this with { CardId = null };
 }
 
 /// <summary>

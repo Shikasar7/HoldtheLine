@@ -95,7 +95,9 @@ public sealed record EffectSpec
           // docs/21 §1.7: set a face-down reactive secret in your 秘密区 (焰誓反制).
           "add_secret",
           // docs/21 §1.8: destroy the primary (ally) target and add its current atk/hp to the 二段目标 (焰鞭).
-          "stat_transfer" };
+          "stat_transfer",
+          // docs/21 §3.2: 熔剑祭士 battlecry marker — sacrifice 2 hand orders to equip the 熔岩巨剑 (resolver-driven).
+          "sacrifice_equip" };
 
     public static readonly IReadOnlySet<string> KnownTargetSides = new HashSet<string> { "any", "enemy", "ally" };
 

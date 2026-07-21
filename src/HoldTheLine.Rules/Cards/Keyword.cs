@@ -76,6 +76,11 @@ public enum Keyword
     /// is rejected outright), but may still attack and retaliate. Granted with a duration (灰缚 → your_next_turn);
     /// unlike 架设 it is not innate and carries no effect-damage penalty.</summary>
     Rooted,
+
+    /// <summary>熔岩巨剑 — a permanent equip marker (docs/21 §3.2) for 熔剑祭士: the sword bundles +3 攻/射程2/贯穿
+    /// (those are granted alongside), and this keyword drives the client's equip status icon. Carries no rule
+    /// of its own.</summary>
+    MoltenSword,
 }
 
 /// <summary>A keyword plus its numeric parameter (used by Swift/Range; 0 for the rest).</summary>

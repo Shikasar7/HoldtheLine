@@ -124,6 +124,9 @@ public sealed class Resolver
         if (EffectEngine.ValidateTargets(ctx, cmd.Seat, def.Effects, "battlecry", cmd.TargetUnitId, cmd.TargetCell,
                 allowFizzleWhenNoTarget: true, anchorCenter: cell) is { } targetError)
             return targetError;
+        // 熔剑祭士 献祭 (docs/21 §3.2): if the deploy chose cards to sacrifice, they must be exactly 2 in-hand orders.
+        if (SacrificeEquipLegality(ctx.State, cmd, def) is { } sacError)
+            return sacError;
 
         player.Mana -= def.Cost;
         player.Hand.Remove(card);
@@ -151,8 +154,34 @@ public sealed class Resolver
         });
         ctx.RecomputeGarrison(unit); // deploys on the home row → gains 驻防 immediately
 
+        ctx.TrySacrificeEquip(unit, cmd.SacrificeEntityIds); // 熔剑祭士: discard 2 orders → 熔岩巨剑 (docs/21 §3.2)
         EffectEngine.RunTrigger(ctx, unit, cmd.Seat, def.Effects, "battlecry", cmd.TargetUnitId, cmd.TargetCell);
         ctx.CheckGameEnd();
+        return null;
+    }
+
+    /// <summary>熔剑祭士 献祭 (docs/21 §3.2): the battlecry is optional (你可以), so no chosen cards is legal (plain
+    /// deploy). If cards ARE chosen they must be exactly 2 distinct order cards in hand (never the card being played).</summary>
+    private RuleError? SacrificeEquipLegality(GameState state, PlayCardCommand cmd, CardDefinition def)
+    {
+        if (!def.Effects.Any(e => e.Trigger == "battlecry" && e.Action == "sacrifice_equip"))
+            return null;
+        if (cmd.SacrificeEntityIds is not { Count: > 0 } ids)
+            return null; // declined the sacrifice
+        var distinct = ids.Distinct().ToList();
+        if (distinct.Count != 2)
+            return new RuleError(RuleErrorCode.InvalidCommand, "熔剑祭士须献祭恰好 2 张不同的指令牌。");
+        var player = state.Player(cmd.Seat);
+        foreach (var id in distinct)
+        {
+            if (id == cmd.CardEntityId)
+                return new RuleError(RuleErrorCode.InvalidCommand, "不能献祭正在打出的这张牌。");
+            var c = player.Hand.FirstOrDefault(h => h.EntityId == id);
+            if (c is null)
+                return new RuleError(RuleErrorCode.UnknownEntity, $"Card {id} is not in your hand.");
+            if (_db.Get(c.CardId).Type != CardType.Order)
+                return new RuleError(RuleErrorCode.InvalidCommand, "只能献祭指令牌。");
+        }
         return null;
     }
 

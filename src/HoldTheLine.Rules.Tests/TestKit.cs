@@ -381,6 +381,13 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "add_secret", SecretKind = "counter_order", Amount = 3, School = "spell.kindle" }],
     };
 
+    /// <summary>熔剑祭士 pattern: 2/4, battlecry may sacrifice 2 hand orders to equip the 熔岩巨剑 (+3/射程2/贯穿, docs/21 §3.2).</summary>
+    public static readonly CardDefinition MoltenPriest = new()
+    {
+        Id = "t_molten_priest", Name = "Sword Priest 2/4", Type = CardType.Unit, Rarity = Rarity.Epic, Cost = 4, Atk = 2, Hp = 4,
+        Effects = [new EffectSpec { Trigger = "battlecry", Action = "sacrifice_equip" }],
+    };
+
     /// <summary>焰鞭 pattern: 引导·2 dual-mode — enemy target → 3 薪炎; friendly target → consume it and transfer
     /// its current atk/hp to a distinct 二段目标 (docs/21 §1.8).</summary>
     public static readonly CardDefinition FlameLash = new()
@@ -405,7 +412,7 @@ public static class TestKit
         SearOrder, SelfMovedGrower, SelfMovedPinger, EmplacementBuffOrder, RedeployOrder,
         AnchorBomber, ChannelZap, ChannelColumn, ChannelMana,
         ChargeUnit, DeepenChanneler, DiscountChanneler, SoulReturnUnit, UncappedGrower, RootOrder,
-        ScatterOrder, AllEnemiesSear, SmokeOrder, TrapOrder, SummonOneOrder, CounterSecret, FlameLash,
+        ScatterOrder, AllEnemiesSear, SmokeOrder, TrapOrder, SummonOneOrder, CounterSecret, FlameLash, MoltenPriest,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.

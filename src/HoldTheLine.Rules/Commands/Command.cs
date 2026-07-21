@@ -36,6 +36,9 @@ public sealed record PlayCardCommand : Command
     /// <summary>二段目标 (docs/21 §1.8): the second unit a two-step effect needs — 焰鞭's friendly mode transfers
     /// the destroyed primary's stats onto this unit. Additive/nullable.</summary>
     public int? SecondaryTargetUnitId { get; init; }
+    /// <summary>献祭弃牌 (docs/21 §3.2): the hand cards (by EntityId) 熔剑祭士's battlecry sacrifices — exactly 2
+    /// order cards to equip the 熔岩巨剑. Null/empty = decline the sacrifice (plain deploy). Additive.</summary>
+    public IReadOnlyList<int>? SacrificeEntityIds { get; init; }
 }
 
 /// <summary>One orthogonal step. Swift N units issue N of these per turn.</summary>
