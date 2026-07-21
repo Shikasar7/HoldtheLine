@@ -1,6 +1,9 @@
+using System.Linq;
+using HoldTheLine.Rules.Cards;
 using HoldTheLine.Rules.Commands;
 using HoldTheLine.Rules.Engine;
 using HoldTheLine.Rules.Geometry;
+using HoldTheLine.Rules.Hosting;
 using HoldTheLine.Rules.State;
 using Xunit;
 
@@ -63,6 +66,18 @@ public class RootTests
 
         Assert.True(r.Success, r.Error?.Message);
         Assert.Equal(4, r.State!.FindUnit(enemy.EntityId)!.CurrentHp); // 6 - 2 attack
+    }
+
+    [Fact]
+    public void Rooted_unit_surfaces_the_keyword_in_the_client_view()
+    {
+        // Regression: 定身 is a TEMP grant (TempGrants, not the permanent Keywords list). The client view must
+        // still surface it, or the debuff badge + detail-panel description never appear (they read view keywords).
+        var (state, id) = RootAUnit("t_vanilla", new Cell(2, 1));
+
+        var uv = PlayerView.From(state, viewerSeat: 0).Units.First(x => x.EntityId == id);
+
+        Assert.Contains(uv.Keywords, k => k.Keyword == Keyword.Rooted);
     }
 
     [Fact]

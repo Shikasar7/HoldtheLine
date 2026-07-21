@@ -21,6 +21,7 @@ public partial class BattleScene : Control
 {
 	private CardDatabase _cards = null!;
 	private LeaderDatabase _leaders = null!;
+	private StatusCatalog _statusCatalog = null!; // editable on-standee status table (res://data/status_catalog.tres)
 	private IGameHost _host = null!;
 	private LocalGameHost? _localHost;   // set for hotseat / vs-AI (SuggestCommand lives here)
 	private RemoteGameHost? _remoteHost; // set for online (the shared Session's match host)
@@ -168,6 +169,7 @@ public partial class BattleScene : Control
 
 		_cards = GameData.LoadCards();
 		_leaders = GameData.LoadLeaders();
+		_statusCatalog = GameData.LoadStatusCatalog();
 
 		BuildStaticUi();
 		_sfx = new SfxBank(this);
@@ -3391,55 +3393,73 @@ public partial class BattleScene : Control
 
 	// ---------- on-standee status indicators (buffs / debuffs) ----------
 	//
-	// EXTENSION POINT: to add a status, add ONE line to StandeeStatuses — a short glyph + a StatusKind. Buff →
-	// left edge (green), Debuff → right edge (red). Stacking, side and colour are all handled automatically.
+	// The catalog (res://data/status_catalog.tres, editable in the Inspector via StatusDef/StatusCatalog) drives
+	// WHICH statuses render and how they look. To add a keyword-driven status you now edit the .tres, not this
+	// file — no code change. Only the three Computed corner numbers below (成长 / 引导增伤 / 引导减费) still derive
+	// their value in C#, because they read live unit / card state.
 
 	private enum StatusKind { Buff, Debuff }
 
 	/// <summary>One status a unit advertises on its card face: a short glyph (fallback), whether it is a buff or
-	/// debuff, an optional icon (docs/21 art — falls back to the glyph if the texture is missing), and an optional
-	/// corner number (成长 countdown).</summary>
-	private readonly record struct StatusBadge(string Glyph, StatusKind Kind, string? Icon = null, string? Corner = null);
+	/// debuff, an optional icon texture (falls back to the glyph when empty), and an optional corner number
+	/// (成长 countdown / 引导 amount).</summary>
+	private readonly record struct StatusBadge(string Glyph, StatusKind Kind, Texture2D? Icon = null, string? Corner = null);
 
 	private const string StatusStripName = "__status_strip";
 
-	/// <summary>The statuses to show for a unit, computed from its LIVE view state (not the static keyword list
-	/// — so 坚守 shows only while it is actually reducing damage). Buffs land on the left, debuffs on the right.</summary>
+	/// <summary>The statuses to show for a unit, evaluated from the editable catalog against the unit's LIVE view
+	/// state (so 坚守 shows only while it is actually reducing damage). Buffs land on the left, debuffs on the
+	/// right, each column ordered by StatusDef.Order.</summary>
 	private List<StatusBadge> StandeeStatuses(UnitView u)
 	{
-		bool Has(Keyword k) => u.Keywords.Any(s => s.Keyword == k);
-		var s = new List<StatusBadge>();
-		// ---- buffs (left column) ----
-		if (u.ShieldActive)
-			s.Add(new StatusBadge("盾", StatusKind.Buff));                                    // 持盾
-		if (Has(Keyword.Blessing))
-			s.Add(new StatusBadge("福", StatusKind.Buff));                                    // 福泽
-		if (Has(Keyword.HoldFast) && !u.MovedThisRound)
-			s.Add(new StatusBadge("坚", StatusKind.Buff));                                    // 坚守 (only while in effect)
-		// docs/21 §2/§3.1/§3.2 statuses (icons in ui/, glyph fallback):
-		if (Has(Keyword.MoltenSword))
-			s.Add(new StatusBadge("剑", StatusKind.Buff, "ui/status_molten_sword.png"));      // 熔岩巨剑
-		if (Has(Keyword.SpellWard))
-			s.Add(new StatusBadge("罩", StatusKind.Buff, "ui/status_spell_ward.png"));        // 法术护体
-		if (Has(Keyword.Hidden))
-			s.Add(new StatusBadge("潜", StatusKind.Buff, "ui/status_hidden.png"));            // 潜行
-		// (免疫薪炎 is a permanent innate keyword — it shows in the innate keyword strip, not the live side badges.)
-		if (_cards.TryGet(u.CardId, out var def))
+		_cards.TryGet(u.CardId, out var def);
+		return _statusCatalog.Statuses
+			.Select(d => (d, ok: StatusVisible(d, u, def, out string? corner), corner))
+			.Where(t => t.ok)
+			.OrderBy(t => t.d.Order)
+			.Select(t => new StatusBadge(
+				t.d.Glyph,
+				t.d.Side == StatusSide.Buff ? StatusKind.Buff : StatusKind.Debuff,
+				t.d.Icon,
+				t.corner))
+			.ToList();
+	}
+
+	/// <summary>Whether one catalog entry applies to this unit right now, and its corner number if any.</summary>
+	private bool StatusVisible(StatusDef d, UnitView u, CardDefinition? def, out string? corner)
+	{
+		corner = null;
+		switch (d.Trigger)
 		{
-			if (def.Growth is { } g)                                                          // 成长倒数
-				s.Add(new StatusBadge("长", StatusKind.Buff, "ui/status_growth.png", Math.Max(0, g.Turns - u.GrowthProgress).ToString()));
-			// 引导者差异化 — a passive indicator that this unit amplifies the 薪炎 order it channels (docs/21 §1.2).
-			int deepen = def.Effects.Where(e => e.Trigger == "channel" && e.Action == "deepen").Sum(e => e.Amount);
-			if (deepen > 0)
-				s.Add(new StatusBadge("增", StatusKind.Buff, null, deepen.ToString()));        // 焰术学徒/熔岩巨灵:引导增伤 N
-			int discount = def.Effects.Where(e => e.Trigger == "channel" && e.Action == "discount").Sum(e => e.Amount);
-			if (discount > 0)
-				s.Add(new StatusBadge("减", StatusKind.Buff, null, discount.ToString()));      // 晚祷领唱:引导减费 N
+			case StatusTrigger.Keyword:      return u.Keywords.Any(s => s.Keyword == d.BoundKeyword);
+			case StatusTrigger.ShieldLive:   return u.ShieldActive;                                          // 持盾 (live flag, consumed mid-anim)
+			case StatusTrigger.HoldFastLive: return u.Keywords.Any(s => s.Keyword == Keyword.HoldFast) && !u.MovedThisRound; // 坚守 only while in effect
+			case StatusTrigger.Computed:     return ComputedStatus(d.Id, u, def, out corner);
+			default:                         return false;
 		}
-		// ---- debuffs (right column) ----
-		if (Has(Keyword.Rooted))
-			s.Add(new StatusBadge("缚", StatusKind.Debuff, "ui/status_rooted.png"));          // 定身
-		return s;
+	}
+
+	/// <summary>The three statuses whose corner NUMBER is derived from live unit / card state (docs/21 §1.2).</summary>
+	private static bool ComputedStatus(string id, UnitView u, CardDefinition? def, out string? corner)
+	{
+		corner = null;
+		if (def is null) return false;
+		switch (id)
+		{
+			case "growth":
+				if (def.Growth is { } g) { corner = Math.Max(0, g.Turns - u.GrowthProgress).ToString(); return true; }
+				return false;
+			case "channel_deepen":
+				int deepen = def.Effects.Where(e => e.Trigger == "channel" && e.Action == "deepen").Sum(e => e.Amount);
+				if (deepen > 0) { corner = deepen.ToString(); return true; }                                 // 焰术学徒/熔岩巨灵:引导增伤 N
+				return false;
+			case "channel_discount":
+				int discount = def.Effects.Where(e => e.Trigger == "channel" && e.Action == "discount").Sum(e => e.Amount);
+				if (discount > 0) { corner = discount.ToString(); return true; }                             // 晚祷领唱:引导减费 N
+				return false;
+			default:
+				return false;
+		}
 	}
 
 	/// <summary>(Re)build a standee's status badges: buffs stack down the LEFT edge, debuffs down the RIGHT edge,
@@ -3473,8 +3493,8 @@ public partial class BattleScene : Control
 			: (BattleTheme.DebuffStatusBg, BattleTheme.DebuffStatusBorder);
 		var chip = new Panel { Position = pos, Size = new Vector2(s, s), MouseFilter = MouseFilterEnum.Ignore };
 		chip.AddThemeStyleboxOverride("panel", BattleTheme.Box(bg, border, 2, 5));
-		// Icon if the docs/21 texture is present, else the short glyph (keeps working before art lands).
-		if (b.Icon != null && BattleTheme.Tex(b.Icon) is { } tex)
+		// Icon if the catalog entry carries a texture, else the short glyph (keeps working before art lands).
+		if (b.Icon is { } tex)
 		{
 			chip.AddChild(BattleTheme.Art(tex, new Vector2(2, 2), new Vector2(s - 4, s - 4), TextureRect.StretchModeEnum.KeepAspectCentered));
 		}

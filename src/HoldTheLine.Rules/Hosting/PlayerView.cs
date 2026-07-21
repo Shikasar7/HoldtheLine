@@ -152,7 +152,20 @@ public sealed record UnitView
         MovedThisRound = u.MovedThisRound,
         MovementUsed = u.MovementUsed,
         AttacksUsed = u.AttacksUsed,
-        Keywords = u.Keywords.ToList(),
+        Keywords = EffectiveKeywords(u),
         GrowthProgress = u.GrowthProgress,
     };
+
+    /// <summary>The unit's keywords AS SEEN by the client: permanent grants PLUS still-active temporary grants
+    /// (定身/临时疾行…). Without the temp grants a rooted unit looked keyword-free client-side, so 定身 never
+    /// showed as a status badge or in the detail panel. Deduped by keyword (permanent kept) so a value keyword
+    /// held both ways is not listed twice.</summary>
+    private static IReadOnlyList<KeywordSpec> EffectiveKeywords(UnitInstance u)
+    {
+        var list = new List<KeywordSpec>(u.Keywords);
+        foreach (var g in u.TempGrants)
+            if (!list.Any(s => s.Keyword == g.Spec.Keyword))
+                list.Add(g.Spec);
+        return list;
+    }
 }

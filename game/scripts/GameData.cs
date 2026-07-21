@@ -33,6 +33,16 @@ public static class GameData
         return decks;
     }
 
+    /// <summary>The editable on-standee status table. Prefers res://data/status_catalog.tres (managed in the
+    /// Inspector); falls back to the code-built default so the board still renders if the .tres is absent.</summary>
+    public static StatusCatalog LoadStatusCatalog()
+    {
+        const string path = "res://data/status_catalog.tres";
+        if (ResourceLoader.Exists(path) && GD.Load<StatusCatalog>(path) is { Statuses.Count: > 0 } cat)
+            return cat;
+        return StatusCatalog.BuildDefault();
+    }
+
     private static IEnumerable<string> ReadJsonDir(string resDir)
     {
         using var dir = DirAccess.Open(resDir);

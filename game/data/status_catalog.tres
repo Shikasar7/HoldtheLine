@@ -1,0 +1,87 @@
+[gd_resource type="Resource" script_class="StatusCatalog" format=3 uid="uid://cc5ni6lla0n5p"]
+
+[ext_resource type="Script" uid="uid://dm7n3lmpxqwo6" path="res://scripts/StatusDef.cs" id="1_mwpsf"]
+[ext_resource type="Texture2D" uid="uid://borhlbtr4hl2i" path="res://assets/art/ui/status_molten_sword.png" id="2_og28k"]
+[ext_resource type="Texture2D" uid="uid://clynghb4ienc5" path="res://assets/art/ui/status_spell_ward.png" id="3_245b6"]
+[ext_resource type="Texture2D" uid="uid://kw5um24y1p0n" path="res://assets/art/ui/status_hidden.png" id="4_mbf6l"]
+[ext_resource type="Texture2D" uid="uid://cxktrfnic647e" path="res://assets/art/ui/status_growth.png" id="5_1jmx3"]
+[ext_resource type="Texture2D" uid="uid://dtrrgufn7mfjl" path="res://assets/art/ui/status_rooted.png" id="6_0bkpq"]
+[ext_resource type="Script" uid="uid://kdbljwp74xut" path="res://scripts/StatusCatalog.cs" id="7_c3b7t"]
+
+[sub_resource type="Resource" id="Resource_3hhuk"]
+script = ExtResource("1_mwpsf")
+Glyph = "盾"
+Trigger = 1
+Id = "shield"
+
+[sub_resource type="Resource" id="Resource_3vdj4"]
+script = ExtResource("1_mwpsf")
+Glyph = "福"
+Order = 1
+BoundKeyword = 16
+Id = "blessing"
+
+[sub_resource type="Resource" id="Resource_g3cp1"]
+script = ExtResource("1_mwpsf")
+Glyph = "坚"
+Order = 2
+Trigger = 2
+Id = "hold_fast"
+
+[sub_resource type="Resource" id="Resource_hhb5w"]
+script = ExtResource("1_mwpsf")
+Glyph = "剑"
+Icon = ExtResource("2_og28k")
+Order = 3
+BoundKeyword = 19
+Id = "molten_sword"
+
+[sub_resource type="Resource" id="Resource_mgrqu"]
+script = ExtResource("1_mwpsf")
+Glyph = "罩"
+Icon = ExtResource("3_245b6")
+Order = 4
+BoundKeyword = 21
+Id = "spell_ward"
+
+[sub_resource type="Resource" id="Resource_phsmn"]
+script = ExtResource("1_mwpsf")
+Glyph = "潜"
+Icon = ExtResource("4_mbf6l")
+Order = 5
+BoundKeyword = 12
+Id = "hidden"
+
+[sub_resource type="Resource" id="Resource_palvq"]
+script = ExtResource("1_mwpsf")
+Glyph = "长"
+Icon = ExtResource("5_1jmx3")
+Order = 6
+Trigger = 3
+Id = "growth"
+
+[sub_resource type="Resource" id="Resource_qcg6q"]
+script = ExtResource("1_mwpsf")
+Glyph = "增"
+Order = 7
+Trigger = 3
+Id = "channel_deepen"
+
+[sub_resource type="Resource" id="Resource_5badj"]
+script = ExtResource("1_mwpsf")
+Glyph = "减"
+Order = 8
+Trigger = 3
+Id = "channel_discount"
+
+[sub_resource type="Resource" id="Resource_06gus"]
+script = ExtResource("1_mwpsf")
+Glyph = "缚"
+Icon = ExtResource("6_0bkpq")
+Side = 1
+BoundKeyword = 18
+Id = "rooted"
+
+[resource]
+script = ExtResource("7_c3b7t")
+Statuses = Array[ExtResource("1_mwpsf")]([SubResource("Resource_3hhuk"), SubResource("Resource_3vdj4"), SubResource("Resource_g3cp1"), SubResource("Resource_hhb5w"), SubResource("Resource_mgrqu"), SubResource("Resource_phsmn"), SubResource("Resource_palvq"), SubResource("Resource_qcg6q"), SubResource("Resource_5badj"), SubResource("Resource_06gus")])
