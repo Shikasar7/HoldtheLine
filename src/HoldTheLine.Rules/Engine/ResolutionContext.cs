@@ -523,7 +523,7 @@ internal sealed class ResolutionContext
     /// replays stay deterministic; a trigger that kills a later source removes it before its turn comes
     /// (sweep semantics). The military coin is an Order and so counts; leader skills are not Orders and do not.
     /// </summary>
-    public void FireAllyOrderPlayed(int seat)
+    public void FireAllyOrderPlayed(int seat, int orderCost)
     {
         var sources = State.Units
             .Where(u => u.OwnerSeat == seat && Db.Get(u.CardId).Effects.Any(e => e.Trigger == "ally_order_played"))
@@ -534,7 +534,10 @@ internal sealed class ResolutionContext
             if (State.FindUnit(unit.EntityId) is null)
                 continue; // died to an earlier trigger in this pass
             var def = Db.Get(unit.CardId);
-            var effects = def.Effects.Where(e => e.Trigger == "ally_order_played").ToList();
+            // 焚世巨灵 (docs/21 §3.1): a min_order_cost effect only fires for a 4费以上 order.
+            var effects = def.Effects
+                .Where(e => e.Trigger == "ally_order_played" && (e.MinOrderCost == 0 || orderCost >= e.MinOrderCost))
+                .ToList();
 
             // 自体成长上限 (docs/21 §1.9): a capped self-growth (buff self, not uncapped) stacks at most
             // OrderGrowthCap times per turn — from the 3rd order on, 灰烬侍徒/烬眼先知/烬火唱徒 stop growing,
@@ -552,6 +555,11 @@ internal sealed class ResolutionContext
 
     private static bool IsCappedSelfGrowth(EffectSpec e) =>
         e.Trigger == "ally_order_played" && e.Action == "buff" && e.Target == "self" && !e.Uncapped;
+
+    /// <summary>薪火回响 (docs/21 §3.1): whether <paramref name="seat"/> fields a unit that echoes its first 薪炎
+    /// damage order each turn (门德).</summary>
+    public bool HasFirstKindleCopier(int seat) =>
+        State.Units.Any(u => u.OwnerSeat == seat && Db.Get(u.CardId).Effects.Any(e => e.Trigger == "first_kindle_order_each_turn"));
 
     // ---- 熔剑祭士: 献祭装备 (docs/21 §3.2) ----
 

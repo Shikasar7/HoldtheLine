@@ -192,7 +192,7 @@
   },
   {
     "id": "dw_first_ritualist",
-    "name": "黄昏首祭·门德",
+    "name": "薪火回响",
     "faction": "duskweaver",
     "type": "unit",
     "rarity": "legendary",
@@ -201,13 +201,11 @@
     "hp": 6,
     "effects": [
       {
-        "trigger": "ally_order_played",
-        "action": "damage",
-        "target": "adjacent_enemies",
-        "amount": 1
+        "trigger": "first_kindle_order_each_turn",
+        "action": "echo_order"
       }
     ],
-    "text": "你每施放一张指令牌后,相邻敌方随从受到 1 点伤害。",
+    "text": "你每回合施放的第一张薪炎伤害指令,以相同目标额外结算一次(目标已消失则复制段空放)。",
     "art_prompt": "an elder high ritualist in ember-trimmed dusk robes, a halo of orbiting fire sigils"
   },
   {
@@ -597,13 +595,15 @@
     "hp": 6,
     "effects": [
       {
-        "trigger": "battlecry",
+        "trigger": "ally_order_played",
         "action": "damage",
-        "target": "unit_cross_all",
-        "amount": 2
+        "target": "all_enemies",
+        "amount": 1,
+        "school": "spell.kindle",
+        "min_order_cost": 4
       }
     ],
-    "text": "战吼:对一个随从及其相邻格的所有随从造成 2 点伤害(含友方)。",
+    "text": "你每施放一张 4 费以上指令牌后,对所有敌方随从造成 1 点薪炎伤害。",
     "art_prompt": "a towering inferno behemoth erupting in a cross-shaped blast, allies caught in the fire"
   },
   {

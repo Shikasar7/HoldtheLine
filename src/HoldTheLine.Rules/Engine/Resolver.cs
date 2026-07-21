@@ -265,7 +265,23 @@ public sealed class Resolver
             spellDamageBonus: deepen + charge, secondaryTargetUnitId: cmd.SecondaryTargetUnitId);
         if (charge > 0)
             ctx.ConsumeSpellCharge(cmd.Seat);
-        ctx.FireAllyOrderPlayed(cmd.Seat); // 教团: each of your units reacts once the order has fully resolved.
+
+        // 薪火回响 (docs/21 §3.1): the FIRST 薪炎 damage order each turn is tracked regardless; 门德, if present,
+        // duplicates it — resolve the effects once more with the same target/bonus (a copy whose target has since
+        // died simply fizzles — 空放).
+        if (kindleOrder)
+        {
+            bool isFirst = !player.FirstKindleOrderDone;
+            player.FirstKindleOrderDone = true;
+            if (isFirst && ctx.HasFirstKindleCopier(cmd.Seat))
+            {
+                ctx.Emit(new OrderEchoedEvent { Seat = cmd.Seat, CardId = def.Id });
+                EffectEngine.RunTrigger(ctx, source: null, cmd.Seat, def.Effects, "play", cmd.TargetUnitId, cmd.TargetCell,
+                    spellDamageBonus: deepen + charge, secondaryTargetUnitId: cmd.SecondaryTargetUnitId);
+            }
+        }
+
+        ctx.FireAllyOrderPlayed(cmd.Seat, def.Cost); // 教团: each of your units reacts once (docs/21 §3.1 min_order_cost)
         ctx.CheckGameEnd();
         return null;
     }

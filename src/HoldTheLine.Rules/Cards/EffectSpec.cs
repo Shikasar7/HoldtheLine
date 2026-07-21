@@ -69,6 +69,11 @@ public sealed record EffectSpec
     [JsonPropertyName("anchor_range")]
     public int AnchorRange { get; init; }
 
+    /// <summary>焚世巨灵 (docs/21 §3.1): an ally_order_played effect fires only when the played order's printed
+    /// cost is at least this (0 = no gate). Parameterises the "4费以上指令牌" condition.</summary>
+    [JsonPropertyName("min_order_cost")]
+    public int MinOrderCost { get; init; }
+
     /// <summary>Exempts a self-growth ally_order_played effect from the 每回合 2 次 cap (docs/21 §1.9) —
     /// 奥菲兰's 永焰不熄. Default false: 灰烬侍徒/烬眼先知/烬火唱徒 are capped.</summary>
     public bool Uncapped { get; init; }
@@ -82,7 +87,9 @@ public sealed record EffectSpec
     /// <summary>channel (docs/21 §1.2): a passive marker read when this unit is chosen as a 引导者 — never
     /// executed by RunTrigger. Its action (deepen/discount) defines the unit's 引导者差异化 bonus.</summary>
     public static readonly IReadOnlySet<string> KnownTriggers = new HashSet<string>
-        { "battlecry", "deathrattle", "play", "leader_skill", "ally_order_played", "self_moved", "channel", "ally_died_your_turn" };
+        { "battlecry", "deathrattle", "play", "leader_skill", "ally_order_played", "self_moved", "channel", "ally_died_your_turn",
+          // docs/21 §3.1: 薪火回响 (门德) — a passive marker read when you play your first 薪炎 damage order each turn.
+          "first_kindle_order_each_turn" };
 
     public static readonly IReadOnlySet<string> KnownActions = new HashSet<string>
         { "damage", "sear", "buff", "draw", "gain_mana", "heal", "grant_keyword", "boost_range", "summon", "move_bonus", "destroy", "recall_order",
@@ -97,7 +104,9 @@ public sealed record EffectSpec
           // docs/21 §1.8: destroy the primary (ally) target and add its current atk/hp to the 二段目标 (焰鞭).
           "stat_transfer",
           // docs/21 §3.2: 熔剑祭士 battlecry marker — sacrifice 2 hand orders to equip the 熔岩巨剑 (resolver-driven).
-          "sacrifice_equip" };
+          "sacrifice_equip",
+          // docs/21 §3.1: 薪火回响 (门德) passive marker — resolver-driven, never executed by RunTrigger.
+          "echo_order" };
 
     public static readonly IReadOnlySet<string> KnownTargetSides = new HashSet<string> { "any", "enemy", "ally" };
 
@@ -127,7 +136,9 @@ public sealed record EffectSpec
     /// player prompt, so their targeting must be implicit: either around the source unit (self/adjacent_*)
     /// or targetless (none, e.g. a recall/draw/summon that reads ownerSeat). docs/06 §3.1, docs/10 §6#1.</summary>
     public static readonly IReadOnlySet<string> OnCastTargets = new HashSet<string>
-        { "none", "self", "adjacent_allies", "adjacent_enemies" };
+        { "none", "self", "adjacent_allies", "adjacent_enemies",
+          // docs/21 §3.1: 焚世巨灵's ally_order_played AoE — implicit (all enemy minions), so no player prompt.
+          "all_enemies" };
 
     /// <summary>Targets the caller must supply an explicit unit for.</summary>
     public bool NeedsUnitTarget => Target is "target_unit" or "target_unit_own_half" or "target_unit_ally" or "unit_cross_all";

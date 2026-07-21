@@ -161,6 +161,26 @@ public class Patch4DataTests
     }
 
     [Fact]
+    public void First_ritualist_is_reworked_into_echo()
+    {
+        var def = Db.Get("dw_first_ritualist"); // id kept, art reused (§8)
+        Assert.Equal("薪火回响", def.Name);
+        var e = def.Effects.Single();
+        Assert.Equal("first_kindle_order_each_turn", e.Trigger);
+        Assert.Equal("echo_order", e.Action);
+    }
+
+    [Fact]
+    public void Inferno_behemoth_pings_all_enemies_on_expensive_orders()
+    {
+        var e = Effect("dw_inferno_behemoth", "damage");
+        Assert.Equal("ally_order_played", e.Trigger);
+        Assert.Equal("all_enemies", e.Target);
+        Assert.Equal(4, e.MinOrderCost);
+        Assert.Equal("spell.kindle", e.School);
+    }
+
+    [Fact]
     public void Matriarch_growth_is_uncapped_but_seer_is_capped()
     {
         Assert.True(Db.Get("dw_dusk_matriarch").Effects.Single(e => e.Action == "buff").Uncapped);

@@ -143,6 +143,10 @@ public sealed class CardDatabase
                 throw new InvalidDataException($"Card '{card.Id}': stat_transfer (焰鞭) needs a unit target.");
             if (spec.Action == "sacrifice_equip" && (card.Type != CardType.Unit || spec.Trigger != "battlecry" || spec.Target != "none"))
                 throw new InvalidDataException($"Card '{card.Id}': sacrifice_equip (熔剑祭士) is a targetless unit battlecry.");
+            if (spec.Trigger == "first_kindle_order_each_turn" && (card.Type != CardType.Unit || spec.Action != "echo_order"))
+                throw new InvalidDataException($"Card '{card.Id}': 薪火回响 marker must be a unit echo_order.");
+            if (spec.Action == "echo_order" && spec.Trigger != "first_kindle_order_each_turn")
+                throw new InvalidDataException($"Card '{card.Id}': echo_order is only for the 薪火回响 marker.");
 
             // 归魂 (docs/21 §1.4): a targetless 辉尘 (gain_mana) reaction, fired from ProcessDeaths.
             if (spec.Trigger == "ally_died_your_turn")

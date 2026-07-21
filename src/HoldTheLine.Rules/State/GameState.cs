@@ -138,6 +138,10 @@ public sealed class PlayerState
     /// <summary>秘密区 (docs/21 §1.7): face-down reactive secrets. The opponent's PlayerView carries only the
     /// count. Old snapshots without this field deserialize to an empty list.</summary>
     public List<Secret> Secrets { get; set; } = new();
+
+    /// <summary>薪火回响 (docs/21 §3.1): whether this seat has already played a 薪炎 damage order this turn (so
+    /// 门德 only echoes the FIRST). Reset at the seat's turn start.</summary>
+    public bool FirstKindleOrderDone { get; set; }
 }
 
 public sealed record GameResult

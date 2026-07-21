@@ -381,6 +381,27 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "add_secret", SecretKind = "counter_order", Amount = 3, School = "spell.kindle" }],
     };
 
+    /// <summary>薪火回响 (门德) pattern: echoes your first 薪炎 damage order each turn (docs/21 §3.1).</summary>
+    public static readonly CardDefinition EchoUnit = new()
+    {
+        Id = "t_echo", Name = "Echo 4/6", Rarity = Rarity.Legendary, Cost = 7, Atk = 4, Hp = 6,
+        Effects = [new EffectSpec { Trigger = "first_kindle_order_each_turn", Action = "echo_order" }],
+    };
+
+    /// <summary>焚世巨灵 pattern: after you play a 4費以上 order, all enemies take 1 薪炎 (docs/21 §3.1).</summary>
+    public static readonly CardDefinition BehemothUnit = new()
+    {
+        Id = "t_behemoth", Name = "Behemoth 6/6", Rarity = Rarity.Epic, Cost = 7, Atk = 6, Hp = 6,
+        Effects = [new EffectSpec { Trigger = "ally_order_played", Action = "damage", Target = "all_enemies", Amount = 1, School = "spell.kindle", MinOrderCost = 4 }],
+    };
+
+    /// <summary>A 4-cost no-target order (draw) for exercising 焚世巨灵's 4費以上 gate.</summary>
+    public static readonly CardDefinition BigDrawOrder = new()
+    {
+        Id = "t_big_order", Name = "Big Order", Type = CardType.Order, Rarity = Rarity.Rare, Cost = 4,
+        Effects = [new EffectSpec { Trigger = "play", Action = "draw", Amount = 1 }],
+    };
+
     /// <summary>熔剑祭士 pattern: 2/4, battlecry may sacrifice 2 hand orders to equip the 熔岩巨剑 (+3/射程2/贯穿, docs/21 §3.2).</summary>
     public static readonly CardDefinition MoltenPriest = new()
     {
@@ -413,6 +434,7 @@ public static class TestKit
         AnchorBomber, ChannelZap, ChannelColumn, ChannelMana,
         ChargeUnit, DeepenChanneler, DiscountChanneler, SoulReturnUnit, UncappedGrower, RootOrder,
         ScatterOrder, AllEnemiesSear, SmokeOrder, TrapOrder, SummonOneOrder, CounterSecret, FlameLash, MoltenPriest,
+        EchoUnit, BehemothUnit, BigDrawOrder,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.

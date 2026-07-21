@@ -22,6 +22,7 @@ internal static class TurnFlow
         player.ManaMax = Math.Min(ManaMaxCap, player.ManaMax + 1);
         player.Mana = player.ManaMax;
         player.LeaderSkillUsedThisTurn = false;
+        player.FirstKindleOrderDone = false; // 薪火回响 resets each turn (docs/21 §3.1)
 
         foreach (var unit in state.Units.Where(u => u.OwnerSeat == seat))
         {

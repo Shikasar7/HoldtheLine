@@ -41,6 +41,7 @@ namespace HoldTheLine.Rules.Events;
 [JsonDerivedType(typeof(OrderCounteredEvent), "order_countered")]
 [JsonDerivedType(typeof(StatTransferredEvent), "stat_transferred")]
 [JsonDerivedType(typeof(CardDiscardedEvent), "card_discarded")]
+[JsonDerivedType(typeof(OrderEchoedEvent), "order_echoed")]
 [JsonDerivedType(typeof(MulliganResolvedEvent), "mulligan_resolved")]
 [JsonDerivedType(typeof(MulliganCompletedEvent), "mulligan_completed")]
 [JsonDerivedType(typeof(GameEndedEvent), "game_ended")]
@@ -311,6 +312,14 @@ public sealed record CardDiscardedEvent : GameEvent
 
     public override GameEvent RedactFor(int viewerSeat) =>
         viewerSeat == Seat ? this : this with { CardId = null };
+}
+
+/// <summary>薪火回响 (docs/21 §3.1): 门德 duplicated this seat's first 薪炎 damage order this turn — its effects
+/// resolve once more (the extra resolution's own events follow). Public.</summary>
+public sealed record OrderEchoedEvent : GameEvent
+{
+    public required int Seat { get; init; }
+    public required string CardId { get; init; }
 }
 
 /// <summary>
