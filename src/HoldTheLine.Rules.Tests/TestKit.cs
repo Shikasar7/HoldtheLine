@@ -263,6 +263,36 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "grant_keyword", Target = "target_unit_ally", GrantKeyword = Keyword.Mobilized, Duration = "end_of_turn" }],
     };
 
+    // ---- docs/21 anchor/channel fixtures (锚·N / 引导·N + spell.kindle school) ----
+
+    /// <summary>锚·2 (self anchor): battlecry deals 2 薪炎 damage to a unit within Manhattan 2 of its deploy cell.</summary>
+    public static readonly CardDefinition AnchorBomber = new()
+    {
+        Id = "t_anchor_bomber", Name = "Anchor Bomber 2/2", Cost = 3, Atk = 2, Hp = 2,
+        Effects = [new EffectSpec { Trigger = "battlecry", Action = "damage", Target = "target_unit", Amount = 2, School = "spell.kindle", Anchor = "self", AnchorRange = 2 }],
+    };
+
+    /// <summary>引导·2 (channel, directed unit): 2 薪炎 damage to a unit within Manhattan 2 of the channeler.</summary>
+    public static readonly CardDefinition ChannelZap = new()
+    {
+        Id = "t_channel_zap", Name = "Channel Zap", Type = CardType.Order, Cost = 1,
+        Effects = [new EffectSpec { Trigger = "play", Action = "damage", Target = "target_unit", Amount = 2, School = "spell.kindle", Anchor = "channel", AnchorRange = 2 }],
+    };
+
+    /// <summary>引导·3 (channel, directed cell): 2 薪炎 damage down the enemy column of a 落点格 within 3 of the channeler.</summary>
+    public static readonly CardDefinition ChannelColumn = new()
+    {
+        Id = "t_channel_col", Name = "Channel Column", Type = CardType.Order, Rarity = Rarity.Rare, Cost = 3,
+        Effects = [new EffectSpec { Trigger = "play", Action = "damage", Target = "column_enemies", Amount = 2, School = "spell.kindle", Anchor = "channel", AnchorRange = 3 }],
+    };
+
+    /// <summary>非指向 channel: needs a channeler to exist, but no range gate (gain 1 mana). The 燔火/燎原 legality shape.</summary>
+    public static readonly CardDefinition ChannelMana = new()
+    {
+        Id = "t_channel_mana", Name = "Channel Mana", Type = CardType.Order, Cost = 0,
+        Effects = [new EffectSpec { Trigger = "play", Action = "gain_mana", Amount = 1, Anchor = "channel" }],
+    };
+
     public static CardDatabase Db { get; } = new([
         Vanilla, BigVanilla, Charger, Assaulter, Scout, Archer, GuardUnit, Holder,
         GuardianUnit, GuardianHolder, BlessUnit,
@@ -273,6 +303,7 @@ public static class TestKit
         Turret, Barricade, Piercer, SacrificeOrder, RowBlastOrder, CrossBlastOrder,
         ColumnAllyBuffOrder, OnCastGrower, OnCastPinger, Recaller,
         SearOrder, SelfMovedGrower, SelfMovedPinger, EmplacementBuffOrder, RedeployOrder,
+        AnchorBomber, ChannelZap, ChannelColumn, ChannelMana,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.

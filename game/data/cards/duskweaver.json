@@ -25,18 +25,19 @@
     "faction": "duskweaver",
     "type": "unit",
     "rarity": "common",
-    "cost": 2,
-    "atk": 2,
-    "hp": 1,
+    "cost": 1,
+    "atk": 0,
+    "hp": 2,
     "effects": [
       {
         "trigger": "deathrattle",
         "action": "damage",
         "target": "adjacent_enemies",
-        "amount": 1
+        "amount": 3,
+        "school": "spell.kindle"
       }
     ],
-    "text": "亡语:相邻敌方随从受到 1 点伤害。",
+    "text": "亡语:相邻敌方随从受到 3 点薪炎伤害。",
     "art_prompt": "a giant moth with smoldering ember wings, sparks drifting off its dust trail"
   },
   {
@@ -53,10 +54,11 @@
         "trigger": "ally_order_played",
         "action": "damage",
         "target": "adjacent_enemies",
-        "amount": 1
+        "amount": 1,
+        "school": "spell.kindle"
       }
     ],
-    "text": "你每施放一张指令牌后,相邻敌方随从受到 1 点伤害。",
+    "text": "你每施放一张指令牌后,相邻敌方随从受到 1 点薪炎伤害。",
     "art_prompt": "a gaunt mystic channeling fire through chained bracelets, small flames orbiting them"
   },
   {
@@ -90,10 +92,13 @@
         "trigger": "battlecry",
         "action": "damage",
         "target": "target_unit",
-        "amount": 2
+        "amount": 2,
+        "school": "spell.kindle",
+        "anchor": "self",
+        "anchor_range": 2
       }
     ],
-    "text": "战吼:对一个随从造成 2 点伤害。",
+    "text": "战吼(以自身为锚点,射程2):对一个随从造成 2 点薪炎伤害。",
     "art_prompt": "a battle mage hurling a compressed bolt of fire, robes whipping backward"
   },
   {
@@ -218,7 +223,10 @@
         "trigger": "play",
         "action": "damage",
         "target": "target_unit",
-        "amount": 1
+        "amount": 1,
+        "school": "spell.kindle",
+        "anchor": "channel",
+        "anchor_range": 2
       },
       {
         "trigger": "play",
@@ -226,7 +234,7 @@
         "amount": 1
       }
     ],
-    "text": "对一个随从造成 1 点伤害,抽 1 张牌。",
+    "text": "引导·2:对一个随从造成 1 点薪炎伤害,抽 1 张牌。",
     "art_prompt": "a single spark leaping between two outstretched fingertips against the night"
   },
   {
@@ -253,7 +261,7 @@
     "faction": "duskweaver",
     "type": "order",
     "rarity": "common",
-    "cost": 2,
+    "cost": 1,
     "effects": [
       {
         "trigger": "play",
@@ -281,10 +289,13 @@
         "trigger": "play",
         "action": "damage",
         "target": "cell_cross_all",
-        "amount": 2
+        "amount": 2,
+        "school": "spell.kindle",
+        "anchor": "channel",
+        "anchor_range": 3
       }
     ],
-    "text": "对一个格子及其相邻格的所有随从造成 2 点伤害(含友方)。",
+    "text": "引导·3:对一个格子及其相邻格的所有随从造成 2 点薪炎伤害(含友方)。",
     "art_prompt": "a cross-shaped eruption of fire seen from above, four arms of flame over trench grid"
   },
   {
@@ -299,10 +310,13 @@
         "trigger": "play",
         "action": "damage",
         "target": "row_enemies",
-        "amount": 2
+        "amount": 2,
+        "school": "spell.kindle",
+        "anchor": "channel",
+        "anchor_range": 3
       }
     ],
-    "text": "选择一行:该行所有敌方随从受到 2 点伤害。",
+    "text": "引导·3,选择一行:该行所有敌方随从受到 2 点薪炎伤害。",
     "art_prompt": "a horizontal wall of fire sweeping down a trench line, soldiers recoiling"
   },
   {
@@ -466,10 +480,13 @@
         "action": "sear",
         "target": "target_unit",
         "amount": 2,
-        "amount_max": 3
+        "amount_max": 3,
+        "school": "spell.kindle",
+        "anchor": "channel",
+        "anchor_range": 2
       }
     ],
-    "text": "对一个随从随机造成 2 或 3 点灼蚀伤害(无视坚守)。",
+    "text": "引导·2:对一个随从随机造成 2 或 3 点薪炎灼蚀伤害(无视坚守)。",
     "art_prompt": "a white-hot branding sigil searing through armor, ignoring the shield, cruel light"
   },
   {
@@ -541,10 +558,13 @@
         "trigger": "play",
         "action": "sear",
         "target": "column_enemies",
-        "amount": 2
+        "amount": 2,
+        "school": "spell.kindle",
+        "anchor": "channel",
+        "anchor_range": 3
       }
     ],
-    "text": "选择一列:该列所有敌方随从受到 2 点灼蚀伤害。",
+    "text": "引导·3,选择一列:该列所有敌方随从受到 2 点薪炎灼蚀伤害。",
     "art_prompt": "a vertical storm of cinders raking straight down a column, armor blackening"
   },
   {

@@ -29,6 +29,10 @@ public sealed record PlayCardCommand : Command
     public Cell? TargetCell { get; init; }
     /// <summary>Target for effects with target == "target_unit".</summary>
     public int? TargetUnitId { get; init; }
+    /// <summary>引导 (docs/21 §1.2, Rules 0.9.0): the friendly minion channeling a 引导·N order — the
+    /// range origin and the source of any channeler amplification/discount. Null for non-channel plays.
+    /// Additive/nullable: pre-0.9.0 command logs omit it and deserialize to null, so replays are unchanged.</summary>
+    public int? ChannelerUnitId { get; init; }
 }
 
 /// <summary>One orthogonal step. Swift N units issue N of these per turn.</summary>

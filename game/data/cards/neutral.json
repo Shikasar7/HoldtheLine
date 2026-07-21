@@ -170,8 +170,8 @@
 	"type": "order",
 	"rarity": "common",
 	"cost": 1,
-	"effects": [{ "trigger": "play", "action": "damage", "target": "target_unit", "amount": 2 }],
-	"text": "对一个随从造成 2 点伤害。",
+	"effects": [{ "trigger": "play", "action": "damage", "target": "target_unit_own_half", "amount": 2 }],
+	"text": "对一个位于你半场的随从造成 2 点伤害。",
 	"art_prompt": "a flight of arrows and aether bolts arcing over trench lines"
   },
   {
@@ -218,13 +218,13 @@
 	"hp": 1,
 	"effects": [
 	  {
-		"trigger": "battlecry",
+		"trigger": "deathrattle",
 		"action": "damage",
-		"target": "target_unit",
+		"target": "adjacent_enemies",
 		"amount": 1
 	  }
 	],
-	"text": "战吼:对一个随从造成 1 点伤害。",
+	"text": "亡语:对相邻敌方随从造成 1 点伤害。",
 	"art_prompt": "a ragged camp hand swinging a burning torch as an improvised weapon, sparks flying"
   },
   {
@@ -309,10 +309,12 @@
 		"trigger": "battlecry",
 		"action": "damage",
 		"target": "target_unit",
-		"amount": 2
+		"amount": 2,
+		"anchor": "self",
+		"anchor_range": 2
 	  }
 	],
-	"text": "战吼:对一个随从造成 2 点伤害。",
+	"text": "战吼(以自身为锚点,射程2):对一个随从造成 2 点伤害。",
 	"art_prompt": "a soot-faced sapper hurling a lit powder charge, fuse hissing"
   },
   {

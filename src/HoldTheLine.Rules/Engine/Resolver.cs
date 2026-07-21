@@ -104,8 +104,10 @@ public sealed class Resolver
         // 先上随从再判战吼: a target-needing battlecry (e.g. "+2 HP to another ally") does NOT block the
         // deploy when the board has no legal target — the unit lands and the battlecry fizzles. RunTrigger
         // below resolves it after the unit is on the board (docs/07; empty-board deploy fix).
+        // 锚·N (docs/21 §1.2): the deploy cell is the anchor centre — a self-anchored battlecry target must
+        // sit within range of where the unit lands. No in-range target → the battlecry fizzles (先上随从).
         if (EffectEngine.ValidateTargets(ctx, cmd.Seat, def.Effects, "battlecry", cmd.TargetUnitId, cmd.TargetCell,
-                allowFizzleWhenNoTarget: true) is { } targetError)
+                allowFizzleWhenNoTarget: true, anchorCenter: cell) is { } targetError)
             return targetError;
 
         player.Mana -= def.Cost;
@@ -141,7 +143,23 @@ public sealed class Resolver
 
     private RuleError? ResolveOrder(ResolutionContext ctx, PlayCardCommand cmd, PlayerState player, CardInstance card, CardDefinition def)
     {
-        if (EffectEngine.ValidateTargets(ctx, cmd.Seat, def.Effects, "play", cmd.TargetUnitId, cmd.TargetCell) is { } targetError)
+        // 引导 (docs/21 §1.2): a channel order first commits a friendly minion as its channeler — the range
+        // origin for any directed target, and (from step 3) the source of amplification/discount. Required
+        // even for 非指向 channels (燔火/燎原), where it exists only to be amplified.
+        UnitInstance? channeler = null;
+        if (def.Effects.Any(e => e.Trigger == "play" && e.IsChannel))
+        {
+            if (cmd.ChannelerUnitId is null)
+                return new RuleError(RuleErrorCode.InvalidTarget, "需要一个友方随从引导。");
+            channeler = ctx.State.FindUnit(cmd.ChannelerUnitId.Value);
+            if (channeler is null)
+                return new RuleError(RuleErrorCode.UnknownEntity, $"Channeler {cmd.ChannelerUnitId.Value} does not exist.");
+            if (channeler.OwnerSeat != cmd.Seat)
+                return new RuleError(RuleErrorCode.InvalidTarget, "引导者必须是你的随从。");
+        }
+
+        if (EffectEngine.ValidateTargets(ctx, cmd.Seat, def.Effects, "play", cmd.TargetUnitId, cmd.TargetCell,
+                anchorCenter: channeler?.Cell) is { } targetError)
             return targetError;
 
         player.Mana -= def.Cost;

@@ -46,6 +46,24 @@ public sealed record EffectSpec
     [JsonPropertyName("summon_card_id")]
     public string? SummonCardId { get; init; }
 
+    /// <summary>Damage school (docs/21 §1.1): "physical" (default) or "spell.kindle" (法术·薪炎). The
+    /// segment before the first dot is the broad class ("spell"); the whole string is the fine grain.
+    /// Immunity checks the exact value; 加深/蓄能/引导 amplification filters by the "spell" prefix so
+    /// future spell schools inherit the same interfaces. Ignored by non-damage actions.</summary>
+    public string School { get; init; } = "physical";
+
+    /// <summary>Directed-damage positioning (docs/21 §1.2). none (default) = no positioning gate;
+    /// self = 锚·N, the battlecry's unit target must sit within <see cref="AnchorRange"/> Manhattan steps
+    /// of the deploy cell; channel = 引导·N, the order first picks a friendly channeler (carried on
+    /// <see cref="Commands.PlayCardCommand.ChannelerUnitId"/>) and any directed target must sit within
+    /// <see cref="AnchorRange"/> of THAT unit. A non-directional channel effect (燔火/燎原 — no unit/cell
+    /// target) has no range gate; the channeler must merely exist (for amplification/discount).</summary>
+    public string Anchor { get; init; } = "none";
+
+    /// <summary>Manhattan reach for a self/channel anchor. 0 = no range gate (non-directional channel).</summary>
+    [JsonPropertyName("anchor_range")]
+    public int AnchorRange { get; init; }
+
     public static readonly IReadOnlySet<string> KnownTriggers = new HashSet<string>
         { "battlecry", "deathrattle", "play", "leader_skill", "ally_order_played", "self_moved" };
 
@@ -61,6 +79,14 @@ public sealed record EffectSpec
     public static readonly IReadOnlySet<string> KnownDurations = new HashSet<string>
         { "permanent", "end_of_turn", "your_next_turn" };
 
+    /// <summary>Damage schools (docs/21 §1.1). "spell.kindle" is the only spell school this patch ships;
+    /// the dotted grammar keeps room for "spell.ash" etc. without touching the immunity/amplify plumbing.</summary>
+    public static readonly IReadOnlySet<string> KnownSchools = new HashSet<string>
+        { "physical", "spell.kindle" };
+
+    public static readonly IReadOnlySet<string> KnownAnchors = new HashSet<string>
+        { "none", "self", "channel" };
+
     /// <summary>Targets the reactive triggers (ally_order_played, self_moved) may use — they fire without a
     /// player prompt, so their targeting must be implicit: either around the source unit (self/adjacent_*)
     /// or targetless (none, e.g. a recall/draw/summon that reads ownerSeat). docs/06 §3.1, docs/10 §6#1.</summary>
@@ -72,4 +98,14 @@ public sealed record EffectSpec
 
     /// <summary>Targets that read the command's target cell (spatial selectors).</summary>
     public bool NeedsCellTarget => Target is "column_enemies" or "row_enemies" or "column_allies" or "cell_cross_all";
+
+    /// <summary>锚·N: this effect anchors on the source unit's own cell (a battlecry).</summary>
+    public bool IsSelfAnchor => Anchor == "self";
+
+    /// <summary>引导·N: this effect anchors on a chosen friendly channeler (an order).</summary>
+    public bool IsChannel => Anchor == "channel";
+
+    /// <summary>Whether this anchored effect actually gates a target by range — a self/channel effect that
+    /// picks a unit or cell (非指向 effects like a raw AoE/draw ride along without a range check).</summary>
+    public bool HasAnchorRange => Anchor is "self" or "channel" && AnchorRange > 0 && (NeedsUnitTarget || NeedsCellTarget);
 }

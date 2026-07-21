@@ -36,6 +36,8 @@ internal static class EffectEngine
     /// unit target that has NO legal candidate on the board is waved through — the unit still deploys and the
     /// battlecry simply fizzles. A legal target still makes the choice mandatory. Orders / leader skills pass
     /// false: a targeted order with no target is a wasted card and stays illegal (docs/07, GDD battlecry rule).</param>
+    /// <param name="anchorCenter">The 锚/引导 range origin (docs/21 §1.2): the deploy cell for a 锚 battlecry,
+    /// the channeler's cell for a 引导 order. Null when the effect carries no anchor — then no range gate applies.</param>
     public static RuleError? ValidateTargets(
         ResolutionContext ctx,
         int ownerSeat,
@@ -43,7 +45,8 @@ internal static class EffectEngine
         string trigger,
         int? targetUnitId,
         Cell? targetCell,
-        bool allowFizzleWhenNoTarget = false)
+        bool allowFizzleWhenNoTarget = false,
+        Cell? anchorCenter = null)
     {
         foreach (var spec in effects)
         {
@@ -56,21 +59,28 @@ internal static class EffectEngine
                 {
                     // Fizzle only when the board offers no legal target for THIS effect; otherwise the
                     // player must still pick one (an empty command can't skip an answerable battlecry).
-                    if (allowFizzleWhenNoTarget && !AnyLegalUnitTarget(ctx.State, ownerSeat, spec))
+                    if (allowFizzleWhenNoTarget && !AnyLegalUnitTarget(ctx.State, ownerSeat, spec, anchorCenter))
                         continue;
                     return new RuleError(RuleErrorCode.InvalidTarget, "This effect requires a unit target.");
                 }
                 var target = ctx.State.FindUnit(targetUnitId.Value);
                 if (target is null)
                     return new RuleError(RuleErrorCode.UnknownEntity, $"Target unit {targetUnitId.Value} does not exist.");
-                // Single source of truth for the owner/half filters — shared with AnyLegalUnitTarget so the
-                // "may I aim here?" and "does a legal target exist?" questions can never drift apart.
-                if (!IsLegalUnitTarget(ownerSeat, spec, target))
+                // Single source of truth for the owner/half + 锚/引导 range filters — shared with
+                // AnyLegalUnitTarget so "may I aim here?" and "does a legal target exist?" can never drift.
+                if (!IsLegalUnitTarget(ownerSeat, spec, target, anchorCenter))
                     return new RuleError(RuleErrorCode.InvalidTarget, $"That unit is not a legal target for a '{spec.Target}' effect.");
             }
 
-            if (spec.NeedsCellTarget && targetCell is null)
-                return new RuleError(RuleErrorCode.InvalidTarget, "This effect requires a target cell.");
+            if (spec.NeedsCellTarget)
+            {
+                if (targetCell is null)
+                    return new RuleError(RuleErrorCode.InvalidTarget, "This effect requires a target cell.");
+                // 引导 落点格 (行/列以落点格计算) must sit within the channeler's reach.
+                if (spec.HasAnchorRange && anchorCenter is { } cc
+                    && BoardGeometry.StepDistance(cc, targetCell.Value) > spec.AnchorRange)
+                    return new RuleError(RuleErrorCode.InvalidTarget, "落点格超出引导者射程。");
+            }
         }
         return null;
     }
@@ -79,20 +89,35 @@ internal static class EffectEngine
     /// target on the board. The enumerator uses this to skip the (would-be-pruned) bare-deploy candidate, sparing
     /// a full resolver dry-run per free home cell in the AI search loop.</summary>
     internal static bool BattlecryTargetMandatory(GameState state, int ownerSeat, IReadOnlyList<EffectSpec> effects) =>
-        effects.Any(e => e.Trigger == "battlecry" && e.NeedsUnitTarget && AnyLegalUnitTarget(state, ownerSeat, e));
+        // 锚 (self anchor) battlecries are excluded: their mandatory-ness depends on the deploy cell (which
+        // in-range targets exist there), unknown at this per-card call — so the enumerator always offers the
+        // bare deploy and the resolver prunes it per cell. Non-anchored battlecries keep the cheap skip.
+        effects.Any(e => e.Trigger == "battlecry" && e.NeedsUnitTarget && !e.IsSelfAnchor
+                         && AnyLegalUnitTarget(state, ownerSeat, e, anchorCenter: null));
 
     /// <summary>Does at least one on-board unit satisfy this spec's unit-target filter? Shares <see
     /// cref="IsLegalUnitTarget"/> with ValidateTargets, so the two can never disagree about "no legal target".</summary>
-    private static bool AnyLegalUnitTarget(GameState state, int ownerSeat, EffectSpec spec) =>
-        state.Units.Any(u => IsLegalUnitTarget(ownerSeat, spec, u));
+    private static bool AnyLegalUnitTarget(GameState state, int ownerSeat, EffectSpec spec, Cell? anchorCenter) =>
+        state.Units.Any(u => IsLegalUnitTarget(ownerSeat, spec, u, anchorCenter));
 
-    private static bool IsLegalUnitTarget(int ownerSeat, EffectSpec spec, UnitInstance u) => spec.Target switch
+    private static bool IsLegalUnitTarget(int ownerSeat, EffectSpec spec, UnitInstance u, Cell? anchorCenter)
     {
-        "target_unit_ally" => u.OwnerSeat == ownerSeat,
-        "target_unit_own_half" => u.OwnerSeat != ownerSeat && BoardGeometry.InOwnHalf(ownerSeat, u.Cell),
-        // target_unit / unit_cross_all: no owner/half filter — any unit qualifies.
-        _ => true,
-    };
+        bool ownerOk = spec.Target switch
+        {
+            "target_unit_ally" => u.OwnerSeat == ownerSeat,
+            "target_unit_own_half" => u.OwnerSeat != ownerSeat && BoardGeometry.InOwnHalf(ownerSeat, u.Cell),
+            // target_unit / unit_cross_all: no owner/half filter — any unit qualifies.
+            _ => true,
+        };
+        if (!ownerOk)
+            return false;
+        // 锚/引导 range gate: a self/channel unit-target effect requires the target within reach of the
+        // anchor centre (deploy cell for 锚, channeler cell for 引导). No centre → gate not evaluated here.
+        if (spec.HasAnchorRange && anchorCenter is { } c
+            && BoardGeometry.StepDistance(c, u.Cell) > spec.AnchorRange)
+            return false;
+        return true;
+    }
 
     private static void Run(ResolutionContext ctx, UnitInstance? source, int ownerSeat, EffectSpec spec, int? targetUnitId, Cell? targetCell)
     {

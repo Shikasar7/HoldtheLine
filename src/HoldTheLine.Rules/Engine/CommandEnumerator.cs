@@ -96,16 +96,28 @@ public static class CommandEnumerator
     {
         bool needsUnit = def.Effects.Any(e => e.Trigger == "play" && e.NeedsUnitTarget);
         bool needsCell = def.Effects.Any(e => e.Trigger == "play" && e.NeedsCellTarget);
+        bool isChannel = def.Effects.Any(e => e.Trigger == "play" && e.IsChannel);
 
-        if (needsUnit)
-            return state.Units.Select(u => (Command)new PlayCardCommand
-                { Seat = seat, CardEntityId = cardEntityId, TargetUnitId = u.EntityId });
+        // 引导 (docs/21 §1.2): enumerate a (channeler × target) grid — the resolver prunes out-of-range
+        // pairs. A channel order with no friendly minion on board is unplayable (no channeler → no candidate).
+        // Non-channel orders keep a single null channeler, so their enumeration is byte-identical to before.
+        var channelers = isChannel
+            ? state.Units.Where(u => u.OwnerSeat == seat).Select(u => (int?)u.EntityId).ToList()
+            : [null];
 
-        if (needsCell)
-            return AllBoardCells().Select(cell => (Command)new PlayCardCommand
-                { Seat = seat, CardEntityId = cardEntityId, TargetCell = cell });
-
-        return [new PlayCardCommand { Seat = seat, CardEntityId = cardEntityId }];
+        var result = new List<Command>();
+        foreach (var ch in channelers)
+        {
+            if (needsUnit)
+                result.AddRange(state.Units.Select(u => (Command)new PlayCardCommand
+                    { Seat = seat, CardEntityId = cardEntityId, TargetUnitId = u.EntityId, ChannelerUnitId = ch }));
+            else if (needsCell)
+                result.AddRange(AllBoardCells().Select(cell => (Command)new PlayCardCommand
+                    { Seat = seat, CardEntityId = cardEntityId, TargetCell = cell, ChannelerUnitId = ch }));
+            else
+                result.Add(new PlayCardCommand { Seat = seat, CardEntityId = cardEntityId, ChannelerUnitId = ch });
+        }
+        return result;
     }
 
     private static IEnumerable<Command> LeaderSkillTargets(GameState state, int seat, LeaderDefinition leader)

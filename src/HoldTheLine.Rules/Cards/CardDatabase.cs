@@ -99,6 +99,23 @@ public sealed class CardDatabase
                 throw new InvalidDataException($"Card '{card.Id}': summon needs amount >= 1.");
             if (spec.AmountMax != 0 && (spec.Action is not ("damage" or "sear") || spec.AmountMax <= spec.Amount))
                 throw new InvalidDataException($"Card '{card.Id}': amount_max is for damage/sear and must exceed amount.");
+
+            // --- 伤害类型 & 锚点/引导 (docs/21 §1.1–1.2, Rules 0.9.0) ---
+            if (!EffectSpec.KnownSchools.Contains(spec.School))
+                throw new InvalidDataException($"Card '{card.Id}': unknown school '{spec.School}'.");
+            if (!EffectSpec.KnownAnchors.Contains(spec.Anchor))
+                throw new InvalidDataException($"Card '{card.Id}': unknown anchor '{spec.Anchor}'.");
+            if (spec.AnchorRange < 0)
+                throw new InvalidDataException($"Card '{card.Id}': anchor_range cannot be negative.");
+            if (spec.IsSelfAnchor)
+            {
+                if (spec.Trigger != "battlecry")
+                    throw new InvalidDataException($"Card '{card.Id}': 锚 (self anchor) is a battlecry rule, got trigger '{spec.Trigger}'.");
+                if (!spec.NeedsUnitTarget || spec.AnchorRange < 1)
+                    throw new InvalidDataException($"Card '{card.Id}': 锚·N needs a unit target and anchor_range >= 1.");
+            }
+            if (spec.IsChannel && spec.Trigger != "play")
+                throw new InvalidDataException($"Card '{card.Id}': 引导 (channel) is an order rule, got trigger '{spec.Trigger}'.");
         }
 
         foreach (var kw in card.Keywords)
