@@ -3220,7 +3220,7 @@ public partial class BattleScene : Control
 			bool global = echoUnits.Count == 0 && echoCells.Count == 0; // 燎原/燔火: board-wide, no aim
 			ShowEchoBar(global);
 			Log(global ? "薪火回响·门德:再次施放这道薪炎指令,或点「空放」放弃。"
-			           : "薪火回响·门德:点选一个复述目标,或点「空放」放弃。");
+					   : "薪火回响·门德:点选一个复述目标,或点「空放」放弃。");
 			RefreshSelectionUi();
 			return true;
 		}
