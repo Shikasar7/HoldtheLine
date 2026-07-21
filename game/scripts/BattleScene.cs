@@ -95,6 +95,10 @@ public partial class BattleScene : Control
 	private SelKind _selKind = SelKind.None;
 	private List<Command> _candidates = new();
 	private Cell? _chosenCell;
+	// docs/21: after cell+target are pinned, a 引导·N order still needs its 引导者, and 焰鞭's friendly mode a
+	// 二段目标 — an extra unit pick that narrows the remaining candidates before submit.
+	private enum ExtraPick { None, Channeler, Secondary }
+	private ExtraPick _extraPick = ExtraPick.None;
 	private bool _crossPreview; // true while aiming a 十字 AOE order (cell_cross_all) — hover shows the footprint
 
 	// The hand card whose effect is currently being aimed — lifted + enlarged so the player never loses
@@ -872,6 +876,7 @@ public partial class BattleScene : Control
 		_candidates.Clear();
 		_chosenCell = null;
 		_crossPreview = false;
+		_extraPick = ExtraPick.None;
 		ClearHighlights();
 		RefreshSelectionUi(); // SelectedCardId now derives to null → hides 取消 and drops the card lift
 	}
@@ -1064,6 +1069,11 @@ public partial class BattleScene : Control
 		if (unit != null) ShowUnitDetail(unit);
 
 		if (_busy) return;
+
+		// docs/21: a click during a pending 引导者 / 二段目标 pick fills that dimension first.
+		if (_extraPick == ExtraPick.Channeler) { PickExtra(ChannelerOf, entityId); return; }
+		if (_extraPick == ExtraPick.Secondary) { PickExtra(SecondaryOf, entityId); return; }
+
 		int seat = ActiveSeat;
 
 		// If we're mid-target-pick, treat as a target first (a unit target, or the unit's cell for an AOE).
@@ -1103,6 +1113,7 @@ public partial class BattleScene : Control
 		if (filtered.Count == 0) return false;
 		if (filtered.Count == 1) { Submit(filtered[0]); return true; }
 		_candidates = filtered;
+		if (PromptExtraPick()) return true; // a 引导·N target still needs its 引导者
 		ClearHighlights();
 		HighlightCardCandidates();
 		RefreshSelectionUi();
@@ -1140,9 +1151,10 @@ public partial class BattleScene : Control
 		if (pick.Count == 0) { Log("这里不是合法目标。"); return; }
 		if (pick.Count == 1 && (UnitOf(pick[0]) is null)) { Submit(pick[0]); return; }
 
-		// Deploy cell chosen but a battlecry target is still needed.
+		// Deploy cell chosen but a battlecry target is still needed — or a 引导·N cell order needs its 引导者.
 		_candidates = pick;
 		_chosenCell = cell;
+		if (PromptExtraPick()) return; // 烟幕弹 etc.: cell pinned, now pick the 引导者
 		ClearHighlights();
 		HighlightCardCandidates();
 		RefreshSelectionUi(); // after a drag-drop this is where the lift + 取消 first appear
@@ -2932,6 +2944,54 @@ public partial class BattleScene : Control
 		AttackCommand a when !a.TargetLeader => a.TargetUnitId,
 		_ => null,
 	};
+
+	// docs/21 §1.2/§1.8: the extra command dimensions a 引导·N / 焰鞭 play carries.
+	private static int? ChannelerOf(Command c) => (c as PlayCardCommand)?.ChannelerUnitId;
+	private static int? SecondaryOf(Command c) => (c as PlayCardCommand)?.SecondaryTargetUnitId;
+
+	/// <summary>After cell+target are pinned, a 引导·N order still needs its 引导者, and 焰鞭's friendly mode a
+	/// distinct 二段目标. Highlights the remaining distinct choices and waits for a click. Returns true when it
+	/// took over (an extra pick is pending); false when there is nothing left to disambiguate.</summary>
+	private bool PromptExtraPick()
+	{
+		if (_candidates.Count <= 1)
+			return false;
+
+		var channelers = _candidates.Select(ChannelerOf).Where(x => x != null).Select(x => x!.Value).Distinct().ToList();
+		if (channelers.Count > 1)
+		{
+			_extraPick = ExtraPick.Channeler;
+			ClearHighlights();
+			foreach (var id in channelers) HighlightUnitColor(id, BattleTheme.CostColor); // teal = 引导
+			Log("选择一个友方随从引导(费用/伤害随引导者变化)。");
+			RefreshSelectionUi();
+			return true;
+		}
+
+		var secondaries = _candidates.Select(SecondaryOf).Where(x => x != null).Select(x => x!.Value).Distinct().ToList();
+		if (secondaries.Count > 1)
+		{
+			_extraPick = ExtraPick.Secondary;
+			ClearHighlights();
+			foreach (var id in secondaries) HighlightUnitColor(id, BattleTheme.HpColor);
+			Log("选择接收属性的另一个友方随从(二段目标)。");
+			RefreshSelectionUi();
+			return true;
+		}
+		return false;
+	}
+
+	/// <summary>A click during a pending 引导者 / 二段目标 pick: keep only the candidates whose extra dimension
+	/// matches the clicked unit, then submit (or prompt the next dimension).</summary>
+	private void PickExtra(Func<Command, int?> dim, int entityId)
+	{
+		var filtered = _candidates.Where(c => dim(c) == entityId).ToList();
+		if (filtered.Count == 0) { Log("请点选高亮的随从。"); return; }
+		_candidates = filtered;
+		_extraPick = ExtraPick.None;
+		if (filtered.Count == 1) { Submit(filtered[0]); return; }
+		PromptExtraPick(); // e.g. 引导者 chosen → now the 二段目标
+	}
 
 	// ---------- small view helpers ----------
 
