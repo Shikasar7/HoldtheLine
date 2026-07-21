@@ -107,6 +107,26 @@ public class SecretTests
     }
 
     [Fact]
+    public void A_stray_target_on_a_non_targeting_order_is_rejected_and_cannot_bait_the_secret()
+    {
+        // Server authority: a crafted command must not attach a bogus enemy TargetUnitId to a cheap
+        // non-targeting order purely to pop the opponent's 焰誓反制 on the cheap.
+        var state = TestKit.NewGame();
+        state.ActiveSeat = 1;
+        state.Player(1).Mana = 10;
+        GiveCounter(state, 0);
+        var bait = TestKit.Place(state, 0, "t_vanilla", new Cell(2, 1));
+        int draw = TestKit.GiveCard(state, 1, "t_draw2"); // no unit-target play effect
+
+        var r = TestKit.NewResolver().Execute(state, new PlayCardCommand
+        { Seat = 1, CardEntityId = draw, TargetUnitId = bait.EntityId });
+
+        Assert.False(r.Success);
+        Assert.Equal(RuleErrorCode.InvalidCommand, r.Error!.Code);
+        Assert.Single(state.Player(0).Secrets); // still armed — the bait never reached the secret
+    }
+
+    [Fact]
     public void Counter_ignores_an_order_targeting_the_casters_own_minion()
     {
         var state = TestKit.NewGame();

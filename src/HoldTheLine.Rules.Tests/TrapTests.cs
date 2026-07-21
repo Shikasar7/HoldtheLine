@@ -9,7 +9,8 @@ using Xunit;
 namespace HoldTheLine.Rules.Tests;
 
 /// <summary>docs/21 §1.7 (Rules 0.9.0): 烬火陷阱 — a hidden trap that fires 薪炎 灼蚀 on entry (move or summon),
-/// reveals, then re-ticks its occupant at each turn end for 2 turns. Hidden from the opponent's PlayerView.</summary>
+/// reveals, then re-ticks its occupant at the OCCUPANT OWNER's turn ends for 2 turns (该随从所有者每次回合结束
+/// 才判定; the enemy's turn end only counts the fire down). Hidden from the opponent's PlayerView.</summary>
 public class TrapTests
 {
     private static CellState Trap(GameState state, int seat, Cell cell, bool revealed = false)
@@ -110,7 +111,7 @@ public class TrapTests
     }
 
     [Fact]
-    public void Revealed_trap_reticks_the_occupant_and_burns_out_after_two_turns()
+    public void Revealed_trap_reticks_only_at_the_occupant_owners_turn_end_and_burns_out_after_two_turns()
     {
         var state = TestKit.NewGame();
         state.ActiveSeat = 1;
@@ -118,12 +119,13 @@ public class TrapTests
         var occupant = TestKit.Place(state, 1, "t_guardian", new Cell(2, 1)); // 2/8, sits on the fire
         var resolver = TestKit.NewResolver();
 
-        state = resolver.Execute(state, new EndTurnCommand { Seat = 1 }).State!; // tick 1: 8 → 5, TurnsLeft → 1
+        state = resolver.Execute(state, new EndTurnCommand { Seat = 1 }).State!; // owner's turn end: 8 → 5, TurnsLeft → 1
         Assert.Equal(5, state.FindUnit(occupant.EntityId)!.CurrentHp);
         Assert.Single(state.CellStates);
 
-        var last = resolver.Execute(state, new EndTurnCommand { Seat = 0 }); // tick 2: 5 → 2, TurnsLeft → 0, gone
-        Assert.Equal(2, last.State!.FindUnit(occupant.EntityId)!.CurrentHp);
+        // The ENEMY's turn end does not re-sear the seat-1 occupant — the fire only counts down and expires.
+        var last = resolver.Execute(state, new EndTurnCommand { Seat = 0 });
+        Assert.Equal(5, last.State!.FindUnit(occupant.EntityId)!.CurrentHp);
         Assert.Empty(last.State!.CellStates);
         Assert.Contains(last.Events, e => e is TrapExpiredEvent);
     }

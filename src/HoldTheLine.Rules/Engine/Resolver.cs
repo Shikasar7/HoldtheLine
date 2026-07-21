@@ -97,8 +97,9 @@ public sealed class Resolver
     /// mana check and the deduction so client preview and server charge stay in lockstep.</summary>
     private int EffectiveCost(GameState state, PlayCardCommand cmd, CardDefinition def)
     {
-        if (def.Type != CardType.Order || cmd.ChannelerUnitId is not { } chId || !EffectEngine.IsKindleDamageOrder(def))
-            return def.Cost;
+        if (def.Type != CardType.Order || cmd.ChannelerUnitId is not { } chId || !EffectEngine.IsKindleDamageOrder(def)
+            || !def.Effects.Any(e => e.Trigger == "play" && e.IsChannel))
+            return def.Cost; // the discount only ever applies to a card the channeler actually channels
         var ch = state.FindUnit(chId);
         if (ch is null || ch.OwnerSeat != cmd.Seat)
             return def.Cost;
@@ -154,7 +155,8 @@ public sealed class Resolver
         });
         ctx.RecomputeGarrison(unit); // deploys on the home row → gains 驻防 immediately
 
-        ctx.TrySacrificeEquip(unit, cmd.SacrificeEntityIds); // 熔剑祭士: discard 2 orders → 熔岩巨剑 (docs/21 §3.2)
+        if (def.Effects.Any(e => e.Trigger == "battlecry" && e.Action == "sacrifice_equip"))
+            ctx.TrySacrificeEquip(unit, cmd.SacrificeEntityIds); // 熔剑祭士: discard 2 orders → 熔岩巨剑 (docs/21 §3.2)
         EffectEngine.RunTrigger(ctx, unit, cmd.Seat, def.Effects, "battlecry", cmd.TargetUnitId, cmd.TargetCell);
         ctx.CheckGameEnd();
         return null;
@@ -165,7 +167,9 @@ public sealed class Resolver
     private RuleError? SacrificeEquipLegality(GameState state, PlayCardCommand cmd, CardDefinition def)
     {
         if (!def.Effects.Any(e => e.Trigger == "battlecry" && e.Action == "sacrifice_equip"))
-            return null;
+            return cmd.SacrificeEntityIds is { Count: > 0 }
+                ? new RuleError(RuleErrorCode.InvalidCommand, "这张牌没有献祭战吼。")
+                : null;
         if (cmd.SacrificeEntityIds is not { Count: > 0 } ids)
             return null; // declined the sacrifice
         var distinct = ids.Distinct().ToList();
@@ -201,6 +205,12 @@ public sealed class Resolver
             if (channeler.OwnerSeat != cmd.Seat)
                 return new RuleError(RuleErrorCode.InvalidTarget, "引导者必须是你的随从。");
         }
+
+        // 服务端权威: an order with NO unit-target play effect must not carry a TargetUnitId — a crafted
+        // command could otherwise attach a bogus enemy id to a cheap non-targeting order purely to bait out
+        // the opponent's 焰誓反制 below at minimal cost (the UI never produces this shape).
+        if (cmd.TargetUnitId is not null && !def.Effects.Any(e => e.Trigger == "play" && e.NeedsUnitTarget))
+            return new RuleError(RuleErrorCode.InvalidCommand, "这张牌不需要单位目标。");
 
         if (EffectEngine.ValidateTargets(ctx, cmd.Seat, def.Effects, "play", cmd.TargetUnitId, cmd.TargetCell,
                 anchorCenter: channeler?.Cell) is { } targetError)

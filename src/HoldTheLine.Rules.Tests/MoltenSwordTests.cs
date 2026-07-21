@@ -68,6 +68,24 @@ public class MoltenSwordTests
     }
 
     [Fact]
+    public void Sacrifice_on_a_unit_without_the_battlecry_is_rejected()
+    {
+        // Server authority: a crafted command must not equip the 熔岩巨剑 on an arbitrary deploy.
+        var state = TestKit.NewGame();
+        state.Player(0).Mana = 10;
+        int vanilla = TestKit.GiveCard(state, 0, "t_vanilla");
+        int o1 = TestKit.GiveCard(state, 0, "t_zap");
+        int o2 = TestKit.GiveCard(state, 0, "t_draw2");
+
+        var r = TestKit.NewResolver().Execute(state, new PlayCardCommand
+        { Seat = 0, CardEntityId = vanilla, TargetCell = new Cell(2, 0), SacrificeEntityIds = [o1, o2] });
+
+        Assert.False(r.Success);
+        Assert.Equal(RuleErrorCode.InvalidCommand, r.Error!.Code);
+        Assert.Contains(state.Player(0).Hand, c => c.EntityId == o1); // nothing was discarded
+    }
+
+    [Fact]
     public void Sacrificing_a_non_order_is_rejected()
     {
         var state = TestKit.NewGame();

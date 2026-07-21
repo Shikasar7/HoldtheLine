@@ -101,8 +101,9 @@ public static class CommandEnumerator
     /// The resolver still charges the exact per-channeler cost (docs/21 §1.2).</summary>
     private static int MinPlayableCost(GameState state, int seat, CardDatabase db, CardDefinition def)
     {
-        if (def.Type != CardType.Order || !EffectEngine.IsKindleDamageOrder(def))
-            return def.Cost;
+        if (def.Type != CardType.Order || !EffectEngine.IsKindleDamageOrder(def)
+            || !def.Effects.Any(e => e.Trigger == "play" && e.IsChannel))
+            return def.Cost; // mirrors Resolver.EffectiveCost: only a channeled 薪炎 order can be cheapened
         int maxDiscount = state.Units
             .Where(u => u.OwnerSeat == seat)
             .Select(u => EffectEngine.ChannelEffectAmount(db, u, "discount"))

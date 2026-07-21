@@ -217,6 +217,8 @@ internal sealed class ResolutionContext
             var def = Db.Get(unit.CardId);
             for (int i = 0; i < deathCount && unit.SoulReturnGainsThisTurn < SoulReturnCap; i++)
             {
+                if (State.FindUnit(unit.EntityId) is null)
+                    break; // died to an earlier trigger in this sweep — a dead unit must not keep firing
                 EffectEngine.RunTrigger(this, unit, seat, def.Effects, "ally_died_your_turn", targetUnitId: null);
                 unit.SoulReturnGainsThisTurn++;
             }
@@ -378,13 +380,14 @@ internal sealed class ResolutionContext
         ProcessDeaths();
     }
 
-    /// <summary>End-of-turn re-tick (docs/21 §1.7): every revealed trap burns its current occupant, then counts
-    /// down; the fire is removed when it reaches zero.</summary>
+    /// <summary>End-of-turn re-tick (docs/21 §1.7): every revealed trap burns an occupant owned by the seat
+    /// whose turn is ending (该随从**所有者**每次回合结束才判定 — the enemy's turn end does not re-sear your
+    /// unit), then counts down; the fire is removed when it reaches zero.</summary>
     public void TickTraps()
     {
         foreach (var trap in State.CellStates.Where(s => s.Kind == "trap" && s.Revealed).ToList())
         {
-            if (State.UnitAt(trap.Cell) is { } occupant)
+            if (State.UnitAt(trap.Cell) is { } occupant && occupant.OwnerSeat == State.ActiveSeat)
                 ApplyTrapSear(trap, occupant, revealed: false);
             trap.TurnsLeft--;
             if (trap.TurnsLeft <= 0)
