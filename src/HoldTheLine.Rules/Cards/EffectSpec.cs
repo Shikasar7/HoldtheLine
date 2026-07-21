@@ -46,6 +46,11 @@ public sealed record EffectSpec
     [JsonPropertyName("summon_card_id")]
     public string? SummonCardId { get; init; }
 
+    /// <summary>秘密种类 (docs/21 §1.7, action == add_secret): counter_order (焰誓反制). The reactive payload
+    /// (e.g. 3 <see cref="School"/> damage) is read back off this same effect when the secret fires.</summary>
+    [JsonPropertyName("secret_kind")]
+    public string? SecretKind { get; init; }
+
     /// <summary>Damage school (docs/21 §1.1): "physical" (default) or "spell.kindle" (法术·薪炎). The
     /// segment before the first dot is the broad class ("spell"); the whole string is the fine grain.
     /// Immunity checks the exact value; 加深/蓄能/引导 amplification filters by the "spell" prefix so
@@ -80,7 +85,12 @@ public sealed record EffectSpec
           // docs/21 §3.1: 燔火's scatter missiles (Amount = missile count, each 1 薪炎; 加深/蓄能 add missiles).
           "damage_scatter",
           // docs/21 §1.6/§1.7: place a 烟幕区 (烟幕弹) or a hidden 烬火陷阱 on the target cell.
-          "place_smoke", "place_trap" };
+          "place_smoke", "place_trap",
+          // docs/21 §1.7: set a face-down reactive secret in your 秘密区 (焰誓反制).
+          "add_secret" };
+
+    /// <summary>docs/21 §1.7: the reactive secret kinds. counter_order = 焰誓反制.</summary>
+    public static readonly IReadOnlySet<string> KnownSecretKinds = new HashSet<string> { "counter_order" };
 
     public static readonly IReadOnlySet<string> KnownTargets = new HashSet<string>
         { "none", "self", "target_unit", "target_unit_own_half", "target_unit_ally",

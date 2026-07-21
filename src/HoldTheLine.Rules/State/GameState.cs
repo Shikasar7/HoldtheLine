@@ -107,6 +107,15 @@ public sealed class CellState
     public int TurnsLeft { get; set; }
 }
 
+/// <summary>A face-down reactive secret (docs/21 §1.7) waiting in a seat's secret zone — 焰誓反制. The opponent
+/// sees only the COUNT of these (never the CardId/Kind). Distinct from a 烬火陷阱, which is a hidden board cell.</summary>
+public sealed class Secret
+{
+    public string CardId { get; set; } = "";
+    /// <summary>counter_order (焰誓反制). The trigger + payload are looked up from the card definition.</summary>
+    public string Kind { get; set; } = "";
+}
+
 public sealed class PlayerState
 {
     public int Seat { get; set; }
@@ -125,6 +134,10 @@ public sealed class PlayerState
     /// order, then cleared. Persists across turns until consumed; 焰跃术士's 战吼 grants it. Old snapshots
     /// without this field deserialize to 0.</summary>
     public int SpellCharge { get; set; }
+
+    /// <summary>秘密区 (docs/21 §1.7): face-down reactive secrets. The opponent's PlayerView carries only the
+    /// count. Old snapshots without this field deserialize to an empty list.</summary>
+    public List<Secret> Secrets { get; set; } = new();
 }
 
 public sealed record GameResult

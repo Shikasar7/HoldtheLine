@@ -49,6 +49,7 @@ public sealed record PlayerView
                 DeckCount = self.Deck.Count,
                 Fatigue = self.Fatigue,
                 SpellCharge = self.SpellCharge,
+                Secrets = self.Secrets.Select(s => s.CardId).ToList(), // own secrets are visible to their caster
                 Hand = self.Hand.Select(c => new CardInHandView { EntityId = c.EntityId, CardId = c.CardId }).ToList(),
             },
             Opponent = new OpponentView
@@ -61,6 +62,7 @@ public sealed record PlayerView
                 HandCount = opp.Hand.Count,
                 Fatigue = opp.Fatigue,
                 SpellCharge = opp.SpellCharge,
+                SecretCount = opp.Secrets.Count, // 暗牌 N — the威慑, without the contents (docs/21 §1.7)
             },
             Units = state.Units.Select(UnitView.From).ToList(),
             // 服务端权威 (docs/21 §1.7): a hidden trap is visible only to its own caster; smoke and revealed
@@ -93,6 +95,8 @@ public sealed record SelfView
     public required int Fatigue { get; init; }
     /// <summary>蓄能余量 (docs/21 §1.3) for the leader-side counter. Old snapshots deserialize to 0.</summary>
     public int SpellCharge { get; init; }
+    /// <summary>Card ids of your own face-down 秘密 (docs/21 §1.7) — visible to their caster.</summary>
+    public IReadOnlyList<string> Secrets { get; init; } = [];
     public required IReadOnlyList<CardInHandView> Hand { get; init; }
 }
 
@@ -107,6 +111,8 @@ public sealed record OpponentView
     public required int Fatigue { get; init; }
     /// <summary>Opponent's 蓄能余量 (public, docs/21 §1.3).</summary>
     public int SpellCharge { get; init; }
+    /// <summary>暗牌 N (docs/21 §1.7): how many face-down secrets the opponent holds — the count only, never contents.</summary>
+    public int SecretCount { get; init; }
 }
 
 public sealed record CardInHandView

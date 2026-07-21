@@ -373,6 +373,14 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "summon", SummonCardId = "t_pup", Amount = 1 }],
     };
 
+    /// <summary>焰誓反制 pattern: a counter_order secret that voids the next enemy order selecting your minion and
+    /// deals 3 薪炎 to a random minion on the caster's side (docs/21 §3.2).</summary>
+    public static readonly CardDefinition CounterSecret = new()
+    {
+        Id = "t_counter", Name = "Counter", Type = CardType.Order, Rarity = Rarity.Rare, Cost = 3,
+        Effects = [new EffectSpec { Trigger = "play", Action = "add_secret", SecretKind = "counter_order", Amount = 3, School = "spell.kindle" }],
+    };
+
     public static CardDatabase Db { get; } = new([
         Vanilla, BigVanilla, Charger, Assaulter, Scout, Archer, GuardUnit, Holder,
         GuardianUnit, GuardianHolder, BlessUnit,
@@ -385,7 +393,7 @@ public static class TestKit
         SearOrder, SelfMovedGrower, SelfMovedPinger, EmplacementBuffOrder, RedeployOrder,
         AnchorBomber, ChannelZap, ChannelColumn, ChannelMana,
         ChargeUnit, DeepenChanneler, DiscountChanneler, SoulReturnUnit, UncappedGrower, RootOrder,
-        ScatterOrder, AllEnemiesSear, SmokeOrder, TrapOrder, SummonOneOrder,
+        ScatterOrder, AllEnemiesSear, SmokeOrder, TrapOrder, SummonOneOrder, CounterSecret,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.

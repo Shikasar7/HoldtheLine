@@ -183,6 +183,31 @@ public sealed class Resolver
             return trapError;
 
         int cost = EffectiveCost(ctx.State, cmd, def);
+
+        // 秘密 (docs/21 §1.7): a secret order is set face-down in your 秘密区 instead of resolving now; it does
+        // not hit the graveyard (it lives in the zone) and does not fire 教团 ally_order_played.
+        if (def.Effects.FirstOrDefault(e => e.Action == "add_secret") is { } secretSpec)
+        {
+            player.Mana -= cost;
+            player.Hand.Remove(card);
+            ctx.AddSecret(cmd.Seat, card.EntityId, def.Id, secretSpec.SecretKind!, cost);
+            return null;
+        }
+
+        // 焰誓反制 (docs/21 §3.2): an order that selected an ENEMY minion may be voided by that minion's owner's
+        // counter secret — the caster still pays and discards, but the order's effects never happen.
+        if (cmd.TargetUnitId is { } tid && ctx.State.FindUnit(tid) is { OwnerSeat: var defenderSeat } && defenderSeat != cmd.Seat
+            && ctx.TryTriggerCounterSecret(defenderSeat, cmd.Seat))
+        {
+            player.Mana -= cost;
+            player.Hand.Remove(card);
+            if (def.Rarity != Rarity.Token)
+                player.Graveyard.Add(def.Id);
+            ctx.Emit(new CardPlayedEvent { Seat = cmd.Seat, CardEntityId = card.EntityId, CardId = def.Id, ManaSpent = cost });
+            ctx.CheckGameEnd();
+            return null;
+        }
+
         player.Mana -= cost;
         player.Hand.Remove(card);
         // Token orders (军令硬币) are removed from the game instead of hitting the graveyard — otherwise

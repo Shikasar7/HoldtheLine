@@ -36,6 +36,9 @@ namespace HoldTheLine.Rules.Events;
 [JsonDerivedType(typeof(SmokeExpiredEvent), "smoke_expired")]
 [JsonDerivedType(typeof(TrapTriggeredEvent), "trap_triggered")]
 [JsonDerivedType(typeof(TrapExpiredEvent), "trap_expired")]
+[JsonDerivedType(typeof(SecretPlayedEvent), "secret_played")]
+[JsonDerivedType(typeof(SecretRevealedEvent), "secret_revealed")]
+[JsonDerivedType(typeof(OrderCounteredEvent), "order_countered")]
 [JsonDerivedType(typeof(MulliganResolvedEvent), "mulligan_resolved")]
 [JsonDerivedType(typeof(MulliganCompletedEvent), "mulligan_completed")]
 [JsonDerivedType(typeof(GameEndedEvent), "game_ended")]
@@ -253,6 +256,36 @@ public sealed record TrapExpiredEvent : GameEvent
 {
     public required int OwnerSeat { get; init; }
     public required Cell Cell { get; init; }
+}
+
+/// <summary>A face-down secret entered a seat's 秘密区 (docs/21 §1.7). The opponent learns a secret was set
+/// (and the seat's new count) but NOT which one — <see cref="CardId"/> is redacted for them.</summary>
+public sealed record SecretPlayedEvent : GameEvent
+{
+    public required int Seat { get; init; }
+    public required int CardEntityId { get; init; }
+    /// <summary>Null when redacted for the opponent (they only learn a secret exists).</summary>
+    public string? CardId { get; init; }
+    public required int ManaSpent { get; init; }
+    public required int SecretCount { get; init; }
+
+    public override GameEvent RedactFor(int viewerSeat) =>
+        viewerSeat == Seat ? this : this with { CardId = null };
+}
+
+/// <summary>A secret fired and is now face-up (docs/21 §1.7) — revealed to both seats before its payload.</summary>
+public sealed record SecretRevealedEvent : GameEvent
+{
+    public required int OwnerSeat { get; init; }
+    public required string CardId { get; init; }
+}
+
+/// <summary>焰誓反制 (docs/21 §3.2): an enemy order that selected the secret owner's minion was voided; the
+/// caster's side takes the counter's 薪炎 punishment (a following UnitDamagedEvent carries it).</summary>
+public sealed record OrderCounteredEvent : GameEvent
+{
+    public required int OwnerSeat { get; init; }
+    public required int CasterSeat { get; init; }
 }
 
 /// <summary>

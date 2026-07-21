@@ -135,6 +135,8 @@ public sealed class CardDatabase
                 throw new InvalidDataException($"Card '{card.Id}': {spec.Action} needs target 'cell'.");
             if (spec.Target == "cell" && spec.Action is not ("place_smoke" or "place_trap"))
                 throw new InvalidDataException($"Card '{card.Id}': target 'cell' is only for cell-placing actions.");
+            if (spec.Action == "add_secret" && (card.Type != CardType.Order || spec.SecretKind is null || !EffectSpec.KnownSecretKinds.Contains(spec.SecretKind)))
+                throw new InvalidDataException($"Card '{card.Id}': add_secret (秘密) needs an order and a known secret_kind.");
 
             // 归魂 (docs/21 §1.4): a targetless 辉尘 (gain_mana) reaction, fired from ProcessDeaths.
             if (spec.Trigger == "ally_died_your_turn")

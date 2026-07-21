@@ -358,6 +358,44 @@ internal sealed class ResolutionContext
         DamageUnit(victim, amount, ignoreHoldFast: true); // 薪炎灼蚀 ignores 坚守 (福泽/守护/持盾 still apply)
     }
 
+    // ---- 秘密区: 焰誓反制 (docs/21 §1.7 / §3.2) ----
+
+    /// <summary>Sets a face-down secret in <paramref name="seat"/>'s 秘密区. The opponent learns only the count.</summary>
+    public void AddSecret(int seat, int cardEntityId, string cardId, string kind, int manaSpent)
+    {
+        var player = State.Player(seat);
+        player.Secrets.Add(new Secret { CardId = cardId, Kind = kind });
+        Emit(new SecretPlayedEvent
+        { Seat = seat, CardEntityId = cardEntityId, CardId = cardId, ManaSpent = manaSpent, SecretCount = player.Secrets.Count });
+    }
+
+    /// <summary>焰誓反制 (docs/21 §3.2): if <paramref name="defenderSeat"/> holds a counter_order secret, void the
+    /// enemy order that selected its minion, reveal the secret (→ graveyard), and deal its 薪炎 punishment to a
+    /// random minion on <paramref name="casterSeat"/>'s side. Returns true when an order was countered.</summary>
+    public bool TryTriggerCounterSecret(int defenderSeat, int casterSeat)
+    {
+        var defender = State.Player(defenderSeat);
+        var secret = defender.Secrets.FirstOrDefault(s => s.Kind == "counter_order");
+        if (secret is null)
+            return false;
+        defender.Secrets.Remove(secret);
+        defender.Graveyard.Add(secret.CardId);
+        Emit(new SecretRevealedEvent { OwnerSeat = defenderSeat, CardId = secret.CardId });
+        Emit(new OrderCounteredEvent { OwnerSeat = defenderSeat, CasterSeat = casterSeat });
+
+        // Punishment: the amount rides on the secret card's own add_secret effect (焰誓反制 = 3 薪炎; regular
+        // spell damage, NOT 灼蚀, so 坚守 still reduces it). Random live minion on the countered caster's side.
+        var spec = Db.Get(secret.CardId).Effects.First(e => e.Action == "add_secret");
+        var victims = State.Units.Where(u => u.OwnerSeat == casterSeat && u.CurrentHp > 0).ToList();
+        if (victims.Count > 0 && spec.Amount > 0)
+        {
+            var victim = victims[State.Rng.NextInt(victims.Count)];
+            DamageUnit(victim, spec.Amount + (victim.HasKeyword(Keyword.Emplacement) ? 1 : 0));
+            ProcessDeaths();
+        }
+        return true;
+    }
+
     // ---- P2 effect mutations ----
 
     public void HealUnit(UnitInstance target, int amount)
