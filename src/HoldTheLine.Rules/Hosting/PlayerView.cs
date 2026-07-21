@@ -45,6 +45,7 @@ public sealed record PlayerView
                 ManaMax = self.ManaMax,
                 DeckCount = self.Deck.Count,
                 Fatigue = self.Fatigue,
+                SpellCharge = self.SpellCharge,
                 Hand = self.Hand.Select(c => new CardInHandView { EntityId = c.EntityId, CardId = c.CardId }).ToList(),
             },
             Opponent = new OpponentView
@@ -56,6 +57,7 @@ public sealed record PlayerView
                 DeckCount = opp.Deck.Count,
                 HandCount = opp.Hand.Count,
                 Fatigue = opp.Fatigue,
+                SpellCharge = opp.SpellCharge,
             },
             Units = state.Units.Select(UnitView.From).ToList(),
         };
@@ -70,6 +72,8 @@ public sealed record SelfView
     public required int ManaMax { get; init; }
     public required int DeckCount { get; init; }
     public required int Fatigue { get; init; }
+    /// <summary>蓄能余量 (docs/21 §1.3) for the leader-side counter. Old snapshots deserialize to 0.</summary>
+    public int SpellCharge { get; init; }
     public required IReadOnlyList<CardInHandView> Hand { get; init; }
 }
 
@@ -82,6 +86,8 @@ public sealed record OpponentView
     public required int DeckCount { get; init; }
     public required int HandCount { get; init; }
     public required int Fatigue { get; init; }
+    /// <summary>Opponent's 蓄能余量 (public, docs/21 §1.3).</summary>
+    public int SpellCharge { get; init; }
 }
 
 public sealed record CardInHandView

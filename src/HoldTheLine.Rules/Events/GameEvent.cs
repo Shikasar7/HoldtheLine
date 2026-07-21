@@ -31,6 +31,7 @@ namespace HoldTheLine.Rules.Events;
 [JsonDerivedType(typeof(LeaderSkillUsedEvent), "leader_skill_used")]
 [JsonDerivedType(typeof(UnitDiedEvent), "unit_died")]
 [JsonDerivedType(typeof(ManaGainedEvent), "mana_gained")]
+[JsonDerivedType(typeof(SpellChargeChangedEvent), "spell_charge_changed")]
 [JsonDerivedType(typeof(MulliganResolvedEvent), "mulligan_resolved")]
 [JsonDerivedType(typeof(MulliganCompletedEvent), "mulligan_completed")]
 [JsonDerivedType(typeof(GameEndedEvent), "game_ended")]
@@ -206,6 +207,14 @@ public sealed record ManaGainedEvent : GameEvent
     public required int Seat { get; init; }
     public required int Amount { get; init; }
     public required int NewMana { get; init; }
+}
+
+/// <summary>蓄能余量 changed (docs/21 §1.3) — 焰跃术士 granted it, or a 薪炎 order consumed it. Drives the
+/// leader-side 加深/蓄能 counter. Public: charge is not hidden information.</summary>
+public sealed record SpellChargeChangedEvent : GameEvent
+{
+    public required int Seat { get; init; }
+    public required int NewCharge { get; init; }
 }
 
 /// <summary>

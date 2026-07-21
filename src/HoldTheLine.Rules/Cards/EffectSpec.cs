@@ -64,11 +64,15 @@ public sealed record EffectSpec
     [JsonPropertyName("anchor_range")]
     public int AnchorRange { get; init; }
 
+    /// <summary>channel (docs/21 §1.2): a passive marker read when this unit is chosen as a 引导者 — never
+    /// executed by RunTrigger. Its action (deepen/discount) defines the unit's 引导者差异化 bonus.</summary>
     public static readonly IReadOnlySet<string> KnownTriggers = new HashSet<string>
-        { "battlecry", "deathrattle", "play", "leader_skill", "ally_order_played", "self_moved" };
+        { "battlecry", "deathrattle", "play", "leader_skill", "ally_order_played", "self_moved", "channel" };
 
     public static readonly IReadOnlySet<string> KnownActions = new HashSet<string>
-        { "damage", "sear", "buff", "draw", "gain_mana", "heal", "grant_keyword", "boost_range", "summon", "move_bonus", "destroy", "recall_order" };
+        { "damage", "sear", "buff", "draw", "gain_mana", "heal", "grant_keyword", "boost_range", "summon", "move_bonus", "destroy", "recall_order",
+          // docs/21 §1.3: 蓄能 (executable) + the two passive 引导者 markers read by the amplify pipeline.
+          "amplify_next", "deepen", "discount" };
 
     public static readonly IReadOnlySet<string> KnownTargets = new HashSet<string>
         { "none", "self", "target_unit", "target_unit_own_half", "target_unit_ally",
@@ -108,4 +112,7 @@ public sealed record EffectSpec
     /// <summary>Whether this anchored effect actually gates a target by range — a self/channel effect that
     /// picks a unit or cell (非指向 effects like a raw AoE/draw ride along without a range check).</summary>
     public bool HasAnchorRange => Anchor is "self" or "channel" && AnchorRange > 0 && (NeedsUnitTarget || NeedsCellTarget);
+
+    /// <summary>薪炎 (spell.*) damage/sear — the effects 加深/蓄能/引导 amplify and 免疫薪炎 negates (docs/21 §1.1).</summary>
+    public bool IsSpellDamage => Action is "damage" or "sear" && School.StartsWith("spell", StringComparison.Ordinal);
 }

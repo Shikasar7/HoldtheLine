@@ -91,6 +91,10 @@ public sealed class PlayerState
     public int Fatigue { get; set; }
     /// <summary>Leader skill is once per turn; reset at this player's turn start.</summary>
     public bool LeaderSkillUsedThisTurn { get; set; }
+    /// <summary>蓄能余量 (docs/21 §1.3): a stored bonus added to this seat's next 薪炎 (spell.kindle) damage
+    /// order, then cleared. Persists across turns until consumed; 焰跃术士's 战吼 grants it. Old snapshots
+    /// without this field deserialize to 0.</summary>
+    public int SpellCharge { get; set; }
 }
 
 public sealed record GameResult

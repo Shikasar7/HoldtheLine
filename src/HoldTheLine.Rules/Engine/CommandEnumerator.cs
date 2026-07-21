@@ -36,7 +36,7 @@ public static class CommandEnumerator
         foreach (var card in player.Hand)
         {
             var def = db.Get(card.CardId);
-            if (def.Cost > player.Mana)
+            if (MinPlayableCost(state, seat, db, def) > player.Mana)
                 continue;
 
             switch (def.Type)
@@ -90,6 +90,21 @@ public static class CommandEnumerator
         var legal = candidates.Where(c => resolver.Execute(state, c).Success).ToList();
         legal.Add(new EndTurnCommand { Seat = seat });
         return legal;
+    }
+
+    /// <summary>Lower bound on what a card can cost this turn: a 薪炎 order can be cheapened by an on-board
+    /// 晚祷领唱-style 引导者 (floor 1), so gating on full cost would wrongly hide an affordable channel play.
+    /// The resolver still charges the exact per-channeler cost (docs/21 §1.2).</summary>
+    private static int MinPlayableCost(GameState state, int seat, CardDatabase db, CardDefinition def)
+    {
+        if (def.Type != CardType.Order || !EffectEngine.IsKindleDamageOrder(def))
+            return def.Cost;
+        int maxDiscount = state.Units
+            .Where(u => u.OwnerSeat == seat)
+            .Select(u => EffectEngine.ChannelEffectAmount(db, u, "discount"))
+            .DefaultIfEmpty(0)
+            .Max();
+        return maxDiscount > 0 ? Math.Max(1, def.Cost - maxDiscount) : def.Cost;
     }
 
     private static IEnumerable<Command> OrderTargets(GameState state, int seat, int cardEntityId, CardDefinition def)

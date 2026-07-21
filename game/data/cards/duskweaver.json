@@ -139,11 +139,11 @@
     "effects": [
       {
         "trigger": "battlecry",
-        "action": "recall_order",
-        "amount": 1
+        "action": "amplify_next",
+        "amount": 2
       }
     ],
-    "text": "突袭。战吼:将一张随机指令牌从你的墓地移回手牌。",
+    "text": "突袭。战吼:蓄能 2(你的下一张薪炎伤害指令 +2)。",
     "art_prompt": "an agile fire-dancer mid-leap, twin ribbons of flame tracing arcs around them"
   },
   {
@@ -157,13 +157,12 @@
     "hp": 5,
     "effects": [
       {
-        "trigger": "battlecry",
-        "action": "damage",
-        "target": "unit_cross_all",
-        "amount": 1
+        "trigger": "channel",
+        "action": "deepen",
+        "amount": 2
       }
     ],
-    "text": "战吼:对一个随从及其相邻格的所有随从造成 1 点伤害(含友方)。",
+    "text": "由本随从引导的薪炎指令伤害 +2。",
     "art_prompt": "a hulking elemental of cooling lava and obsidian plates, cracks glowing from within"
   },
   {
@@ -372,13 +371,12 @@
     "hp": 1,
     "effects": [
       {
-        "trigger": "battlecry",
-        "action": "damage",
-        "target": "target_unit",
+        "trigger": "channel",
+        "action": "deepen",
         "amount": 1
       }
     ],
-    "text": "战吼:对一个随从造成 1 点伤害。",
+    "text": "由本随从引导的薪炎指令法术加深 1(伤害 +1)。",
     "art_prompt": "a young fire-adept flicking a spark of flame from their fingertips, dusk robes"
   },
   {
@@ -500,13 +498,12 @@
     "hp": 4,
     "effects": [
       {
-        "trigger": "ally_order_played",
-        "action": "sear",
-        "target": "adjacent_enemies",
+        "trigger": "channel",
+        "action": "discount",
         "amount": 1
       }
     ],
-    "text": "你每施放一张指令牌后,对相邻敌方随从造成 1 点灼蚀伤害。",
+    "text": "由本随从引导的薪炎伤害指令费用 -1(下限 1 费)。",
     "art_prompt": "a vesper cantor singing dusk-prayers, threads of searing ember lashing nearby foes"
   },
   {

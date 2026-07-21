@@ -80,8 +80,9 @@ public sealed class Resolver
             return new RuleError(RuleErrorCode.UnknownEntity, $"Card {cmd.CardEntityId} is not in your hand.");
 
         var def = _db.Get(card.CardId);
-        if (player.Mana < def.Cost)
-            return new RuleError(RuleErrorCode.NotEnoughMana, $"'{def.Name}' costs {def.Cost}, you have {player.Mana}.");
+        int cost = EffectiveCost(ctx.State, cmd, def);
+        if (player.Mana < cost)
+            return new RuleError(RuleErrorCode.NotEnoughMana, $"'{def.Name}' costs {cost}, you have {player.Mana}.");
 
         return def.Type switch
         {
@@ -89,6 +90,20 @@ public sealed class Resolver
             CardType.Order => ResolveOrder(ctx, cmd, player, card, def),
             _ => new RuleError(RuleErrorCode.NotImplemented, $"Card type {def.Type} is not implemented."),
         };
+    }
+
+    /// <summary>晚祷领唱 (docs/21 §1.2): a 引导者 carrying a channel 'discount' marker shaves that much mana off
+    /// the 薪炎 order it channels, floor 1. Every other play returns the printed cost. Pure — used for both the
+    /// mana check and the deduction so client preview and server charge stay in lockstep.</summary>
+    private int EffectiveCost(GameState state, PlayCardCommand cmd, CardDefinition def)
+    {
+        if (def.Type != CardType.Order || cmd.ChannelerUnitId is not { } chId || !EffectEngine.IsKindleDamageOrder(def))
+            return def.Cost;
+        var ch = state.FindUnit(chId);
+        if (ch is null || ch.OwnerSeat != cmd.Seat)
+            return def.Cost;
+        int discount = EffectEngine.ChannelEffectAmount(_db, ch, "discount");
+        return discount > 0 ? Math.Max(1, def.Cost - discount) : def.Cost;
     }
 
     private RuleError? ResolveDeployUnit(ResolutionContext ctx, PlayCardCommand cmd, PlayerState player, CardInstance card, CardDefinition def)
@@ -162,15 +177,27 @@ public sealed class Resolver
                 anchorCenter: channeler?.Cell) is { } targetError)
             return targetError;
 
-        player.Mana -= def.Cost;
+        int cost = EffectiveCost(ctx.State, cmd, def);
+        player.Mana -= cost;
         player.Hand.Remove(card);
         // Token orders (军令硬币) are removed from the game instead of hitting the graveyard — otherwise
         // recall_order (火种循环) could fish the 0-cost coin back for endless order-trigger fuel (0.5.0).
         if (def.Rarity != Rarity.Token)
             player.Graveyard.Add(def.Id);
 
-        ctx.Emit(new CardPlayedEvent { Seat = cmd.Seat, CardEntityId = card.EntityId, CardId = def.Id, ManaSpent = def.Cost });
-        EffectEngine.RunTrigger(ctx, source: null, cmd.Seat, def.Effects, "play", cmd.TargetUnitId, cmd.TargetCell);
+        ctx.Emit(new CardPlayedEvent { Seat = cmd.Seat, CardEntityId = card.EntityId, CardId = def.Id, ManaSpent = cost });
+
+        // 加深/蓄能/引导 (docs/21 §1.3): amplify this cast's 薪炎 damage. deepen = 常驻 aura (no source card
+        // this patch) + the channeler's own 'deepen' marker (焰术学徒 +1 / 熔岩巨灵 +2). 蓄能 rides on top of a
+        // 薪炎 order and is spent afterwards (whether or not the damage found a target — you committed the order).
+        int deepen = channeler is null ? 0 : EffectEngine.ChannelEffectAmount(_db, channeler, "deepen");
+        bool kindleOrder = EffectEngine.IsKindleDamageOrder(def);
+        int charge = kindleOrder ? player.SpellCharge : 0;
+
+        EffectEngine.RunTrigger(ctx, source: null, cmd.Seat, def.Effects, "play", cmd.TargetUnitId, cmd.TargetCell,
+            spellDamageBonus: deepen + charge);
+        if (charge > 0)
+            ctx.ConsumeSpellCharge(cmd.Seat);
         ctx.FireAllyOrderPlayed(cmd.Seat); // 教团: each of your units reacts once the order has fully resolved.
         ctx.CheckGameEnd();
         return null;

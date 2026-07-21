@@ -13,6 +13,8 @@ internal static class EffectEngine
     /// <param name="source">The unit the effect originates from; null for orders and leader skills.</param>
     /// <param name="targetUnitId">Explicit unit target from the command (target == target_unit*).</param>
     /// <param name="targetCell">Explicit cell target from the command (spatial selectors, e.g. column_enemies).</param>
+    /// <param name="spellDamageBonus">加深/蓄能/引导 amplification (docs/21 §1.3) added to each 薪炎 (spell.*)
+    /// damage/sear instance in this run. 0 for every path except a channeled 薪炎 order.</param>
     public static void RunTrigger(
         ResolutionContext ctx,
         UnitInstance? source,
@@ -20,16 +22,29 @@ internal static class EffectEngine
         IReadOnlyList<EffectSpec> effects,
         string trigger,
         int? targetUnitId,
-        Cell? targetCell = null)
+        Cell? targetCell = null,
+        int spellDamageBonus = 0)
     {
         foreach (var spec in effects)
         {
             if (spec.Trigger != trigger)
                 continue;
-            Run(ctx, source, ownerSeat, spec, targetUnitId, targetCell);
+            Run(ctx, source, ownerSeat, spec, targetUnitId, targetCell, spellDamageBonus);
         }
         ctx.ProcessDeaths();
     }
+
+    /// <summary>Sum of a 引导者's channel-marker bonus of the given action (deepen/discount); 0 if it has none.
+    /// Data-driven off the channeler's card, so 引导者差异化 stays in the card table (docs/21 §1.2).</summary>
+    public static int ChannelEffectAmount(CardDatabase db, UnitInstance channeler, string action) =>
+        db.Get(channeler.CardId).Effects
+            .Where(e => e.Trigger == "channel" && e.Action == action)
+            .Sum(e => e.Amount);
+
+    /// <summary>Whether this order carries a 薪炎 (spell.*) damage/sear play effect — the trigger for 蓄能
+    /// consumption and 晚祷领唱's cost discount (docs/21 §1.3).</summary>
+    public static bool IsKindleDamageOrder(CardDefinition def) =>
+        def.Type == CardType.Order && def.Effects.Any(e => e.Trigger == "play" && e.IsSpellDamage);
 
     /// <summary>Pre-validation used before paying costs: do the effect's declared targets exist and satisfy filters?</summary>
     /// <param name="allowFizzleWhenNoTarget">先上随从再判战吼: when true (unit deploy / battlecry), a required
@@ -119,7 +134,7 @@ internal static class EffectEngine
         return true;
     }
 
-    private static void Run(ResolutionContext ctx, UnitInstance? source, int ownerSeat, EffectSpec spec, int? targetUnitId, Cell? targetCell)
+    private static void Run(ResolutionContext ctx, UnitInstance? source, int ownerSeat, EffectSpec spec, int? targetUnitId, Cell? targetCell, int spellDamageBonus = 0)
     {
         var targets = ResolveTargets(ctx, source, ownerSeat, spec.Target, targetUnitId, targetCell);
 
@@ -129,8 +144,20 @@ internal static class EffectEngine
             ? spec.Amount + ctx.State.Rng.NextInt(spec.AmountMax - spec.Amount + 1)
             : spec.Amount;
 
+        // 加深/蓄能/引导 (docs/21 §1.3): amplify 薪炎 (spell.*) damage/sear only; physical is untouched.
+        if (spec.IsSpellDamage)
+            amount += spellDamageBonus;
+
         switch (spec.Action)
         {
+            case "amplify_next":
+                // 蓄能 N: bank a bonus for the seat's next 薪炎 order (焰跃术士).
+                ctx.AddSpellCharge(ownerSeat, spec.Amount);
+                break;
+
+            // deepen / discount are passive 引导者 markers (trigger == channel) — the amplify pipeline reads
+            // them via ChannelEffectAmount; RunTrigger never dispatches a channel effect, so they never land here.
+
             case "damage":
                 // 架设 second clause: bolted-down units cannot dodge incoming barrages — they take
                 // +1 from EFFECT damage (orders, skills, battlecries; never from attacks). This is

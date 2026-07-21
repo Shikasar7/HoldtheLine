@@ -225,6 +225,26 @@ internal sealed class ResolutionContext
         Emit(new ManaGainedEvent { Seat = seat, Amount = amount, NewMana = player.Mana });
     }
 
+    /// <summary>蓄能 (docs/21 §1.3): stack <paramref name="amount"/> onto the seat's spell charge (焰跃术士 战吼).</summary>
+    public void AddSpellCharge(int seat, int amount)
+    {
+        if (amount <= 0)
+            return;
+        var player = State.Player(seat);
+        player.SpellCharge += amount;
+        Emit(new SpellChargeChangedEvent { Seat = seat, NewCharge = player.SpellCharge });
+    }
+
+    /// <summary>Spends the seat's whole spell charge (a 薪炎 order consumed it).</summary>
+    public void ConsumeSpellCharge(int seat)
+    {
+        var player = State.Player(seat);
+        if (player.SpellCharge == 0)
+            return;
+        player.SpellCharge = 0;
+        Emit(new SpellChargeChangedEvent { Seat = seat, NewCharge = 0 });
+    }
+
     // ---- P2 effect mutations ----
 
     public void HealUnit(UnitInstance target, int amount)

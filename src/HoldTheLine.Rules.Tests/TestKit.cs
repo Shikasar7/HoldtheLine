@@ -293,6 +293,29 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "gain_mana", Amount = 1, Anchor = "channel" }],
     };
 
+    // ---- docs/21 §1.3 amplify fixtures (蓄能 / 引导者差异化) ----
+
+    /// <summary>战吼 蓄能 2 (焰跃术士 pattern): banks +2 for the seat's next 薪炎 order.</summary>
+    public static readonly CardDefinition ChargeUnit = new()
+    {
+        Id = "t_charge_unit", Name = "Charger 2/3", Cost = 4, Atk = 2, Hp = 3,
+        Effects = [new EffectSpec { Trigger = "battlecry", Action = "amplify_next", Amount = 2 }],
+    };
+
+    /// <summary>引导者 加深 (焰术学徒/熔岩巨灵): the 薪炎 order it channels deals +1 damage.</summary>
+    public static readonly CardDefinition DeepenChanneler = new()
+    {
+        Id = "t_deepen", Name = "Deepener 1/4", Cost = 2, Atk = 1, Hp = 4,
+        Effects = [new EffectSpec { Trigger = "channel", Action = "deepen", Amount = 1 }],
+    };
+
+    /// <summary>引导者 减费 (晚祷领唱): the 薪炎 order it channels costs 1 less (floor 1).</summary>
+    public static readonly CardDefinition DiscountChanneler = new()
+    {
+        Id = "t_discount", Name = "Cantor 2/4", Cost = 4, Atk = 2, Hp = 4,
+        Effects = [new EffectSpec { Trigger = "channel", Action = "discount", Amount = 1 }],
+    };
+
     public static CardDatabase Db { get; } = new([
         Vanilla, BigVanilla, Charger, Assaulter, Scout, Archer, GuardUnit, Holder,
         GuardianUnit, GuardianHolder, BlessUnit,
@@ -304,6 +327,7 @@ public static class TestKit
         ColumnAllyBuffOrder, OnCastGrower, OnCastPinger, Recaller,
         SearOrder, SelfMovedGrower, SelfMovedPinger, EmplacementBuffOrder, RedeployOrder,
         AnchorBomber, ChannelZap, ChannelColumn, ChannelMana,
+        ChargeUnit, DeepenChanneler, DiscountChanneler,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.

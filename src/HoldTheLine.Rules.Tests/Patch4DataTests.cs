@@ -109,4 +109,30 @@ public class Patch4DataTests
     {
         Assert.Equal("spell.kindle", Effect("dw_pyre_channeler", "damage").School);
     }
+
+    // ---- §1.3 引导者差异化 + 蓄能 reworks ----
+
+    [Fact]
+    public void Flare_dancer_battlecry_now_charges_two_and_keeps_assault()
+    {
+        var def = Db.Get("dw_flare_dancer");
+        Assert.True(def.HasKeyword(Keyword.Assault));
+        var e = def.Effects.Single();
+        Assert.Equal("battlecry", e.Trigger);
+        Assert.Equal("amplify_next", e.Action);
+        Assert.Equal(2, e.Amount);
+    }
+
+    [Theory]
+    [InlineData("dw_flame_adept", "deepen", 1)]  // 焰术学徒 → 引导加深 1
+    [InlineData("dw_pyroclast", "deepen", 2)]    // 熔岩巨灵 → 引导伤害 +2
+    [InlineData("dw_vesper_cantor", "discount", 1)] // 晚祷领唱 → 引导减费 1
+    public void Channeler_units_carry_their_channel_marker(string cardId, string action, int amount)
+    {
+        var def = Db.Get(cardId);
+        var e = def.Effects.Single();
+        Assert.Equal("channel", e.Trigger);
+        Assert.Equal(action, e.Action);
+        Assert.Equal(amount, e.Amount);
+    }
 }

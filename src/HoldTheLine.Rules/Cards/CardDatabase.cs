@@ -116,6 +116,19 @@ public sealed class CardDatabase
             }
             if (spec.IsChannel && spec.Trigger != "play")
                 throw new InvalidDataException($"Card '{card.Id}': 引导 (channel) is an order rule, got trigger '{spec.Trigger}'.");
+
+            // --- 引导者差异化 & 蓄能 (docs/21 §1.3) ---
+            if (spec.Trigger == "channel")
+            {
+                if (spec.Action is not ("deepen" or "discount"))
+                    throw new InvalidDataException($"Card '{card.Id}': a 'channel' marker must be deepen/discount, got '{spec.Action}'.");
+                if (spec.Amount < 1)
+                    throw new InvalidDataException($"Card '{card.Id}': channel {spec.Action} needs amount >= 1.");
+            }
+            if (spec.Action is "deepen" or "discount" && spec.Trigger != "channel")
+                throw new InvalidDataException($"Card '{card.Id}': '{spec.Action}' is only valid on a 'channel' marker.");
+            if (spec.Action == "amplify_next" && spec.Amount < 1)
+                throw new InvalidDataException($"Card '{card.Id}': amplify_next (蓄能) needs amount >= 1.");
         }
 
         foreach (var kw in card.Keywords)
