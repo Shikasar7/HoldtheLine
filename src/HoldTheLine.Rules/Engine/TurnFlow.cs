@@ -36,6 +36,7 @@ internal static class TurnFlow
 
         // "Until your next turn" grants (e.g. 筑垒) expire now; then re-check Garrison in case a grant lapsed.
         ctx.ExpireYourNextTurnGrants(seat);
+        ctx.ExpireSmoke(seat); // 烟幕区 lapses at its caster's next turn (docs/21 §1.6)
         foreach (var unit in state.Units)
             ctx.RecomputeGarrison(unit);
 

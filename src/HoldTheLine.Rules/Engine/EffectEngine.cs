@@ -155,6 +155,12 @@ internal static class EffectEngine
                 ctx.AddSpellCharge(ownerSeat, spec.Amount);
                 break;
 
+            case "place_smoke":
+                // 烟幕弹 (docs/21 §1.6): smoke the 落点格 and its cross (5 cells).
+                if (targetCell is { } smokeCell)
+                    ctx.PlaceSmoke(ownerSeat, smokeCell);
+                break;
+
             // deepen / discount are passive 引导者 markers (trigger == channel) — the amplify pipeline reads
             // them via ChannelEffectAmount; RunTrigger never dispatches a channel effect, so they never land here.
 
@@ -263,6 +269,7 @@ internal static class EffectEngine
         switch (target)
         {
             case "none":
+            case "cell": // place_smoke/place_trap read targetCell directly; they select no units.
                 return [];
 
             case "self":

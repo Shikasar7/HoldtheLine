@@ -78,13 +78,17 @@ public sealed record EffectSpec
           // docs/21 §1.3: 蓄能 (executable) + the two passive 引导者 markers read by the amplify pipeline.
           "amplify_next", "deepen", "discount",
           // docs/21 §3.1: 燔火's scatter missiles (Amount = missile count, each 1 薪炎; 加深/蓄能 add missiles).
-          "damage_scatter" };
+          "damage_scatter",
+          // docs/21 §1.6: place a 烟幕区 on the target cell + its cross (烟幕弹).
+          "place_smoke" };
 
     public static readonly IReadOnlySet<string> KnownTargets = new HashSet<string>
         { "none", "self", "target_unit", "target_unit_own_half", "target_unit_ally",
           "adjacent_allies", "adjacent_enemies",
           "column_enemies", "row_enemies", "column_allies", "cell_cross_all", "unit_cross_all",
-          "allies_home_row", "all_allies", "all_ally_emplacements", "all_enemies" };
+          "allies_home_row", "all_allies", "all_ally_emplacements", "all_enemies",
+          // docs/21 §1.6: a single chosen cell carried by the command (place_smoke/place_trap read it, no units).
+          "cell" };
 
     public static readonly IReadOnlySet<string> KnownDurations = new HashSet<string>
         { "permanent", "end_of_turn", "your_next_turn" };
@@ -106,8 +110,8 @@ public sealed record EffectSpec
     /// <summary>Targets the caller must supply an explicit unit for.</summary>
     public bool NeedsUnitTarget => Target is "target_unit" or "target_unit_own_half" or "target_unit_ally" or "unit_cross_all";
 
-    /// <summary>Targets that read the command's target cell (spatial selectors).</summary>
-    public bool NeedsCellTarget => Target is "column_enemies" or "row_enemies" or "column_allies" or "cell_cross_all";
+    /// <summary>Targets that read the command's target cell (spatial selectors + a bare chosen cell).</summary>
+    public bool NeedsCellTarget => Target is "column_enemies" or "row_enemies" or "column_allies" or "cell_cross_all" or "cell";
 
     /// <summary>锚·N: this effect anchors on the source unit's own cell (a battlecry).</summary>
     public bool IsSelfAnchor => Anchor == "self";

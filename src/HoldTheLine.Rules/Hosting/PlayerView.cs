@@ -17,6 +17,9 @@ public sealed record PlayerView
     public required SelfView Self { get; init; }
     public required OpponentView Opponent { get; init; }
     public required IReadOnlyList<UnitView> Units { get; init; }
+    /// <summary>格子状态 (docs/21 §1.6) the viewer may see: smoke (public) plus traps that are theirs or already
+    /// revealed. A hidden enemy trap is stripped here (server authority). Old snapshots deserialize to empty.</summary>
+    public IReadOnlyList<CellStateView> CellStates { get; init; } = [];
     public GameResult? Result { get; init; }
 
     /// <summary>起手重抽 (docs/11): this seat still owes a mulligan (drives the mulligan UI). Absent field
@@ -60,8 +63,24 @@ public sealed record PlayerView
                 SpellCharge = opp.SpellCharge,
             },
             Units = state.Units.Select(UnitView.From).ToList(),
+            // 服务端权威 (docs/21 §1.7): a hidden trap is visible only to its own caster; smoke and revealed
+            // traps are public. The opponent's PlayerView never carries an unrevealed trap's cell.
+            CellStates = state.CellStates
+                .Where(s => !s.Hidden || s.OwnerSeat == viewerSeat)
+                .Select(s => new CellStateView { Cell = s.Cell, Kind = s.Kind, OwnerSeat = s.OwnerSeat, Revealed = s.Revealed })
+                .ToList(),
         };
     }
+}
+
+public sealed record CellStateView
+{
+    public required Cell Cell { get; init; }
+    /// <summary>smoke | trap.</summary>
+    public required string Kind { get; init; }
+    public required int OwnerSeat { get; init; }
+    /// <summary>Trap: its fire is burning (triggered). Smoke leaves this false.</summary>
+    public bool Revealed { get; init; }
 }
 
 public sealed record SelfView

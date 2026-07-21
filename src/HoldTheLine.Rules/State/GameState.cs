@@ -85,6 +85,28 @@ public sealed class UnitInstance
     public int MovementPerTurn => (HasKeyword(Keyword.Swift) ? KeywordValue(Keyword.Swift) : 1) + BonusMovement;
 }
 
+/// <summary>
+/// A status attached to a board cell rather than a unit (docs/21 §1.6) — the shared base for 烟幕区 (smoke)
+/// and 烬火陷阱 (trap). Carries an owner and a visibility flag so PlayerView can redact hidden traps, plus
+/// two lifetime models: <see cref="Expiry"/> (a turn-boundary marker, used by smoke) and <see cref="TurnsLeft"/>
+/// (a countdown, used by a revealed trap's fire). Old snapshots without CellStates deserialize to an empty list.
+/// </summary>
+public sealed class CellState
+{
+    public Cell Cell { get; set; }
+    /// <summary>smoke | trap.</summary>
+    public string Kind { get; set; } = "smoke";
+    public int OwnerSeat { get; set; }
+    /// <summary>Turn-boundary lifetime (smoke): "your_next_turn" clears at the owner's next turn start.</summary>
+    public string Expiry { get; set; } = "your_next_turn";
+    /// <summary>Hidden from the opponent's PlayerView until revealed (trap). Smoke is public (false).</summary>
+    public bool Hidden { get; set; }
+    /// <summary>Trap: has been triggered and its fire is now burning (public). Set in step 4c.</summary>
+    public bool Revealed { get; set; }
+    /// <summary>Trap: turns of burning left after reveal; counted down at turn boundaries. Unused by smoke.</summary>
+    public int TurnsLeft { get; set; }
+}
+
 public sealed class PlayerState
 {
     public int Seat { get; set; }
@@ -147,6 +169,10 @@ public sealed class GameState
     public int EventSequence { get; set; }
 
     public List<UnitInstance> Units { get; set; } = new();
+
+    /// <summary>格子状态 (docs/21 §1.6): 烟幕区 / 烬火陷阱. Old snapshots without this field deserialize to empty.</summary>
+    public List<CellState> CellStates { get; set; } = new();
+
     public PlayerState[] Players { get; set; } = [];
     public DeterministicRng Rng { get; set; } = new();
     public GameResult? Result { get; set; }
@@ -161,6 +187,10 @@ public sealed class GameState
     public UnitInstance? UnitAt(Cell cell) => Units.FirstOrDefault(u => u.Cell == cell);
 
     public UnitInstance? FindUnit(int entityId) => Units.FirstOrDefault(u => u.EntityId == entityId);
+
+    /// <summary>烟幕 (docs/21 §1.6): whether a smoke zone currently covers this cell — units standing here
+    /// cannot attack and do not retaliate. Positional, so a unit that walks off is no longer smoked.</summary>
+    public bool IsSmoked(Cell cell) => CellStates.Any(s => s.Kind == "smoke" && s.Cell == cell);
 
     public int TakeEntityId() => NextEntityId++;
 }

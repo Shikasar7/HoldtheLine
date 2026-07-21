@@ -131,6 +131,10 @@ public sealed class CardDatabase
                 throw new InvalidDataException($"Card '{card.Id}': amplify_next (蓄能) needs amount >= 1.");
             if (spec.Action == "damage_scatter" && (spec.Amount < 1 || spec.Target != "none"))
                 throw new InvalidDataException($"Card '{card.Id}': 燔火 (damage_scatter) needs amount >= 1 and target 'none'.");
+            if (spec.Action == "place_smoke" && spec.Target != "cell")
+                throw new InvalidDataException($"Card '{card.Id}': place_smoke (烟幕弹) needs target 'cell'.");
+            if (spec.Target == "cell" && spec.Action != "place_smoke")
+                throw new InvalidDataException($"Card '{card.Id}': target 'cell' is only for cell-placing actions.");
 
             // 归魂 (docs/21 §1.4): a targetless 辉尘 (gain_mana) reaction, fired from ProcessDeaths.
             if (spec.Trigger == "ally_died_your_turn")

@@ -283,6 +283,9 @@ public sealed class Resolver
             return new RuleError(RuleErrorCode.SummoningSickness, "This unit is still mustering (集结中).");
         if (attacker.AttacksUsed >= 1)
             return new RuleError(RuleErrorCode.NoAttacksLeft, "This unit has already attacked.");
+        // 烟幕 (docs/21 §1.6): a unit standing in a smoke zone cannot attack (offensive lock).
+        if (ctx.State.IsSmoked(attacker.Cell))
+            return new RuleError(RuleErrorCode.Smoked, "烟幕中的随从无法攻击。");
 
         return cmd.TargetLeader
             ? ResolveLeaderAttack(ctx, cmd, attacker)
@@ -344,6 +347,7 @@ public sealed class Resolver
         // (射程/adjacency). A shot from safe distance is unanswered; 偷袭 (CheapShot) is never retaliated.
         bool retaliates = target.Atk > 0
             && !attacker.HasKeyword(Keyword.CheapShot)
+            && !ctx.State.IsSmoked(target.Cell) // 烟幕: a smoked defender does not strike back (docs/21 §1.6)
             && ReachesCell(target, attacker.Cell);
         // 围猎 (PackTactics): melee attacks on flanked prey — another friendly unit adjacent to the
         // target — deal +2 damage. Speed buys the surround; the surround buys the kill.

@@ -277,6 +277,28 @@ internal sealed class ResolutionContext
         Emit(new SpellChargeChangedEvent { Seat = seat, NewCharge = 0 });
     }
 
+    // ---- 格子状态: 烟幕 (docs/21 §1.6) ----
+
+    /// <summary>烟幕弹: smoke the target cell and its orthogonal cross (up to 5 cells; edges self-clip). Units
+    /// standing on a smoke cell cannot attack and do not retaliate; the zone lapses at the caster's next turn.</summary>
+    public void PlaceSmoke(int seat, Cell center)
+    {
+        var cells = new HashSet<Cell>(BoardGeometry.AdjacentCells(center)) { center };
+        foreach (var cell in cells)
+            State.CellStates.Add(new CellState { Cell = cell, Kind = "smoke", OwnerSeat = seat, Expiry = "your_next_turn" });
+        Emit(new SmokeAppliedEvent { Seat = seat, Center = center, Cells = cells.ToList() });
+    }
+
+    /// <summary>Clears <paramref name="seat"/>'s smoke zones at that seat's turn start (docs/21 §1.6).</summary>
+    public void ExpireSmoke(int seat)
+    {
+        var gone = State.CellStates.Where(s => s.Kind == "smoke" && s.OwnerSeat == seat).ToList();
+        if (gone.Count == 0)
+            return;
+        State.CellStates.RemoveAll(s => s.Kind == "smoke" && s.OwnerSeat == seat);
+        Emit(new SmokeExpiredEvent { Seat = seat, Cells = gone.Select(s => s.Cell).ToList() });
+    }
+
     // ---- P2 effect mutations ----
 
     public void HealUnit(UnitInstance target, int amount)

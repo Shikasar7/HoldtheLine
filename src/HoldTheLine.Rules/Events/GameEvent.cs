@@ -32,6 +32,8 @@ namespace HoldTheLine.Rules.Events;
 [JsonDerivedType(typeof(UnitDiedEvent), "unit_died")]
 [JsonDerivedType(typeof(ManaGainedEvent), "mana_gained")]
 [JsonDerivedType(typeof(SpellChargeChangedEvent), "spell_charge_changed")]
+[JsonDerivedType(typeof(SmokeAppliedEvent), "smoke_applied")]
+[JsonDerivedType(typeof(SmokeExpiredEvent), "smoke_expired")]
 [JsonDerivedType(typeof(MulliganResolvedEvent), "mulligan_resolved")]
 [JsonDerivedType(typeof(MulliganCompletedEvent), "mulligan_completed")]
 [JsonDerivedType(typeof(GameEndedEvent), "game_ended")]
@@ -215,6 +217,21 @@ public sealed record SpellChargeChangedEvent : GameEvent
 {
     public required int Seat { get; init; }
     public required int NewCharge { get; init; }
+}
+
+/// <summary>烟幕区 dropped (docs/21 §1.6): the 5-cell cross became smoke. Public — the overlay is visible to both.</summary>
+public sealed record SmokeAppliedEvent : GameEvent
+{
+    public required int Seat { get; init; }
+    public required Cell Center { get; init; }
+    public required IReadOnlyList<Cell> Cells { get; init; }
+}
+
+/// <summary>A seat's smoke zone lapsed at its turn start (docs/21 §1.6).</summary>
+public sealed record SmokeExpiredEvent : GameEvent
+{
+    public required int Seat { get; init; }
+    public required IReadOnlyList<Cell> Cells { get; init; }
 }
 
 /// <summary>

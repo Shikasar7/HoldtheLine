@@ -73,6 +73,10 @@ public static class CommandEnumerator
             foreach (var to in MoveDestinations(unit))
                 candidates.Add(new MoveUnitCommand { Seat = seat, UnitEntityId = unit.EntityId, To = to });
 
+            // 烟幕 (docs/21 §1.6): a smoked unit cannot attack — only its moves are legal.
+            if (state.IsSmoked(unit.Cell))
+                continue;
+
             foreach (var enemy in state.Units.Where(u => u.OwnerSeat != seat))
                 candidates.Add(new AttackCommand
                 {

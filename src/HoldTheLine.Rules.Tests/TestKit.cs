@@ -351,6 +351,14 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "sear", Target = "all_enemies", Amount = 2, School = "spell.kindle", Anchor = "channel" }],
     };
 
+    /// <summary>烟幕弹 pattern: smokes the target cell + its cross for a turn (docs/21 §1.6). No channel here so
+    /// the smoke behaviour is tested in isolation.</summary>
+    public static readonly CardDefinition SmokeOrder = new()
+    {
+        Id = "t_smoke", Name = "Smoke", Type = CardType.Order, Rarity = Rarity.Rare, Cost = 3,
+        Effects = [new EffectSpec { Trigger = "play", Action = "place_smoke", Target = "cell" }],
+    };
+
     public static CardDatabase Db { get; } = new([
         Vanilla, BigVanilla, Charger, Assaulter, Scout, Archer, GuardUnit, Holder,
         GuardianUnit, GuardianHolder, BlessUnit,
@@ -363,7 +371,7 @@ public static class TestKit
         SearOrder, SelfMovedGrower, SelfMovedPinger, EmplacementBuffOrder, RedeployOrder,
         AnchorBomber, ChannelZap, ChannelColumn, ChannelMana,
         ChargeUnit, DeepenChanneler, DiscountChanneler, SoulReturnUnit, UncappedGrower, RootOrder,
-        ScatterOrder, AllEnemiesSear,
+        ScatterOrder, AllEnemiesSear, SmokeOrder,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.

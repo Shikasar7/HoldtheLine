@@ -18,6 +18,8 @@ public enum RuleErrorCode
     Rooted,
     NotAdjacent,
     NoAttacksLeft,
+    /// <summary>烟幕 (docs/21 §1.6): a unit standing in a smoke zone cannot attack.</summary>
+    Smoked,
     OutOfRange,
     LineBlocked,
     GuardEnforced,
