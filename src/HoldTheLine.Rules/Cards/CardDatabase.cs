@@ -129,6 +129,8 @@ public sealed class CardDatabase
                 throw new InvalidDataException($"Card '{card.Id}': '{spec.Action}' is only valid on a 'channel' marker.");
             if (spec.Action == "amplify_next" && spec.Amount < 1)
                 throw new InvalidDataException($"Card '{card.Id}': amplify_next (蓄能) needs amount >= 1.");
+            if (spec.Action == "damage_scatter" && (spec.Amount < 1 || spec.Target != "none"))
+                throw new InvalidDataException($"Card '{card.Id}': 燔火 (damage_scatter) needs amount >= 1 and target 'none'.");
 
             // 归魂 (docs/21 §1.4): a targetless 辉尘 (gain_mana) reaction, fired from ProcessDeaths.
             if (spec.Trigger == "ally_died_your_turn")

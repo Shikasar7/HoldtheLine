@@ -320,21 +320,23 @@
   },
   {
     "id": "dw_column_inferno",
-    "name": "焚烬之列",
+    "name": "燎原",
     "faction": "duskweaver",
     "type": "order",
     "rarity": "epic",
-    "cost": 6,
+    "cost": 7,
     "effects": [
       {
         "trigger": "play",
-        "action": "damage",
-        "target": "column_enemies",
-        "amount": 4
+        "action": "sear",
+        "target": "all_enemies",
+        "amount": 3,
+        "school": "spell.kindle",
+        "anchor": "channel"
       }
     ],
-    "text": "选择一列:该列所有敌方随从受到 4 点伤害。",
-    "art_prompt": "a vertical pillar of roaring fire punching down one narrow lane, everything ablaze"
+    "text": "引导:对所有敌方随从造成 3 点薪炎灼蚀伤害(无视坚守)。",
+    "art_prompt": "a horizon-wide wall of fire sweeping across the whole battlefield, everything ablaze"
   },
   {
     "id": "dw_phoenix_chick",
@@ -464,12 +466,13 @@
     "effects": [
       {
         "trigger": "play",
-        "action": "damage",
-        "target": "target_unit",
-        "amount": 4
+        "action": "damage_scatter",
+        "amount": 5,
+        "school": "spell.kindle",
+        "anchor": "channel"
       }
     ],
-    "text": "对一个随从造成 4 点伤害。",
+    "text": "引导:造成 5 次 1 点薪炎伤害,随机分配到敌方随从(每点加深/蓄能 +1 发)。",
     "art_prompt": "a roaring gout of flame engulfing a single target, intense orange blaze"
   },
   {

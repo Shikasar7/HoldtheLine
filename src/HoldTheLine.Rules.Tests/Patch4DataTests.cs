@@ -124,6 +124,30 @@ public class Patch4DataTests
     }
 
     [Fact]
+    public void Conflagrate_is_a_five_missile_kindle_scatter()
+    {
+        var e = Effect("dw_conflagrate", "damage_scatter");
+        Assert.Equal(5, e.Amount);
+        Assert.Equal("spell.kindle", e.School);
+        Assert.True(e.IsChannel);
+        Assert.Equal("none", e.Target);
+    }
+
+    [Fact]
+    public void Column_inferno_is_reworked_into_seven_cost_prairie_fire()
+    {
+        var def = Db.Get("dw_column_inferno"); // id kept, art reused (§8)
+        Assert.Equal("燎原", def.Name);
+        Assert.Equal(7, def.Cost);
+        var e = def.Effects.Single();
+        Assert.Equal("sear", e.Action);
+        Assert.Equal("all_enemies", e.Target);
+        Assert.Equal(3, e.Amount);
+        Assert.Equal("spell.kindle", e.School);
+        Assert.True(e.IsChannel);
+    }
+
+    [Fact]
     public void Matriarch_growth_is_uncapped_but_seer_is_capped()
     {
         Assert.True(Db.Get("dw_dusk_matriarch").Effects.Single(e => e.Action == "buff").Uncapped);

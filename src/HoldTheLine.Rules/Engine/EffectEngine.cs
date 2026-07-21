@@ -166,6 +166,20 @@ internal static class EffectEngine
                     ctx.DamageUnit(t, amount + (t.HasKeyword(Keyword.Emplacement) ? 1 : 0));
                 break;
 
+            case "damage_scatter":
+                // 燔火 (docs/21 §3.1): fire `amount` missiles of 1 薪炎 damage, each at a RANDOM live enemy minion
+                // (re-rolled per missile among survivors, 炉石奥术飞弹 semantics). The roll is on the match Rng so
+                // replays are deterministic. 加深/蓄能 already folded into `amount` above (+1 missile per point).
+                for (int i = 0; i < amount; i++)
+                {
+                    var live = ctx.State.Units.Where(u => u.OwnerSeat != ownerSeat && u.CurrentHp > 0).ToList();
+                    if (live.Count == 0)
+                        break;
+                    var victim = live[ctx.State.Rng.NextInt(live.Count)];
+                    ctx.DamageUnit(victim, 1 + (victim.HasKeyword(Keyword.Emplacement) ? 1 : 0));
+                }
+                break;
+
             case "sear":
                 // 灼蚀 (docs/10 §6#2): effect damage that ignores 坚守 reduction — the 教团→铁壁 answer
                 // (v2.1 遗留#1: HoldFast otherwise eats the 教团's 1-2pt chip damage whole). 持盾 still
@@ -318,6 +332,12 @@ internal static class EffectEngine
             case "all_allies":
                 return ctx.State.Units
                     .Where(u => u.OwnerSeat == ownerSeat)
+                    .ToList();
+
+            case "all_enemies":
+                // 燎原 (docs/21 §3.1): every enemy minion. Units order → deterministic replay.
+                return ctx.State.Units
+                    .Where(u => u.OwnerSeat != ownerSeat)
                     .ToList();
 
             case "all_ally_emplacements":

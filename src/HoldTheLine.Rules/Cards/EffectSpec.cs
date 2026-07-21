@@ -76,13 +76,15 @@ public sealed record EffectSpec
     public static readonly IReadOnlySet<string> KnownActions = new HashSet<string>
         { "damage", "sear", "buff", "draw", "gain_mana", "heal", "grant_keyword", "boost_range", "summon", "move_bonus", "destroy", "recall_order",
           // docs/21 §1.3: 蓄能 (executable) + the two passive 引导者 markers read by the amplify pipeline.
-          "amplify_next", "deepen", "discount" };
+          "amplify_next", "deepen", "discount",
+          // docs/21 §3.1: 燔火's scatter missiles (Amount = missile count, each 1 薪炎; 加深/蓄能 add missiles).
+          "damage_scatter" };
 
     public static readonly IReadOnlySet<string> KnownTargets = new HashSet<string>
         { "none", "self", "target_unit", "target_unit_own_half", "target_unit_ally",
           "adjacent_allies", "adjacent_enemies",
           "column_enemies", "row_enemies", "column_allies", "cell_cross_all", "unit_cross_all",
-          "allies_home_row", "all_allies", "all_ally_emplacements" };
+          "allies_home_row", "all_allies", "all_ally_emplacements", "all_enemies" };
 
     public static readonly IReadOnlySet<string> KnownDurations = new HashSet<string>
         { "permanent", "end_of_turn", "your_next_turn" };
@@ -117,6 +119,7 @@ public sealed record EffectSpec
     /// picks a unit or cell (非指向 effects like a raw AoE/draw ride along without a range check).</summary>
     public bool HasAnchorRange => Anchor is "self" or "channel" && AnchorRange > 0 && (NeedsUnitTarget || NeedsCellTarget);
 
-    /// <summary>薪炎 (spell.*) damage/sear — the effects 加深/蓄能/引导 amplify and 免疫薪炎 negates (docs/21 §1.1).</summary>
-    public bool IsSpellDamage => Action is "damage" or "sear" && School.StartsWith("spell", StringComparison.Ordinal);
+    /// <summary>薪炎 (spell.*) damage — the effects 加深/蓄能/引导 amplify and 免疫薪炎 negates (docs/21 §1.1).
+    /// Includes 燔火's damage_scatter, whose Amount is a missile count, so the amplification adds missiles.</summary>
+    public bool IsSpellDamage => Action is "damage" or "sear" or "damage_scatter" && School.StartsWith("spell", StringComparison.Ordinal);
 }

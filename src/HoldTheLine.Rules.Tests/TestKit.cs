@@ -337,6 +337,20 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "grant_keyword", Target = "target_unit", GrantKeyword = Keyword.Rooted, Duration = "your_next_turn" }],
     };
 
+    /// <summary>燔火 pattern: 非指向 channel — 3 薪炎 missiles scattered on live enemies (加深/蓄能 add missiles).</summary>
+    public static readonly CardDefinition ScatterOrder = new()
+    {
+        Id = "t_scatter", Name = "Scatter", Type = CardType.Order, Cost = 3,
+        Effects = [new EffectSpec { Trigger = "play", Action = "damage_scatter", Amount = 3, School = "spell.kindle", Anchor = "channel" }],
+    };
+
+    /// <summary>燎原 pattern: 非指向 channel — every enemy takes 2 薪炎 灼蚀.</summary>
+    public static readonly CardDefinition AllEnemiesSear = new()
+    {
+        Id = "t_all_sear", Name = "Prairie Fire", Type = CardType.Order, Rarity = Rarity.Epic, Cost = 5,
+        Effects = [new EffectSpec { Trigger = "play", Action = "sear", Target = "all_enemies", Amount = 2, School = "spell.kindle", Anchor = "channel" }],
+    };
+
     public static CardDatabase Db { get; } = new([
         Vanilla, BigVanilla, Charger, Assaulter, Scout, Archer, GuardUnit, Holder,
         GuardianUnit, GuardianHolder, BlessUnit,
@@ -349,6 +363,7 @@ public static class TestKit
         SearOrder, SelfMovedGrower, SelfMovedPinger, EmplacementBuffOrder, RedeployOrder,
         AnchorBomber, ChannelZap, ChannelColumn, ChannelMana,
         ChargeUnit, DeepenChanneler, DiscountChanneler, SoulReturnUnit, UncappedGrower, RootOrder,
+        ScatterOrder, AllEnemiesSear,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.
