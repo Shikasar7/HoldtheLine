@@ -182,6 +182,14 @@ public sealed class Resolver
             && PlaceTrapLegality(ctx.State, cmd) is { } trapError)
             return trapError;
 
+        // 焰鞭 friendly mode (docs/21 §1.8): when the primary target is a friendly minion, a distinct friendly
+        // 二段目标 is required to receive its stats. (Enemy-target mode just deals damage — no secondary needed.)
+        if (def.Effects.Any(e => e.Trigger == "play" && e.Action == "stat_transfer")
+            && cmd.TargetUnitId is { } primId && ctx.State.FindUnit(primId) is { OwnerSeat: var primSeat } && primSeat == cmd.Seat
+            && (cmd.SecondaryTargetUnitId is not { } secId
+                || ctx.State.FindUnit(secId) is not { OwnerSeat: var secSeat } || secSeat != cmd.Seat || secId == primId))
+            return new RuleError(RuleErrorCode.InvalidTarget, "焰鞭消灭友方需要另选一个友方随从接收属性。");
+
         int cost = EffectiveCost(ctx.State, cmd, def);
 
         // 秘密 (docs/21 §1.7): a secret order is set face-down in your 秘密区 instead of resolving now; it does
@@ -225,7 +233,7 @@ public sealed class Resolver
         int charge = kindleOrder ? player.SpellCharge : 0;
 
         EffectEngine.RunTrigger(ctx, source: null, cmd.Seat, def.Effects, "play", cmd.TargetUnitId, cmd.TargetCell,
-            spellDamageBonus: deepen + charge);
+            spellDamageBonus: deepen + charge, secondaryTargetUnitId: cmd.SecondaryTargetUnitId);
         if (charge > 0)
             ctx.ConsumeSpellCharge(cmd.Seat);
         ctx.FireAllyOrderPlayed(cmd.Seat); // 教团: each of your units reacts once the order has fully resolved.

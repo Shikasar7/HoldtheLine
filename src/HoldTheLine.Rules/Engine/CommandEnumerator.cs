@@ -124,12 +124,24 @@ public static class CommandEnumerator
             ? state.Units.Where(u => u.OwnerSeat == seat).Select(u => (int?)u.EntityId).ToList()
             : [null];
 
+        // 焰鞭 (docs/21 §1.8): a friendly primary target also needs a distinct friendly 二段目标; an enemy
+        // primary is single-target. The resolver prunes out-of-range and self-secondary pairs.
+        bool hasTransfer = def.Effects.Any(e => e.Trigger == "play" && e.Action == "stat_transfer");
+
         var result = new List<Command>();
         foreach (var ch in channelers)
         {
             if (needsUnit)
-                result.AddRange(state.Units.Select(u => (Command)new PlayCardCommand
-                    { Seat = seat, CardEntityId = cardEntityId, TargetUnitId = u.EntityId, ChannelerUnitId = ch }));
+                foreach (var u in state.Units)
+                {
+                    if (hasTransfer && u.OwnerSeat == seat)
+                        foreach (var v in state.Units.Where(x => x.OwnerSeat == seat && x.EntityId != u.EntityId))
+                            result.Add(new PlayCardCommand
+                                { Seat = seat, CardEntityId = cardEntityId, TargetUnitId = u.EntityId, SecondaryTargetUnitId = v.EntityId, ChannelerUnitId = ch });
+                    else
+                        result.Add(new PlayCardCommand
+                            { Seat = seat, CardEntityId = cardEntityId, TargetUnitId = u.EntityId, ChannelerUnitId = ch });
+                }
             else if (needsCell)
                 result.AddRange(AllBoardCells().Select(cell => (Command)new PlayCardCommand
                     { Seat = seat, CardEntityId = cardEntityId, TargetCell = cell, ChannelerUnitId = ch }));

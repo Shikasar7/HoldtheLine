@@ -381,6 +381,18 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "add_secret", SecretKind = "counter_order", Amount = 3, School = "spell.kindle" }],
     };
 
+    /// <summary>焰鞭 pattern: 引导·2 dual-mode — enemy target → 3 薪炎; friendly target → consume it and transfer
+    /// its current atk/hp to a distinct 二段目标 (docs/21 §1.8).</summary>
+    public static readonly CardDefinition FlameLash = new()
+    {
+        Id = "t_flame_lash", Name = "Flame Lash", Type = CardType.Order, Cost = 2,
+        Effects =
+        [
+            new EffectSpec { Trigger = "play", Action = "damage", Target = "target_unit", Amount = 3, School = "spell.kindle", Anchor = "channel", AnchorRange = 2, TargetSide = "enemy" },
+            new EffectSpec { Trigger = "play", Action = "stat_transfer", Target = "target_unit", Anchor = "channel", AnchorRange = 2, TargetSide = "ally" },
+        ],
+    };
+
     public static CardDatabase Db { get; } = new([
         Vanilla, BigVanilla, Charger, Assaulter, Scout, Archer, GuardUnit, Holder,
         GuardianUnit, GuardianHolder, BlessUnit,
@@ -393,7 +405,7 @@ public static class TestKit
         SearOrder, SelfMovedGrower, SelfMovedPinger, EmplacementBuffOrder, RedeployOrder,
         AnchorBomber, ChannelZap, ChannelColumn, ChannelMana,
         ChargeUnit, DeepenChanneler, DiscountChanneler, SoulReturnUnit, UncappedGrower, RootOrder,
-        ScatterOrder, AllEnemiesSear, SmokeOrder, TrapOrder, SummonOneOrder, CounterSecret,
+        ScatterOrder, AllEnemiesSear, SmokeOrder, TrapOrder, SummonOneOrder, CounterSecret, FlameLash,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.

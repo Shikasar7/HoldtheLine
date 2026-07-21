@@ -73,6 +73,12 @@ public sealed record EffectSpec
     /// 奥菲兰's 永焰不熄. Default false: 灰烬侍徒/烬眼先知/烬火唱徒 are capped.</summary>
     public bool Uncapped { get; init; }
 
+    /// <summary>Fires this effect only when the (unit) target sits on a given side (docs/21 §1.8 双模式):
+    /// any (default) | enemy | ally. Lets 焰鞭 carry both its enemy-damage and friendly-transfer effects on
+    /// one card, each self-selecting by which unit was chosen.</summary>
+    [JsonPropertyName("target_side")]
+    public string TargetSide { get; init; } = "any";
+
     /// <summary>channel (docs/21 §1.2): a passive marker read when this unit is chosen as a 引导者 — never
     /// executed by RunTrigger. Its action (deepen/discount) defines the unit's 引导者差异化 bonus.</summary>
     public static readonly IReadOnlySet<string> KnownTriggers = new HashSet<string>
@@ -87,7 +93,11 @@ public sealed record EffectSpec
           // docs/21 §1.6/§1.7: place a 烟幕区 (烟幕弹) or a hidden 烬火陷阱 on the target cell.
           "place_smoke", "place_trap",
           // docs/21 §1.7: set a face-down reactive secret in your 秘密区 (焰誓反制).
-          "add_secret" };
+          "add_secret",
+          // docs/21 §1.8: destroy the primary (ally) target and add its current atk/hp to the 二段目标 (焰鞭).
+          "stat_transfer" };
+
+    public static readonly IReadOnlySet<string> KnownTargetSides = new HashSet<string> { "any", "enemy", "ally" };
 
     /// <summary>docs/21 §1.7: the reactive secret kinds. counter_order = 焰誓反制.</summary>
     public static readonly IReadOnlySet<string> KnownSecretKinds = new HashSet<string> { "counter_order" };

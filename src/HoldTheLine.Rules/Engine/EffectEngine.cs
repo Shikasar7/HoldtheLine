@@ -23,13 +23,14 @@ internal static class EffectEngine
         string trigger,
         int? targetUnitId,
         Cell? targetCell = null,
-        int spellDamageBonus = 0)
+        int spellDamageBonus = 0,
+        int? secondaryTargetUnitId = null)
     {
         foreach (var spec in effects)
         {
             if (spec.Trigger != trigger)
                 continue;
-            Run(ctx, source, ownerSeat, spec, targetUnitId, targetCell, spellDamageBonus);
+            Run(ctx, source, ownerSeat, spec, targetUnitId, targetCell, spellDamageBonus, secondaryTargetUnitId);
         }
         ctx.ProcessDeaths();
     }
@@ -134,9 +135,18 @@ internal static class EffectEngine
         return true;
     }
 
-    private static void Run(ResolutionContext ctx, UnitInstance? source, int ownerSeat, EffectSpec spec, int? targetUnitId, Cell? targetCell, int spellDamageBonus = 0)
+    private static void Run(ResolutionContext ctx, UnitInstance? source, int ownerSeat, EffectSpec spec, int? targetUnitId, Cell? targetCell, int spellDamageBonus = 0, int? secondaryTargetUnitId = null)
     {
         var targets = ResolveTargets(ctx, source, ownerSeat, spec.Target, targetUnitId, targetCell);
+
+        // 双模式 (docs/21 §1.8): a side-filtered effect fires only when the (unit) target is on that side —
+        // 焰鞭's damage half wants an enemy, its stat_transfer half wants an ally, both on one card.
+        if (spec.TargetSide != "any" && targets.Count > 0)
+        {
+            bool ally = targets[0].OwnerSeat == ownerSeat;
+            if ((spec.TargetSide == "enemy" && ally) || (spec.TargetSide == "ally" && !ally))
+                return;
+        }
 
         // amount_max: a random magnitude in [Amount, AmountMax], rolled ONCE per effect (not per target)
         // on the match Rng so replays stay deterministic (灼痕烙印's 2-或-3).
@@ -165,6 +175,23 @@ internal static class EffectEngine
                 // 烬火陷阱 (docs/21 §1.7): bury a hidden trap; placement legality is pre-checked in the resolver.
                 if (targetCell is { } trapCell)
                     ctx.PlaceTrap(ownerSeat, trapCell);
+                break;
+
+            case "stat_transfer":
+                // 焰鞭 friendly mode (docs/21 §1.8): consume the primary ally (A) and add its CURRENT atk/hp to
+                // the 二段目标 (B). Secondary validity is pre-checked in the resolver; guard again defensively.
+                if (targets.Count > 0 && secondaryTargetUnitId is { } bId
+                    && ctx.State.FindUnit(bId) is { } b && b.OwnerSeat == ownerSeat && b.EntityId != targets[0].EntityId)
+                {
+                    var a = targets[0];
+                    int atk = a.Atk, hp = a.CurrentHp;
+                    ctx.Emit(new Events.StatTransferredEvent { FromUnitId = a.EntityId, ToUnitId = b.EntityId, Atk = atk, Hp = hp });
+                    ctx.DestroyUnit(a); // 消灭 A — deathrattle fires via ProcessDeaths
+                    b.Atk += atk;
+                    b.MaxHp += hp;
+                    b.CurrentHp += hp;
+                    ctx.Emit(new Events.UnitBuffedEvent { UnitEntityId = b.EntityId, AtkDelta = atk, HpDelta = hp, NewAtk = b.Atk, NewHp = b.CurrentHp });
+                }
                 break;
 
             // deepen / discount are passive 引导者 markers (trigger == channel) — the amplify pipeline reads

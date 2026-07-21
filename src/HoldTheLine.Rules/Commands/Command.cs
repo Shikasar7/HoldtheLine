@@ -33,6 +33,9 @@ public sealed record PlayCardCommand : Command
     /// range origin and the source of any channeler amplification/discount. Null for non-channel plays.
     /// Additive/nullable: pre-0.9.0 command logs omit it and deserialize to null, so replays are unchanged.</summary>
     public int? ChannelerUnitId { get; init; }
+    /// <summary>二段目标 (docs/21 §1.8): the second unit a two-step effect needs — 焰鞭's friendly mode transfers
+    /// the destroyed primary's stats onto this unit. Additive/nullable.</summary>
+    public int? SecondaryTargetUnitId { get; init; }
 }
 
 /// <summary>One orthogonal step. Swift N units issue N of these per turn.</summary>

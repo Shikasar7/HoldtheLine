@@ -137,6 +137,10 @@ public sealed class CardDatabase
                 throw new InvalidDataException($"Card '{card.Id}': target 'cell' is only for cell-placing actions.");
             if (spec.Action == "add_secret" && (card.Type != CardType.Order || spec.SecretKind is null || !EffectSpec.KnownSecretKinds.Contains(spec.SecretKind)))
                 throw new InvalidDataException($"Card '{card.Id}': add_secret (秘密) needs an order and a known secret_kind.");
+            if (!EffectSpec.KnownTargetSides.Contains(spec.TargetSide))
+                throw new InvalidDataException($"Card '{card.Id}': unknown target_side '{spec.TargetSide}'.");
+            if (spec.Action == "stat_transfer" && !spec.NeedsUnitTarget)
+                throw new InvalidDataException($"Card '{card.Id}': stat_transfer (焰鞭) needs a unit target.");
 
             // 归魂 (docs/21 §1.4): a targetless 辉尘 (gain_mana) reaction, fired from ProcessDeaths.
             if (spec.Trigger == "ally_died_your_turn")

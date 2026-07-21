@@ -248,10 +248,22 @@
         "trigger": "play",
         "action": "damage",
         "target": "target_unit",
-        "amount": 3
+        "amount": 3,
+        "school": "spell.kindle",
+        "anchor": "channel",
+        "anchor_range": 2,
+        "target_side": "enemy"
+      },
+      {
+        "trigger": "play",
+        "action": "stat_transfer",
+        "target": "target_unit",
+        "anchor": "channel",
+        "anchor_range": 2,
+        "target_side": "ally"
       }
     ],
-    "text": "对一个随从造成 3 点伤害。",
+    "text": "引导·2,双模式:选敌方随从→造成 3 点薪炎伤害;选友方随从→消灭它,将其攻/血全额转移给另一个友方随从。",
     "art_prompt": "a whip of flame cracking across the frame, molten droplets flying"
   },
   {

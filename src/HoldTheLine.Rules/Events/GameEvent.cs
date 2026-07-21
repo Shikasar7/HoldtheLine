@@ -39,6 +39,7 @@ namespace HoldTheLine.Rules.Events;
 [JsonDerivedType(typeof(SecretPlayedEvent), "secret_played")]
 [JsonDerivedType(typeof(SecretRevealedEvent), "secret_revealed")]
 [JsonDerivedType(typeof(OrderCounteredEvent), "order_countered")]
+[JsonDerivedType(typeof(StatTransferredEvent), "stat_transferred")]
 [JsonDerivedType(typeof(MulliganResolvedEvent), "mulligan_resolved")]
 [JsonDerivedType(typeof(MulliganCompletedEvent), "mulligan_completed")]
 [JsonDerivedType(typeof(GameEndedEvent), "game_ended")]
@@ -286,6 +287,16 @@ public sealed record OrderCounteredEvent : GameEvent
 {
     public required int OwnerSeat { get; init; }
     public required int CasterSeat { get; init; }
+}
+
+/// <summary>焰鞭 friendly mode (docs/21 §1.8): the primary ally was consumed and its current atk/hp handed to
+/// the 二段目标 (the buff itself follows as a UnitBuffedEvent; the death as a UnitDiedEvent).</summary>
+public sealed record StatTransferredEvent : GameEvent
+{
+    public required int FromUnitId { get; init; }
+    public required int ToUnitId { get; init; }
+    public required int Atk { get; init; }
+    public required int Hp { get; init; }
 }
 
 /// <summary>

@@ -60,6 +60,19 @@ public class Patch4DataTests
     }
 
     [Fact]
+    public void Flame_lash_is_a_dual_mode_channel()
+    {
+        var def = Db.Get("dw_flame_lash");
+        var dmg = def.Effects.Single(e => e.Action == "damage");
+        Assert.Equal("enemy", dmg.TargetSide);
+        Assert.Equal("spell.kindle", dmg.School);
+        Assert.True(dmg.IsChannel);
+        var xfer = def.Effects.Single(e => e.Action == "stat_transfer");
+        Assert.Equal("ally", xfer.TargetSide);
+        Assert.True(xfer.IsChannel);
+    }
+
+    [Fact]
     public void Searing_brand_is_channel_2_kindle_sear()
     {
         var e = Effect("dw_searing_brand", "sear");
