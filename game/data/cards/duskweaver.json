@@ -388,7 +388,14 @@
     "cost": 2,
     "atk": 3,
     "hp": 1,
-    "text": "",
+    "effects": [
+      {
+        "trigger": "ally_died_your_turn",
+        "action": "gain_mana",
+        "amount": 1
+      }
+    ],
+    "text": "归魂:你的回合内友方随从死亡时,获得 1 点本回合辉尘(每回合最多 2 次)。",
     "art_prompt": "a fervent zealot wreathed in scorching heat, wild-eyed, robes smoldering"
   },
   {
@@ -604,7 +611,8 @@
         "action": "buff",
         "target": "self",
         "atk": 1,
-        "hp": 1
+        "hp": 1,
+        "uncapped": true
       }
     ],
     "text": "你每施放一张指令牌后,将 1 张随机指令牌从你的墓地移回手牌,且本随从 +1/+1。永焰不熄。",

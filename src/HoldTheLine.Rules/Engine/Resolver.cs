@@ -216,6 +216,10 @@ public sealed class Resolver
         // one ordinary move (docs/10 §11). Without it, Leap / move_bonus can't help: there is no movement to spend.
         if (unit.HasKeyword(Keyword.Emplacement) && !unit.HasKeyword(Keyword.Mobilized))
             return new RuleError(RuleErrorCode.Emplaced, "架设单位不能移动(需重新部署)。");
+        // 定身 (docs/21 §1.5): rooted units cannot move at all — Leap/move_bonus are moot, the move is rejected
+        // outright. Attacking and retaliating are unaffected (no check in ResolveAttack).
+        if (unit.HasKeyword(Keyword.Rooted))
+            return new RuleError(RuleErrorCode.Rooted, "定身单位本回合不能移动。");
         if (IsSummoningSick(ctx.State, unit) && !unit.HasKeyword(Keyword.Charge))
             return new RuleError(RuleErrorCode.SummoningSickness, "This unit is still mustering (集结中).");
         if (unit.MovementUsed >= unit.MovementPerTurn)

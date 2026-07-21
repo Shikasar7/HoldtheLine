@@ -64,10 +64,14 @@ public sealed record EffectSpec
     [JsonPropertyName("anchor_range")]
     public int AnchorRange { get; init; }
 
+    /// <summary>Exempts a self-growth ally_order_played effect from the 每回合 2 次 cap (docs/21 §1.9) —
+    /// 奥菲兰's 永焰不熄. Default false: 灰烬侍徒/烬眼先知/烬火唱徒 are capped.</summary>
+    public bool Uncapped { get; init; }
+
     /// <summary>channel (docs/21 §1.2): a passive marker read when this unit is chosen as a 引导者 — never
     /// executed by RunTrigger. Its action (deepen/discount) defines the unit's 引导者差异化 bonus.</summary>
     public static readonly IReadOnlySet<string> KnownTriggers = new HashSet<string>
-        { "battlecry", "deathrattle", "play", "leader_skill", "ally_order_played", "self_moved", "channel" };
+        { "battlecry", "deathrattle", "play", "leader_skill", "ally_order_played", "self_moved", "channel", "ally_died_your_turn" };
 
     public static readonly IReadOnlySet<string> KnownActions = new HashSet<string>
         { "damage", "sear", "buff", "draw", "gain_mana", "heal", "grant_keyword", "boost_range", "summon", "move_bonus", "destroy", "recall_order",

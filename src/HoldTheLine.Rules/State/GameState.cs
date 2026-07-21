@@ -47,6 +47,14 @@ public sealed class UnitInstance
     /// <see cref="Engine.Resolver.SelfMovedAtkGainCap"/>); reset at the owner's turn start.</summary>
     public int SelfMovedAtkGainsThisTurn { get; set; }
 
+    /// <summary>归魂 (docs/21 §1.4): how many times this unit's ally_died_your_turn has fired this turn
+    /// (capped at <see cref="Engine.ResolutionContext.SoulReturnCap"/>); reset at the owner's turn start.</summary>
+    public int SoulReturnGainsThisTurn { get; set; }
+
+    /// <summary>自体成长上限 (docs/21 §1.9): how many capped ally_order_played self-growths have fired this
+    /// turn (capped at <see cref="Engine.ResolutionContext.OrderGrowthCap"/>); reset at the owner's turn start.</summary>
+    public int OrderGrowthThisTurn { get; set; }
+
     /// <summary>Extra movement points this turn (move_bonus effects); reset at the owner's turn start.</summary>
     public int BonusMovement { get; set; }
 

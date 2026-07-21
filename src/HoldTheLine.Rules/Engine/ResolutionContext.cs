@@ -18,6 +18,12 @@ internal sealed class ResolutionContext
     private const int ManaCap = 10;
     private const int DeathCascadeLimit = 100;
 
+    /// <summary>归魂 (docs/21 §1.4): max ally_died_your_turn firings per unit per turn.</summary>
+    public const int SoulReturnCap = 2;
+
+    /// <summary>自体成长上限 (docs/21 §1.9): max capped ally_order_played self-growths per unit per turn.</summary>
+    public const int OrderGrowthCap = 2;
+
     public GameState State { get; }
     public CardDatabase Db { get; }
     public List<GameEvent> Events { get; } = new();
@@ -137,8 +143,34 @@ internal sealed class ResolutionContext
                 var def = Db.Get(unit.CardId);
                 EffectEngine.RunTrigger(this, unit, unit.OwnerSeat, def.Effects, "deathrattle", targetUnitId: null);
             }
+
+            // 归魂 (docs/21 §1.4): during its owner's turn, each friendly death in this sweep feeds that seat's
+            // surviving 归魂 units 1 辉尘, capped per unit per turn. Deathrattle-chained deaths surface in the
+            // next cascade iteration and feed it there.
+            int friendlyDeaths = dead.Count(u => u.OwnerSeat == State.ActiveSeat);
+            if (friendlyDeaths > 0)
+                FireSoulReturn(State.ActiveSeat, friendlyDeaths);
         }
         throw new InvalidOperationException($"Death cascade exceeded {DeathCascadeLimit} iterations — infinite loop in card effects?");
+    }
+
+    /// <summary>Hands <paramref name="deathCount"/> 辉尘 to each surviving 归魂 unit of <paramref name="seat"/>,
+    /// capped at <see cref="SoulReturnCap"/> firings per unit per turn (docs/21 §1.4). Called from the death
+    /// sweep, so the effect runs through the normal trigger path (gain_mana adds no deaths → no re-entrancy).</summary>
+    private void FireSoulReturn(int seat, int deathCount)
+    {
+        var sources = State.Units
+            .Where(u => u.OwnerSeat == seat && Db.Get(u.CardId).Effects.Any(e => e.Trigger == "ally_died_your_turn"))
+            .ToList();
+        foreach (var unit in sources)
+        {
+            var def = Db.Get(unit.CardId);
+            for (int i = 0; i < deathCount && unit.SoulReturnGainsThisTurn < SoulReturnCap; i++)
+            {
+                EffectEngine.RunTrigger(this, unit, seat, def.Effects, "ally_died_your_turn", targetUnitId: null);
+                unit.SoulReturnGainsThisTurn++;
+            }
+        }
     }
 
     // ---- cards ----
@@ -382,9 +414,24 @@ internal sealed class ResolutionContext
             if (State.FindUnit(unit.EntityId) is null)
                 continue; // died to an earlier trigger in this pass
             var def = Db.Get(unit.CardId);
-            EffectEngine.RunTrigger(this, unit, seat, def.Effects, "ally_order_played", targetUnitId: null);
+            var effects = def.Effects.Where(e => e.Trigger == "ally_order_played").ToList();
+
+            // 自体成长上限 (docs/21 §1.9): a capped self-growth (buff self, not uncapped) stacks at most
+            // OrderGrowthCap times per turn — from the 3rd order on, 灰烬侍徒/烬眼先知/烬火唱徒 stop growing,
+            // while their non-growth effects and 奥菲兰's uncapped growth keep firing. Mirrors self_moved's cap.
+            bool growth = effects.Any(IsCappedSelfGrowth);
+            if (growth && unit.OrderGrowthThisTurn >= OrderGrowthCap)
+                effects = effects.Where(e => !IsCappedSelfGrowth(e)).ToList();
+            else if (growth)
+                unit.OrderGrowthThisTurn++;
+
+            if (effects.Count > 0)
+                EffectEngine.RunTrigger(this, unit, seat, effects, "ally_order_played", targetUnitId: null);
         }
     }
+
+    private static bool IsCappedSelfGrowth(EffectSpec e) =>
+        e.Trigger == "ally_order_played" && e.Action == "buff" && e.Target == "self" && !e.Uncapped;
 
     // ---- game end ----
 

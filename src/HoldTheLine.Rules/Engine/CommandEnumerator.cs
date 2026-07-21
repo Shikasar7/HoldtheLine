@@ -157,6 +157,8 @@ public static class CommandEnumerator
     {
         if (unit.HasKeyword(Keyword.Emplacement) && !unit.HasKeyword(Keyword.Mobilized))
             yield break; // 架设: pinned to its cell — never enumerate a move (unless 重新部署 lifted the block).
+        if (unit.HasKeyword(Keyword.Rooted))
+            yield break; // 定身: rooted this turn — no legal moves.
 
         foreach (var c in BoardGeometry.AdjacentCells(unit.Cell))
             yield return c;

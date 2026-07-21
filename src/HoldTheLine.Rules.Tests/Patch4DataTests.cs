@@ -123,6 +123,22 @@ public class Patch4DataTests
         Assert.Equal(2, e.Amount);
     }
 
+    [Fact]
+    public void Matriarch_growth_is_uncapped_but_seer_is_capped()
+    {
+        Assert.True(Db.Get("dw_dusk_matriarch").Effects.Single(e => e.Action == "buff").Uncapped);
+        Assert.False(Db.Get("dw_ember_seer").Effects.Single(e => e.Action == "buff").Uncapped);
+    }
+
+    [Fact]
+    public void Scorch_zealot_gains_soul_return()
+    {
+        var e = Db.Get("dw_scorch_zealot").Effects.Single();
+        Assert.Equal("ally_died_your_turn", e.Trigger);
+        Assert.Equal("gain_mana", e.Action);
+        Assert.Equal(1, e.Amount);
+    }
+
     [Theory]
     [InlineData("dw_flame_adept", "deepen", 1)]  // 焰术学徒 → 引导加深 1
     [InlineData("dw_pyroclast", "deepen", 2)]    // 熔岩巨灵 → 引导伤害 +2

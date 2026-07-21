@@ -14,6 +14,8 @@ public enum RuleErrorCode
     SummoningSickness,
     NoMovementLeft,
     Emplaced,
+    /// <summary>定身 (docs/21 §1.5): a temporarily rooted unit cannot move (it can still attack/retaliate).</summary>
+    Rooted,
     NotAdjacent,
     NoAttacksLeft,
     OutOfRange,

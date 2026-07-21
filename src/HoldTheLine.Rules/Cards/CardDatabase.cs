@@ -129,6 +129,15 @@ public sealed class CardDatabase
                 throw new InvalidDataException($"Card '{card.Id}': '{spec.Action}' is only valid on a 'channel' marker.");
             if (spec.Action == "amplify_next" && spec.Amount < 1)
                 throw new InvalidDataException($"Card '{card.Id}': amplify_next (蓄能) needs amount >= 1.");
+
+            // 归魂 (docs/21 §1.4): a targetless 辉尘 (gain_mana) reaction, fired from ProcessDeaths.
+            if (spec.Trigger == "ally_died_your_turn")
+            {
+                if (card.Type != CardType.Unit)
+                    throw new InvalidDataException($"Card '{card.Id}': 'ally_died_your_turn' (归魂) is a unit trigger.");
+                if (spec.Action != "gain_mana" || spec.Target != "none")
+                    throw new InvalidDataException($"Card '{card.Id}': 归魂 must be a targetless gain_mana (辉尘).");
+            }
         }
 
         foreach (var kw in card.Keywords)

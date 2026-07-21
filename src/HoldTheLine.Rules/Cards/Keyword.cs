@@ -71,6 +71,11 @@ public enum Keyword
     /// redirected here instead, resolved through THIS unit's own reductions (坚守/福泽/持盾). Only the original
     /// target redirects — redirected damage on the guardian is not re-redirected, so there is no loop. 0.8.0.</summary>
     Guardian,
+
+    /// <summary>定身 — a temporary status (docs/21 §1.5): cannot move at all (Leap/move_bonus are moot — movement
+    /// is rejected outright), but may still attack and retaliate. Granted with a duration (灰缚 → your_next_turn);
+    /// unlike 架设 it is not innate and carries no effect-damage penalty.</summary>
+    Rooted,
 }
 
 /// <summary>A keyword plus its numeric parameter (used by Swift/Range; 0 for the rest).</summary>

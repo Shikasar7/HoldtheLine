@@ -316,6 +316,27 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "channel", Action = "discount", Amount = 1 }],
     };
 
+    /// <summary>归魂 (灼誓狂徒): gains 1 辉尘 (mana) whenever a friendly dies during your turn, cap 2/turn.</summary>
+    public static readonly CardDefinition SoulReturnUnit = new()
+    {
+        Id = "t_soul", Name = "Zealot 3/4", Cost = 2, Atk = 3, Hp = 4,
+        Effects = [new EffectSpec { Trigger = "ally_died_your_turn", Action = "gain_mana", Amount = 1 }],
+    };
+
+    /// <summary>奥菲兰 pattern: ally_order_played self-growth exempt from the 每回合 2 次 cap (docs/21 §1.9).</summary>
+    public static readonly CardDefinition UncappedGrower = new()
+    {
+        Id = "t_oncast_uncapped", Name = "Matriarch 2/6", Cost = 5, Atk = 2, Hp = 6,
+        Effects = [new EffectSpec { Trigger = "ally_order_played", Action = "buff", Target = "self", Atk = 1, Uncapped = true }],
+    };
+
+    /// <summary>定身 (灰缚): roots a unit until your next turn — it cannot move but can still attack (docs/21 §1.5).</summary>
+    public static readonly CardDefinition RootOrder = new()
+    {
+        Id = "t_root", Name = "Grasp", Type = CardType.Order, Cost = 1,
+        Effects = [new EffectSpec { Trigger = "play", Action = "grant_keyword", Target = "target_unit", GrantKeyword = Keyword.Rooted, Duration = "your_next_turn" }],
+    };
+
     public static CardDatabase Db { get; } = new([
         Vanilla, BigVanilla, Charger, Assaulter, Scout, Archer, GuardUnit, Holder,
         GuardianUnit, GuardianHolder, BlessUnit,
@@ -327,7 +348,7 @@ public static class TestKit
         ColumnAllyBuffOrder, OnCastGrower, OnCastPinger, Recaller,
         SearOrder, SelfMovedGrower, SelfMovedPinger, EmplacementBuffOrder, RedeployOrder,
         AnchorBomber, ChannelZap, ChannelColumn, ChannelMana,
-        ChargeUnit, DeepenChanneler, DiscountChanneler,
+        ChargeUnit, DeepenChanneler, DiscountChanneler, SoulReturnUnit, UncappedGrower, RootOrder,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.
