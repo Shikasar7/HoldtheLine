@@ -266,6 +266,7 @@ public static class CardView
         // Keyword explanations.
         foreach (var k in def.Keywords)
         {
+            if (KeywordName(k).Length == 0) continue; // skip internal/unnamed keywords (no raw enum text)
             var kwl = BattleTheme.MakeLabel($"【{KeywordName(k)}】{BattleTheme.BodyText(KeywordDesc(k.Keyword))}", 15, BattleTheme.Accent);
             kwl.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
             kwl.VerticalAlignment = VerticalAlignment.Top;
@@ -353,12 +354,16 @@ public static class CardView
         Keyword.Garrison => "驻防",
         Keyword.Leap => "跃障",
         Keyword.PackTactics => "围猎",
-        Keyword.Hidden => "伏兵",
+        Keyword.Hidden => "潜行",
         Keyword.Emplacement => "架设",
         Keyword.Pierce => "贯穿",
         Keyword.Blessing => "福泽",
         Keyword.Guardian => "守护",
-        _ => k.ToString(),
+        Keyword.Rooted => "定身",
+        Keyword.MoltenSword => "熔岩巨剑",
+        Keyword.KindleImmune => "免疫薪炎",
+        Keyword.SpellWard => "法术护体",
+        _ => "", // unknown/internal keyword: show nothing rather than a raw enum name
     };
 
     public static string KeywordDesc(Keyword k) => k switch
@@ -375,11 +380,15 @@ public static class CardView
         Keyword.Garrison => "位于己方底线行时 +1/+1。",
         Keyword.Leap => "移动时可跨过一个随从,直线跳跃 2 格。",
         Keyword.PackTactics => "近战攻击一个与你另一友方相邻的敌人时,伤害 +2。",
-        Keyword.Hidden => "不能被选为目标,直到它造成伤害。",
+        Keyword.Hidden => "潜行:不能被敌方指令/战吼选中(范围/AOE 仍会命中);攻击后现形。",
         Keyword.Emplacement => "架设:不能移动;受到指令/技能/战吼等效果伤害 +1(普通攻击不加)。",
         Keyword.Pierce => "贯穿:远程攻击时,同时对目标正后方一格的随从(不分敌我)造成等额伤害。",
         Keyword.Blessing => "福泽:与其相邻的友方随从受到的伤害 -1(不含自身,可与坚守叠加)。",
         Keyword.Guardian => "守护:与其相邻的友方随从将要受到的伤害,转移到它身上承受(享受它自身的减伤)。",
+        Keyword.Rooted => "定身:本回合不能移动(跃障 / 额外移动力也无效),但仍可攻击与反击。",
+        Keyword.MoltenSword => "熔岩巨剑:装备后 +3 攻击、射程 2、贯穿(永久)。",
+        Keyword.KindleImmune => "免疫薪炎:免疫薪炎(spell.kindle)伤害;但被薪炎命中仍会加速自身成长。",
+        Keyword.SpellWard => "法术护体:抵挡下一次敌方指令/战吼效果(伤害归零 / 指向失效),之后消耗。",
         _ => "",
     };
 }

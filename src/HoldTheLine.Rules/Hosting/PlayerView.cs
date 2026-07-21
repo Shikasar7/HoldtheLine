@@ -135,6 +135,9 @@ public sealed record UnitView
     public required int MovementUsed { get; init; }
     public required int AttacksUsed { get; init; }
     public required IReadOnlyList<KeywordSpec> Keywords { get; init; }
+    /// <summary>成长 (docs/21 §1.8) steps accumulated — drives the client's growth countdown badge. The total
+    /// (turns-to-transform) is read from the card's GrowthSpec client-side. Old snapshots deserialize to 0.</summary>
+    public int GrowthProgress { get; init; }
 
     public static UnitView From(UnitInstance u) => new()
     {
@@ -150,5 +153,6 @@ public sealed record UnitView
         MovementUsed = u.MovementUsed,
         AttacksUsed = u.AttacksUsed,
         Keywords = u.Keywords.ToList(),
+        GrowthProgress = u.GrowthProgress,
     };
 }

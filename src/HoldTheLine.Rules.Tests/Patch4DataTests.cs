@@ -196,8 +196,8 @@ public class Patch4DataTests
     [Fact]
     public void First_ritualist_is_reworked_into_echo()
     {
-        var def = Db.Get("dw_first_ritualist"); // id kept, art reused (§8)
-        Assert.Equal("薪火回响", def.Name);
+        var def = Db.Get("dw_first_ritualist"); // id kept, art reused (§8); renamed 门德 in Rules 0.9.1
+        Assert.Equal("薪火回响·门德", def.Name);
         var e = def.Effects.Single();
         Assert.Equal("first_kindle_order_each_turn", e.Trigger);
         Assert.Equal("echo_order", e.Action);

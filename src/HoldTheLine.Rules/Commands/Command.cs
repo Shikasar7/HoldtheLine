@@ -39,6 +39,16 @@ public sealed record PlayCardCommand : Command
     /// <summary>献祭弃牌 (docs/21 §3.2): the hand cards (by EntityId) 熔剑祭士's battlecry sacrifices — exactly 2
     /// order cards to equip the 熔岩巨剑. Null/empty = decline the sacrifice (plain deploy). Additive.</summary>
     public IReadOnlyList<int>? SacrificeEntityIds { get; init; }
+    /// <summary>薪火回响·门德 (docs/21 §3.1, reworked Rules 0.9.1): opt in to the once-per-turn RECAST of your FIRST
+    /// 薪炎 damage order when 门德 is on board. false = 空放/取消 (or no 门德). Read only for the turn's first kindle
+    /// order while a 门德 copier is present; ignored otherwise. Additive: pre-0.9.1 logs deserialize to false.</summary>
+    public bool EchoRecast { get; init; }
+    /// <summary>The re-aimed 门德 recast target (docs/21 §3.1): a new unit for a single-target kindle order.
+    /// Ignored unless <see cref="EchoRecast"/> is true. Additive/nullable.</summary>
+    public int? EchoTargetUnitId { get; init; }
+    /// <summary>The re-aimed 门德 recast cell (docs/21 §3.1): a new cell/row/column origin for an area kindle order.
+    /// Ignored unless <see cref="EchoRecast"/> is true. Additive/nullable.</summary>
+    public Cell? EchoTargetCell { get; init; }
 }
 
 /// <summary>One orthogonal step. Swift N units issue N of these per turn.</summary>

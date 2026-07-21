@@ -63,7 +63,7 @@ public static class CommandEnumerator
                     break;
 
                 case CardType.Order:
-                    candidates.AddRange(OrderTargets(state, seat, card.EntityId, def));
+                    candidates.AddRange(OrderTargets(state, seat, card.EntityId, def, db));
                     break;
             }
         }
@@ -112,7 +112,7 @@ public static class CommandEnumerator
         return maxDiscount > 0 ? Math.Max(1, def.Cost - maxDiscount) : def.Cost;
     }
 
-    private static IEnumerable<Command> OrderTargets(GameState state, int seat, int cardEntityId, CardDefinition def)
+    private static IEnumerable<Command> OrderTargets(GameState state, int seat, int cardEntityId, CardDefinition def, CardDatabase db)
     {
         bool needsUnit = def.Effects.Any(e => e.Trigger == "play" && e.NeedsUnitTarget);
         bool needsCell = def.Effects.Any(e => e.Trigger == "play" && e.NeedsCellTarget);
@@ -149,7 +149,33 @@ public static class CommandEnumerator
             else
                 result.Add(new PlayCardCommand { Seat = seat, CardEntityId = cardEntityId, ChannelerUnitId = ch });
         }
-        return result;
+
+        // 薪火回响·门德 recast (docs/21 §3.1): when 门德 is on board and this is the turn's first 薪炎 damage order,
+        // fork each base play into echo variants — re-aim at each enemy (unit, or its cell for area orders), plus
+        // the 空放 (EchoRecast=false) baseline. Confined to 门德 games: without a copier the fork is skipped, so
+        // ordinary enumeration stays byte-identical.
+        bool echoable = EffectEngine.IsKindleDamageOrder(def)
+            && !state.Player(seat).FirstKindleOrderDone
+            && state.Units.Any(u => u.OwnerSeat == seat
+                && db.Get(u.CardId).Effects.Any(e => e.Trigger == "first_kindle_order_each_turn"));
+        if (!echoable)
+            return result;
+
+        var enemies = state.Units.Where(u => u.OwnerSeat != seat).ToList();
+        var expanded = new List<Command>();
+        foreach (var baseCmd in result.Cast<PlayCardCommand>())
+        {
+            expanded.Add(baseCmd); // EchoRecast=false — the 空放 baseline is always offered
+            if (needsUnit)
+                foreach (var e in enemies)
+                    expanded.Add(baseCmd with { EchoRecast = true, EchoTargetUnitId = e.EntityId });
+            else if (needsCell)
+                foreach (var e in enemies)
+                    expanded.Add(baseCmd with { EchoRecast = true, EchoTargetCell = e.Cell });
+            else
+                expanded.Add(baseCmd with { EchoRecast = true }); // board-wide order: recast hits everything again
+        }
+        return expanded;
     }
 
     private static IEnumerable<Command> LeaderSkillTargets(GameState state, int seat, LeaderDefinition leader)

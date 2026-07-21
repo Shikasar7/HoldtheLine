@@ -34,11 +34,21 @@ public static class RulesInfo
     /// (烟幕/陷阱)/成长/薪火回响 tracking; PlayerCommand gains ChannelerUnitId/SecondaryTargetUnitId/
     /// SacrificeEntityIds (additive — old logs replay unchanged). PlayerView adds SpellCharge/SecretCount/
     /// CellStates with server-authority redaction of hidden traps + secret contents. 7 new cards, pool 163→170.
-    /// DataHash changes — client and server must ship this same data.</remarks>
-    public const string Version = "0.9.0";
+    /// DataHash changes — client and server must ship this same data.
+    /// 0.9.1 (2026-07-21): 薪火回响·门德 recast rework + tuning. 门德's 薪火回响 no longer auto-copies the first
+    /// 薪炎 order at the same target; instead PlayCardCommand gains EchoRecast/EchoTargetUnitId/EchoTargetCell
+    /// (additive — old logs replay unchanged) so the caster RE-AIMS the once-per-turn recast at a target of their
+    /// choice, and may 空放/取消 (EchoRecast=false). CommandEnumerator forks echo variants only in 门德 games.
+    /// Card tuning (DataHash changes): 熔剑祭士 hp 4→6, 焰术学徒 2/1→1/3, all 引导 order texts reworded to
+    /// "需友方随从引导(施法距离 N)". Client + server must ship this same data.</remarks>
+    public const string Version = "0.9.1";
 
     /// <summary>压力潮汐 start round, forwarded from the (internal) <see cref="Engine.TurnFlow"/> so the client
     /// HUD can show the tide countdown (docs/17) without hardcoding 8 and drifting from the rule. Read-only
     /// mirror — the single source of truth stays <c>TurnFlow.PressureTideStartRound</c>.</summary>
     public const int PressureTideStartRound = Engine.TurnFlow.PressureTideStartRound;
+
+    /// <summary>压力潮汐 per-turn bleed ceiling (补丁#4), mirrored so the client HUD's tide prediction caps the
+    /// same way the rule does. Single source of truth stays <c>TurnFlow.PressureTideMaxAmount</c>.</summary>
+    public const int PressureTideMaxAmount = Engine.TurnFlow.PressureTideMaxAmount;
 }

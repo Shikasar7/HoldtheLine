@@ -276,18 +276,19 @@ public sealed class Resolver
         if (charge > 0)
             ctx.ConsumeSpellCharge(cmd.Seat);
 
-        // 薪火回响 (docs/21 §3.1): the FIRST 薪炎 damage order each turn is tracked regardless; 门德, if present,
-        // duplicates it — resolve the effects once more with the same target/bonus (a copy whose target has since
-        // died simply fizzles — 空放).
+        // 薪火回响·门德 (docs/21 §3.1, reworked Rules 0.9.1): the FIRST 薪炎 damage order each turn may be RECAST
+        // once when 门德 is on board — but now YOU re-aim it (EchoTarget*) instead of copying the primary target,
+        // and declining is a legal choice (空放/取消, EchoRecast=false). A recast whose target has since died just
+        // fizzles. The 焰鞭 二段 (stat_transfer) is not re-run on the echo — only the 薪炎 damage repeats.
         if (kindleOrder)
         {
             bool isFirst = !player.FirstKindleOrderDone;
             player.FirstKindleOrderDone = true;
-            if (isFirst && ctx.HasFirstKindleCopier(cmd.Seat))
+            if (isFirst && cmd.EchoRecast && ctx.HasFirstKindleCopier(cmd.Seat))
             {
                 ctx.Emit(new OrderEchoedEvent { Seat = cmd.Seat, CardId = def.Id });
-                EffectEngine.RunTrigger(ctx, source: null, cmd.Seat, def.Effects, "play", cmd.TargetUnitId, cmd.TargetCell,
-                    spellDamageBonus: deepen + charge, secondaryTargetUnitId: cmd.SecondaryTargetUnitId);
+                EffectEngine.RunTrigger(ctx, source: null, cmd.Seat, def.Effects, "play", cmd.EchoTargetUnitId, cmd.EchoTargetCell,
+                    spellDamageBonus: deepen + charge, secondaryTargetUnitId: null);
             }
         }
 

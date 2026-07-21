@@ -97,8 +97,9 @@ public partial class BattleScene : Control
 	private Cell? _chosenCell;
 	// docs/21: after cell+target are pinned, a 引导·N order still needs its 引导者, and 焰鞭's friendly mode a
 	// 二段目标 — an extra unit pick that narrows the remaining candidates before submit.
-	private enum ExtraPick { None, Channeler, Secondary }
+	private enum ExtraPick { None, Channeler, Secondary, Echo }
 	private ExtraPick _extraPick = ExtraPick.None;
+	private Control? _echoBar; // 薪火回响·门德: the 空放/再次施放 button bar shown during an Echo pick
 	private bool _crossPreview; // true while aiming a 十字 AOE order (cell_cross_all) — hover shows the footprint
 
 	// The hand card whose effect is currently being aimed — lifted + enlarged so the player never loses
@@ -422,11 +423,46 @@ public partial class BattleScene : Control
 				case AttackCommand a: actionable.Add(a.AttackerEntityId); break;
 			}
 
+		RenderCellStates(view);
 		RenderStandees(view, actionable);
 		RenderHand(view);
 		RenderHud(view);
 		ClearSelection();
 		RefreshInteractable(view);
+	}
+
+	private const string CellFxName = "__cell_fx";
+
+	/// <summary>docs/21 §1.6/§1.7: paint 烟幕 / 陷阱 overlays onto the board cells. Hidden ENEMY traps are already
+	/// stripped from the view (server authority); a trap in MY view with Revealed=false is my own hidden trap,
+	/// shown as a small corner marker only I can see.</summary>
+	private void RenderCellStates(PlayerView view)
+	{
+		for (int col = 0; col < BattleTheme.Cols; col++)
+			for (int row = 0; row < BattleTheme.Rows; row++)
+				if (_cellButtons[col, row].GetNodeOrNull(CellFxName) is { } old) { _cellButtons[col, row].RemoveChild(old); old.QueueFree(); }
+
+		foreach (var cs in view.CellStates)
+		{
+			string? icon = cs.Kind switch
+			{
+				"smoke" => "fx/fx_smoke_zone.png",
+				"trap" when cs.Revealed => "fx/fx_trap_revealed_fire.png",
+				"trap" => "ui/icon_trap_hidden.png", // my own hidden trap (opponent never receives it)
+				_ => null,
+			};
+			if (icon is null || BattleTheme.Tex(icon) is not { } tex) continue;
+
+			var btn = CellButton(cs.Cell);
+			var holder = new Control { Name = CellFxName, MouseFilter = MouseFilterEnum.Ignore };
+			bool hiddenTrap = cs.Kind == "trap" && !cs.Revealed;
+			var art = hiddenTrap
+				? BattleTheme.Art(tex, new Vector2(btn.Size.X - 30, 4), new Vector2(26, 26), TextureRect.StretchModeEnum.KeepAspectCentered)
+				: BattleTheme.Art(tex, Vector2.Zero, btn.Size, TextureRect.StretchModeEnum.KeepAspectCentered);
+			art.Modulate = new Color(1, 1, 1, cs.Kind == "smoke" ? 0.7f : hiddenTrap ? 0.85f : 0.9f);
+			holder.AddChild(art);
+			btn.AddChild(holder);
+		}
 	}
 
 	private void RenderStandees(PlayerView view, HashSet<int> actionable)
@@ -765,7 +801,43 @@ public partial class BattleScene : Control
 		if (_oppAvatar != null) _oppAvatar.Texture = BattleTheme.Tex($"leaders/{opp.LeaderId}.png");
 		if (_selfAvatar != null) _selfAvatar.Texture = BattleTheme.Tex($"leaders/{self.LeaderId}.png");
 
+		RenderCounters(view);
 		RefreshTideHint(view);
+	}
+
+	private const string CounterStripName = "__counter_strip";
+
+	/// <summary>docs/21 §1.3/§1.7: the leader-side 蓄能 counter and the 暗牌 (secret-count) marker, for both seats.
+	/// Rebuilt each render from the view. Positions are a first pass — easy to nudge once seen in the editor.</summary>
+	private void RenderCounters(PlayerView view)
+	{
+		if (_hudLayer.GetNodeOrNull(CounterStripName) is { } old) { _hudLayer.RemoveChild(old); old.QueueFree(); }
+		var holder = new Control { Name = CounterStripName, MouseFilter = MouseFilterEnum.Ignore };
+
+		// Self (bottom-left, right of the leader block).
+		if (view.Self.SpellCharge > 0)
+			holder.AddChild(CounterBadge("ui/counter_kindle_power.png", "蓄能", view.Self.SpellCharge, new Vector2(360, 800), BattleTheme.CostColor));
+		if (view.Self.Secrets.Count > 0)
+			holder.AddChild(CounterBadge("ui/marker_secret.png", "暗牌", view.Self.Secrets.Count, new Vector2(360, 846), BattleTheme.Accent));
+
+		// Opponent (top-right, left of the leader button at x≈1500).
+		if (view.Opponent.SecretCount > 0)
+			holder.AddChild(CounterBadge("ui/marker_secret.png", "暗牌", view.Opponent.SecretCount, new Vector2(1330, 44), BattleTheme.DangerColor));
+		if (view.Opponent.SpellCharge > 0)
+			holder.AddChild(CounterBadge("ui/counter_kindle_power.png", "蓄能", view.Opponent.SpellCharge, new Vector2(1330, 90), BattleTheme.CostColor));
+
+		_hudLayer.AddChild(holder);
+	}
+
+	private static Control CounterBadge(string icon, string label, int n, Vector2 pos, Color tint)
+	{
+		var box = new Control { Position = pos, MouseFilter = MouseFilterEnum.Ignore };
+		if (BattleTheme.Tex(icon) is { } tex)
+			box.AddChild(BattleTheme.Art(tex, Vector2.Zero, new Vector2(32, 32), TextureRect.StretchModeEnum.KeepAspectCentered));
+		var lbl = BattleTheme.MakeOutlinedLabel($"{label} {n}", 20, tint, HorizontalAlignment.Left);
+		lbl.Position = new Vector2(36, 3);
+		box.AddChild(lbl);
+		return box;
 	}
 
 	/// <summary>docs/17 压力潮汐提示 (all derived from PlayerView — no rules/protocol changes): before the tide
@@ -784,7 +856,7 @@ public partial class BattleScene : Control
 		// Which round your NEXT turn falls in, and the bleed it would deal (round - start + 1; 0 before start).
 		int nextOwnTurn = view.ActiveSeat == seat ? view.TurnNumber + 2 : view.TurnNumber + 1;
 		int nextRound = (nextOwnTurn + 1) / 2;
-		int nextAmount = nextRound >= start ? nextRound - start + 1 : 0;
+		int nextAmount = nextRound >= start ? System.Math.Min(RulesInfo.PressureTideMaxAmount, nextRound - start + 1) : 0;
 
 		bool pressing = view.Units.Any(u => u.OwnerSeat == seat && !BoardGeometry.InOwnHalf(seat, u.Cell));
 		bool lethal = nextAmount > 0 && nextAmount >= view.Self.LeaderHp;
@@ -877,6 +949,7 @@ public partial class BattleScene : Control
 		_chosenCell = null;
 		_crossPreview = false;
 		_extraPick = ExtraPick.None;
+		CloseEchoBar(); // 门德复述: drop the 空放/再次施放 bar if a pick was pending
 		ClearHighlights();
 		RefreshSelectionUi(); // SelectedCardId now derives to null → hides 取消 and drops the card lift
 	}
@@ -1070,9 +1143,10 @@ public partial class BattleScene : Control
 
 		if (_busy) return;
 
-		// docs/21: a click during a pending 引导者 / 二段目标 pick fills that dimension first.
+		// docs/21: a click during a pending 引导者 / 二段目标 / 门德复述 pick fills that dimension first.
 		if (_extraPick == ExtraPick.Channeler) { PickExtra(ChannelerOf, entityId); return; }
 		if (_extraPick == ExtraPick.Secondary) { PickExtra(SecondaryOf, entityId); return; }
+		if (_extraPick == ExtraPick.Echo) { PickEchoUnit(entityId); return; }
 
 		int seat = ActiveSeat;
 
@@ -1144,6 +1218,7 @@ public partial class BattleScene : Control
 	private void PickCell(Cell cell)
 	{
 		if (_selKind == SelKind.None) return;
+		if (_extraPick == ExtraPick.Echo) { PickEchoCell(cell); return; } // 门德复述: cell-aimed re-cast
 
 		// Exact cell match, else column fallback (spatial column orders).
 		var exact = _candidates.Where(c => CellOf(c) is { } cc && cc.Col == cell.Col && cc.Row == cell.Row).ToList();
@@ -1330,6 +1405,8 @@ public partial class BattleScene : Control
 
 	private async void Submit(Command cmd)
 	{
+		// 熔剑祭士 (docs/21 §3.2): before a bare deploy resolves, offer the 献祭 panel to equip the 熔岩巨剑.
+		if (cmd is PlayCardCommand { SacrificeEntityIds: null } deploy && ShowSacrificePanelIfNeeded(deploy)) return;
 		if (_online) { SubmitOnline(cmd); return; }
 		if (_busy) return;
 		_busy = true;
@@ -1343,6 +1420,109 @@ public partial class BattleScene : Control
 		if (!_vsAi && seatAfter != seatBefore) { _busy = false; ShowPassOverlay(seatAfter); return; }
 		_busy = false;
 		RefreshInteractable();
+	}
+
+	// ---------- 熔剑祭士 献祭面板 (docs/21 §3.2) ----------
+
+	private readonly List<int> _sacrificePicks = new();
+
+	/// <summary>True (and shows the panel) when this deploy is a 熔剑祭士 with ≥2 hand orders to sacrifice —
+	/// otherwise the caller deploys plain. The panel builds the real command (with SacrificeEntityIds) on confirm.</summary>
+	private bool ShowSacrificePanelIfNeeded(PlayCardCommand deploy)
+	{
+		var view = _host.GetView(ViewSeat);
+		if (view.Self.Hand.FirstOrDefault(h => h.EntityId == deploy.CardEntityId) is not { } handCard
+			|| !_cards.TryGet(handCard.CardId, out var def)
+			|| !def.Effects.Any(e => e.Trigger == "battlecry" && e.Action == "sacrifice_equip"))
+			return false;
+
+		var orders = view.Self.Hand
+			.Where(h => h.EntityId != deploy.CardEntityId && _cards.TryGet(h.CardId, out var d) && d.Type == CardType.Order)
+			.ToList();
+		if (orders.Count < 2)
+			return false; // nothing to sacrifice → the caller just deploys the 2/4 body
+
+		ShowSacrificePanel(deploy, orders);
+		return true;
+	}
+
+	private void ShowSacrificePanel(PlayCardCommand deploy, List<CardInHandView> orders)
+	{
+		_sacrificePicks.Clear();
+		float pw = 940, ph = 470, px = (BattleTheme.ScreenW - pw) / 2f, py = (BattleTheme.ScreenH - ph) / 2f;
+
+		var overlay = new Button { Name = "__sacrifice_panel", Flat = true };
+		overlay.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		overlay.AddThemeStyleboxOverride("normal", BattleTheme.Box(new Color(0, 0, 0, 0.66f), null, 0, 0));
+
+		var panel = new Panel { Position = new Vector2(px, py), Size = new Vector2(pw, ph) };
+		panel.AddThemeStyleboxOverride("panel", (StyleBox?)BattleTheme.ParchmentPanel() ?? BattleTheme.Box(BattleTheme.PanelDark, BattleTheme.Accent, 3, 12));
+		overlay.AddChild(panel);
+
+		var title = BattleTheme.MakeOutlinedLabel("熔剑祭士 · 献祭 2 张指令牌装备熔岩巨剑(+3 攻 / 射程 2 / 贯穿)", 26, BattleTheme.TextMain, HorizontalAlignment.Center);
+		title.Position = new Vector2(0, 26); title.Size = new Vector2(pw, 40);
+		panel.AddChild(title);
+		var hint = BattleTheme.MakeOutlinedLabel("被献祭的指令进入墓地(可被复燃/信使回收)。选满 2 张后点「装备」。", 18, BattleTheme.TextDim, HorizontalAlignment.Center);
+		hint.Position = new Vector2(0, 66); hint.Size = new Vector2(pw, 28);
+		panel.AddChild(hint);
+
+		var cardBtns = new Dictionary<int, Button>();
+		Button? equipBtn = null;
+		void Repaint()
+		{
+			foreach (var (id, b) in cardBtns)
+				BattleTheme.SetButtonBg(b, _sacrificePicks.Contains(id) ? BattleTheme.AccentSoft : BattleTheme.PanelDark,
+					_sacrificePicks.Contains(id) ? BattleTheme.Accent : BattleTheme.SeatColor0, _sacrificePicks.Contains(id) ? 4 : 2, 8);
+			if (equipBtn != null) equipBtn.Disabled = _sacrificePicks.Count != 2;
+		}
+
+		const float cw = 170, ch = 108, gap = 14;
+		int perRow = 5;
+		for (int i = 0; i < orders.Count; i++)
+		{
+			var o = orders[i];
+			_cards.TryGet(o.CardId, out var od);
+			int col = i % perRow, row = i / perRow;
+			float bx = px + 30 + col * (cw + gap), by = py + 108 + row * (ch + gap);
+			var b = BattleTheme.MakeButton(new Vector2(bx, by), new Vector2(cw, ch), BattleTheme.PanelDark, BattleTheme.SeatColor0, 2, 8);
+			b.Text = $"{od?.Name ?? o.CardId}\n{od?.Cost ?? 0} 费";
+			b.AddThemeFontSizeOverride("font_size", 18);
+			int id = o.EntityId;
+			b.Pressed += () =>
+			{
+				if (_sacrificePicks.Contains(id)) _sacrificePicks.Remove(id);
+				else if (_sacrificePicks.Count < 2) _sacrificePicks.Add(id);
+				_sfx.Play("button");
+				Repaint();
+			};
+			cardBtns[id] = b;
+			overlay.AddChild(b);
+		}
+
+		equipBtn = BattleTheme.MakeButton(new Vector2(px + pw / 2f - 250, py + ph - 74), new Vector2(230, 54), BattleTheme.PanelDark, BattleTheme.CostColor, 3, 10);
+		equipBtn.Text = "装备(献祭 2 张)"; equipBtn.AddThemeFontSizeOverride("font_size", 22);
+		equipBtn.Pressed += () =>
+		{
+			if (_sacrificePicks.Count != 2) return;
+			var withSac = deploy with { SacrificeEntityIds = _sacrificePicks.ToList() };
+			CloseSacrificePanel();
+			Submit(withSac);
+		};
+		overlay.AddChild(equipBtn);
+
+		var skipBtn = BattleTheme.MakeButton(new Vector2(px + pw / 2f + 20, py + ph - 74), new Vector2(230, 54), BattleTheme.PanelDark, BattleTheme.SeatColor0, 2, 10);
+		skipBtn.Text = "不献祭直接上场"; skipBtn.AddThemeFontSizeOverride("font_size", 22);
+		skipBtn.Pressed += () => { CloseSacrificePanel(); Submit(deploy); };
+		overlay.AddChild(skipBtn);
+
+		Repaint();
+		_overlayLayer.AddChild(overlay);
+	}
+
+	private void CloseSacrificePanel()
+	{
+		if (_overlayLayer.GetNodeOrNull("__sacrifice_panel") is { } p) { _overlayLayer.RemoveChild(p); p.QueueFree(); }
+		_sacrificePicks.Clear();
 	}
 
 	/// <summary>Submit one command, then play its events back through the shared presentation queue.
@@ -1721,6 +1901,44 @@ public partial class BattleScene : Control
 				break;
 			case TurnStartedEvent ts when FixedView:
 				await ShowTurnBanner(ts.Seat);       // item 8 (hotseat uses the pass overlay instead)
+				break;
+
+			// ---- docs/21 §1.6/§1.7/§3.1/§3.2 moment beats (board state settles on the FullRender after playback) ----
+			case TrapTriggeredEvent tt:
+				_sfx.Play("cast");
+				FloatText(CellScreenPos(tt.Cell) + new Vector2(BattleTheme.CellW / 2f - 40, BattleTheme.CellH / 2f - 12),
+					tt.Revealed ? "陷阱现形!" : "烬火陷阱", BattleTheme.DangerColor);
+				await Delay(0.22);
+				break;
+			case OrderCounteredEvent:
+				_sfx.Play("cast");
+				FloatText(new Vector2(BattleTheme.ScreenW / 2f - 130, 430), "焰誓反制!指令无效", BattleTheme.Accent);
+				await Delay(0.3);
+				break;
+			case OrderEchoedEvent: // 薪火回响·门德: the recast fires — announce it before its damage beats land
+				_sfx.Play("cast");
+				FloatText(new Vector2(BattleTheme.ScreenW / 2f - 120, 470), "薪火回响·门德!", BattleTheme.CostColor);
+				await Delay(0.26);
+				break;
+			case UnitTransformedEvent utr when _standees.TryGetValue(utr.UnitEntityId, out var utn):
+				_sfx.Play("play");
+				Flash(utn, BattleTheme.Accent);
+				FloatText(Center(utn), "成长!", BattleTheme.HpColor);
+				await Delay(0.28);
+				break;
+			case StatTransferredEvent st when _standees.TryGetValue(st.ToUnitId, out var stn):
+				Flash(stn, BattleTheme.Accent);
+				await Delay(0.1);
+				break;
+			case SecretPlayedEvent:
+			case SecretRevealedEvent:
+			case SmokeAppliedEvent:
+				_sfx.Play("cast");
+				await Delay(0.08);
+				break;
+			case SpellChargeChangedEvent sc when sc.NewCharge > 0:
+				FloatText(sc.Seat == ViewSeat ? new Vector2(360, 780) : new Vector2(1330, 30), $"蓄能 {sc.NewCharge}", BattleTheme.CostColor);
+				await Delay(0.08);
 				break;
 			default:
 				break;
@@ -2829,11 +3047,15 @@ public partial class BattleScene : Control
 		Keyword.Garrison => "驻防",
 		Keyword.Leap => "跃障",
 		Keyword.PackTactics => "围猎",
-		Keyword.Hidden => "伏兵",
+		Keyword.Hidden => "潜行",
 		Keyword.Emplacement => "架设",
 		Keyword.Pierce => "贯穿",
 		Keyword.Blessing => "福泽",
 		Keyword.Guardian => "守护",
+		Keyword.Rooted => "定身",
+		Keyword.MoltenSword => "熔岩巨剑",
+		Keyword.KindleImmune => "免疫薪炎",
+		Keyword.SpellWard => "法术护体",
 		_ => k.ToString(),
 	};
 
@@ -2851,11 +3073,15 @@ public partial class BattleScene : Control
 		Keyword.Garrison => "位于己方底线行时 +1/+1。",
 		Keyword.Leap => "移动时可跨过一个随从,直线跳跃 2 格。",
 		Keyword.PackTactics => "近战攻击一个与你另一友方相邻的敌人时,伤害 +2。",
-		Keyword.Hidden => "不能被选为目标,直到它造成伤害。",
+		Keyword.Hidden => "潜行:不能被敌方指令/战吼选中(范围/AOE 仍会命中);攻击后现形。",
 		Keyword.Emplacement => "架设:不能移动;受到指令/技能/战吼等效果伤害 +1(普通攻击不加)。",
 		Keyword.Pierce => "贯穿:远程攻击时,同时对目标正后方一格的随从(不分敌我)造成等额伤害。",
 		Keyword.Blessing => "福泽:与其相邻的友方随从受到的伤害 -1(不含自身,可与坚守叠加)。",
 		Keyword.Guardian => "守护:与其相邻的友方随从将要受到的伤害,转移到它身上承受(享受它自身的减伤)。",
+		Keyword.Rooted => "定身:本回合不能移动(跃障 / 额外移动力也无效),但仍可攻击与反击。",
+		Keyword.MoltenSword => "熔岩巨剑:装备后 +3 攻击、射程 2、贯穿(永久)。",
+		Keyword.KindleImmune => "免疫薪炎:免疫薪炎(spell.kindle)伤害;但被薪炎命中仍会加速自身成长。",
+		Keyword.SpellWard => "法术护体:抵挡下一次敌方指令/战吼效果(伤害归零 / 指向失效),之后消耗。",
 		_ => "",
 	};
 
@@ -2978,7 +3204,98 @@ public partial class BattleScene : Control
 			RefreshSelectionUi();
 			return true;
 		}
+
+		// 薪火回响·门德 (docs/21 §3.1): the turn's first 薪炎 order can be RECAST at a target you re-aim, or 空放.
+		// The candidate set carries both an EchoRecast=false baseline and one variant per re-aim target.
+		var recasts = _candidates.Where(c => c is PlayCardCommand { EchoRecast: true }).ToList();
+		bool canDecline = _candidates.Any(c => c is PlayCardCommand { EchoRecast: false });
+		if (recasts.Count > 0 && canDecline)
+		{
+			_extraPick = ExtraPick.Echo;
+			ClearHighlights();
+			var echoUnits = recasts.Select(EchoUnitOf).Where(x => x != null).Select(x => x!.Value).Distinct().ToList();
+			var echoCells = recasts.Select(EchoCellOf).Where(x => x != null).Select(x => x!.Value).Distinct().ToList();
+			foreach (var id in echoUnits) HighlightUnitColor(id, BattleTheme.DangerColor); // red = 复述目标
+			foreach (var cell in echoCells) HighlightCell(cell);
+			bool global = echoUnits.Count == 0 && echoCells.Count == 0; // 燎原/燔火: board-wide, no aim
+			ShowEchoBar(global);
+			Log(global ? "薪火回响·门德:再次施放这道薪炎指令,或点「空放」放弃。"
+			           : "薪火回响·门德:点选一个复述目标,或点「空放」放弃。");
+			RefreshSelectionUi();
+			return true;
+		}
 		return false;
+	}
+
+	// docs/21 §3.1: the 门德 recast dimensions — only the EchoRecast=true variants carry a re-aim.
+	private static int? EchoUnitOf(Command c) => c is PlayCardCommand { EchoRecast: true } p ? p.EchoTargetUnitId : null;
+	private static Cell? EchoCellOf(Command c) => c is PlayCardCommand { EchoRecast: true } p ? p.EchoTargetCell : null;
+
+	/// <summary>A unit click during the 门德 recast pick: keep only the recast variant aimed at that unit and submit.
+	/// A cell-aimed echo (row/column/十字 order) has no unit variant, so fall back to the standee's cell.</summary>
+	private void PickEchoUnit(int entityId)
+	{
+		var filtered = _candidates.Where(c => EchoUnitOf(c) == entityId).ToList();
+		if (filtered.Count > 0) { CloseEchoBar(); _extraPick = ExtraPick.None; Submit(filtered[0]); return; }
+		var u = _host.GetView(ViewSeat).Units.FirstOrDefault(x => x.EntityId == entityId);
+		if (u != null && _candidates.Any(c => EchoCellOf(c) is { } cc && cc == u.Cell)) { PickEchoCell(u.Cell); return; }
+		Log("请点选高亮的复述目标,或点「空放」。");
+	}
+
+	private void PickEchoCell(Cell cell)
+	{
+		var filtered = _candidates.Where(c => EchoCellOf(c) is { } cc && cc.Col == cell.Col && cc.Row == cell.Row).ToList();
+		if (filtered.Count == 0) { Log("请点选高亮的复述目标,或点「空放」。"); return; }
+		CloseEchoBar();
+		_extraPick = ExtraPick.None;
+		Submit(filtered[0]);
+	}
+
+	/// <summary>空放/取消: submit the EchoRecast=false baseline — the order resolves once, no recast.</summary>
+	private void DeclineEcho()
+	{
+		var baseline = _candidates.FirstOrDefault(c => c is PlayCardCommand { EchoRecast: false });
+		if (baseline is null) { CloseEchoBar(); ClearSelection(); return; }
+		CloseEchoBar();
+		_extraPick = ExtraPick.None;
+		Submit(baseline);
+	}
+
+	/// <summary>再次施放 (board-wide orders only): submit the sole EchoRecast=true variant.</summary>
+	private void ConfirmGlobalEcho()
+	{
+		var recast = _candidates.FirstOrDefault(c => c is PlayCardCommand { EchoRecast: true });
+		if (recast is null) { DeclineEcho(); return; }
+		CloseEchoBar();
+		_extraPick = ExtraPick.None;
+		Submit(recast);
+	}
+
+	private void ShowEchoBar(bool global)
+	{
+		CloseEchoBar();
+		var bar = new Control { MouseFilter = MouseFilterEnum.Ignore };
+		var declineBtn = BattleTheme.MakeButton(new Vector2(1600, 660), new Vector2(260, 74), BattleTheme.PanelDark, BattleTheme.DangerColor, 2, 12, textured: true);
+		declineBtn.Text = "空放 / 取消复述";
+		declineBtn.AddThemeFontSizeOverride("font_size", 22);
+		declineBtn.Pressed += DeclineEcho;
+		bar.AddChild(declineBtn);
+		if (global)
+		{
+			var castBtn = BattleTheme.MakeButton(new Vector2(1600, 578), new Vector2(260, 74), BattleTheme.PanelDark, BattleTheme.CostColor, 2, 12, textured: true);
+			castBtn.Text = "再次施放";
+			castBtn.AddThemeFontSizeOverride("font_size", 22);
+			castBtn.Pressed += ConfirmGlobalEcho;
+			bar.AddChild(castBtn);
+		}
+		_echoBar = bar;
+		_hudLayer.AddChild(bar);
+	}
+
+	private void CloseEchoBar()
+	{
+		if (_echoBar is { } bar && IsInstanceValid(bar)) bar.QueueFree();
+		_echoBar = null;
 	}
 
 	/// <summary>A click during a pending 引导者 / 二段目标 pick: keep only the candidates whose extra dimension
@@ -3066,6 +3383,7 @@ public partial class BattleScene : Control
 				Keyword.Pierce => "贯",
 				Keyword.Taunt => "嘲",
 				Keyword.Guardian => "护",
+				Keyword.KindleImmune => "免", // 免疫薪炎 — an innate, permanent keyword (雏凤/凤凰)
 				_ => "",
 			});
 		return string.Join(" ", parts.Where(p => p.Length > 0));
@@ -3078,25 +3396,49 @@ public partial class BattleScene : Control
 
 	private enum StatusKind { Buff, Debuff }
 
-	/// <summary>One status a unit advertises on its card face: a short glyph, and whether it is a buff or debuff.</summary>
-	private readonly record struct StatusBadge(string Glyph, StatusKind Kind);
+	/// <summary>One status a unit advertises on its card face: a short glyph (fallback), whether it is a buff or
+	/// debuff, an optional icon (docs/21 art — falls back to the glyph if the texture is missing), and an optional
+	/// corner number (成长 countdown).</summary>
+	private readonly record struct StatusBadge(string Glyph, StatusKind Kind, string? Icon = null, string? Corner = null);
 
 	private const string StatusStripName = "__status_strip";
 
 	/// <summary>The statuses to show for a unit, computed from its LIVE view state (not the static keyword list
 	/// — so 坚守 shows only while it is actually reducing damage). Buffs land on the left, debuffs on the right.</summary>
-	private static List<StatusBadge> StandeeStatuses(UnitView u)
+	private List<StatusBadge> StandeeStatuses(UnitView u)
 	{
+		bool Has(Keyword k) => u.Keywords.Any(s => s.Keyword == k);
 		var s = new List<StatusBadge>();
 		// ---- buffs (left column) ----
 		if (u.ShieldActive)
 			s.Add(new StatusBadge("盾", StatusKind.Buff));                                    // 持盾
-		if (u.Keywords.Any(k => k.Keyword == Keyword.Blessing))
+		if (Has(Keyword.Blessing))
 			s.Add(new StatusBadge("福", StatusKind.Buff));                                    // 福泽
-		if (u.Keywords.Any(k => k.Keyword == Keyword.HoldFast) && !u.MovedThisRound)
+		if (Has(Keyword.HoldFast) && !u.MovedThisRound)
 			s.Add(new StatusBadge("坚", StatusKind.Buff));                                    // 坚守 (only while in effect)
+		// docs/21 §2/§3.1/§3.2 statuses (icons in ui/, glyph fallback):
+		if (Has(Keyword.MoltenSword))
+			s.Add(new StatusBadge("剑", StatusKind.Buff, "ui/status_molten_sword.png"));      // 熔岩巨剑
+		if (Has(Keyword.SpellWard))
+			s.Add(new StatusBadge("罩", StatusKind.Buff, "ui/status_spell_ward.png"));        // 法术护体
+		if (Has(Keyword.Hidden))
+			s.Add(new StatusBadge("潜", StatusKind.Buff, "ui/status_hidden.png"));            // 潜行
+		// (免疫薪炎 is a permanent innate keyword — it shows in the innate keyword strip, not the live side badges.)
+		if (_cards.TryGet(u.CardId, out var def))
+		{
+			if (def.Growth is { } g)                                                          // 成长倒数
+				s.Add(new StatusBadge("长", StatusKind.Buff, "ui/status_growth.png", Math.Max(0, g.Turns - u.GrowthProgress).ToString()));
+			// 引导者差异化 — a passive indicator that this unit amplifies the 薪炎 order it channels (docs/21 §1.2).
+			int deepen = def.Effects.Where(e => e.Trigger == "channel" && e.Action == "deepen").Sum(e => e.Amount);
+			if (deepen > 0)
+				s.Add(new StatusBadge("增", StatusKind.Buff, null, deepen.ToString()));        // 焰术学徒/熔岩巨灵:引导增伤 N
+			int discount = def.Effects.Where(e => e.Trigger == "channel" && e.Action == "discount").Sum(e => e.Amount);
+			if (discount > 0)
+				s.Add(new StatusBadge("减", StatusKind.Buff, null, discount.ToString()));      // 晚祷领唱:引导减费 N
+		}
 		// ---- debuffs (right column) ----
-		// (none yet) e.g. if (u.Snared) s.Add(new StatusBadge("缚", StatusKind.Debuff));
+		if (Has(Keyword.Rooted))
+			s.Add(new StatusBadge("缚", StatusKind.Debuff, "ui/status_rooted.png"));          // 定身
 		return s;
 	}
 
@@ -3131,11 +3473,29 @@ public partial class BattleScene : Control
 			: (BattleTheme.DebuffStatusBg, BattleTheme.DebuffStatusBorder);
 		var chip = new Panel { Position = pos, Size = new Vector2(s, s), MouseFilter = MouseFilterEnum.Ignore };
 		chip.AddThemeStyleboxOverride("panel", BattleTheme.Box(bg, border, 2, 5));
-		var label = BattleTheme.MakeOutlinedLabel(b.Glyph, 14, BattleTheme.TextMain, HorizontalAlignment.Center);
-		label.VerticalAlignment = VerticalAlignment.Center;
-		label.Position = Vector2.Zero;
-		label.Size = new Vector2(s, s);
-		chip.AddChild(label);
+		// Icon if the docs/21 texture is present, else the short glyph (keeps working before art lands).
+		if (b.Icon != null && BattleTheme.Tex(b.Icon) is { } tex)
+		{
+			chip.AddChild(BattleTheme.Art(tex, new Vector2(2, 2), new Vector2(s - 4, s - 4), TextureRect.StretchModeEnum.KeepAspectCentered));
+		}
+		else
+		{
+			var label = BattleTheme.MakeOutlinedLabel(b.Glyph, 14, BattleTheme.TextMain, HorizontalAlignment.Center);
+			label.VerticalAlignment = VerticalAlignment.Center;
+			label.Position = Vector2.Zero;
+			label.Size = new Vector2(s, s);
+			chip.AddChild(label);
+		}
+		// Corner countdown (成长): a bold number tucked into the bottom-right.
+		if (b.Corner != null)
+		{
+			var num = BattleTheme.MakeOutlinedLabel(b.Corner, 13, BattleTheme.TextMain, HorizontalAlignment.Right);
+			num.VerticalAlignment = VerticalAlignment.Bottom;
+			num.Position = new Vector2(-2, -1);
+			num.Size = new Vector2(s, s);
+			num.MouseFilter = MouseFilterEnum.Ignore;
+			chip.AddChild(num);
+		}
 		return chip;
 	}
 
