@@ -65,6 +65,11 @@
 | 火把杂役 | 战吼 → 亡语:相邻敌方随从 1 伤 |
 | 爆破工兵 | 战吼 → 锚·2 内 2 伤 |
 
+### 其它平衡 — 压力潮汐上限
+
+- 潮汐每回合伤害 = `round - 8 + 1`,此前**无上限**(第 13 回合起 6/7/8… 持续增长)。
+- 本补丁封顶 **5 点**(`TurnFlow.PressureTideMaxAmount = 5`,`amount = Min(5, round-8+1)`);第 12 回合到 5 后不再上涨。长局不再被越滚越大的潮汐单方面决定。
+
 ### 引擎 / 协议随动 (Rules 0.9.0)
 
 - EffectSpec 新增 school / anchor / anchor_range / target_side / min_order_cost / secret_kind / uncapped;新 action:damage_scatter / amplify_next / place_smoke / place_trap / stat_transfer / sacrifice_equip / add_secret + channel 标记 deepen/discount + echo_order;新 trigger:ally_died_your_turn / channel / first_kindle_order_each_turn。

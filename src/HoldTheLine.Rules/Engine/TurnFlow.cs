@@ -11,6 +11,10 @@ internal static class TurnFlow
     /// <summary>压力潮汐 begins this round (a round = both players' turns). Tuning knob, see GDD §2.7.</summary>
     public const int PressureTideStartRound = 8;
 
+    /// <summary>压力潮汐 per-turn bleed ceiling (补丁#4 tune, Rules 0.9.0): the escalation stops at 5, so a long
+    /// game is not decided by ever-growing chip damage alone. Reached at round 12; rounds 13+ stay at 5.</summary>
+    public const int PressureTideMaxAmount = 5;
+
     /// <summary>Advances to the given seat's turn: TurnNumber++, mana ramp+refill, unit action reset, draw 1.</summary>
     public static void StartTurn(ResolutionContext ctx, int seat)
     {
@@ -62,7 +66,8 @@ internal static class TurnFlow
     /// <summary>
     /// 压力潮汐 (GDD §2.7, anti-turtle revision): from round <see cref="PressureTideStartRound"/>,
     /// starting your turn with no unit in the ENEMY half bleeds your leader for
-    /// (round - start + 1). Turtling stays legal — it just stops being free.
+    /// min(<see cref="PressureTideMaxAmount"/>, round - start + 1). Turtling stays legal — it just stops
+    /// being free, and (补丁#4) the bleed no longer grows past 5.
     /// </summary>
     private static void ApplyPressureTide(ResolutionContext ctx, int seat)
     {
@@ -73,7 +78,7 @@ internal static class TurnFlow
         if (pressing)
             return;
 
-        int amount = round - PressureTideStartRound + 1;
+        int amount = Math.Min(PressureTideMaxAmount, round - PressureTideStartRound + 1);
         ctx.Emit(new PressureTideEvent { Seat = seat, Round = round, Amount = amount });
         ctx.DamageLeader(seat, amount);
     }

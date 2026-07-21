@@ -100,6 +100,19 @@ public class TurnFlowTests
     }
 
     [Fact]
+    public void PressureTide_damage_is_capped_at_five()
+    {
+        // 补丁#4 (Rules 0.9.0): the tide stops escalating at 5 — round 14 would be 7 uncapped.
+        var state = TestKit.NewGame(deck0: Enumerable.Repeat("t_vanilla", 30).ToList(),
+                                    deck1: Enumerable.Repeat("t_vanilla", 30).ToList());
+        state.TurnNumber = 26; // seat 1's next turn = turn 27 → round 14
+        var result = TestKit.NewResolver().Execute(state, new EndTurnCommand { Seat = 0 });
+
+        Assert.Equal(20, result.State!.Player(1).LeaderHp); // 25 - 5 (not 7)
+        Assert.Contains(result.Events, e => e is PressureTideEvent { Round: 14, Amount: 5 });
+    }
+
+    [Fact]
     public void PressureTide_can_end_the_game()
     {
         var state = TestKit.NewGame(deck0: Enumerable.Repeat("t_vanilla", 30).ToList(),
