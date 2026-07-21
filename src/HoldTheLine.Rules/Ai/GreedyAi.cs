@@ -69,6 +69,13 @@ public static class GreedyAi
                 if (unit.HasKeyword(Keyword.Garrison) && unit.Cell.Row == BoardGeometry.HomeRow(m.Seat) && m.To.Row != unit.Cell.Row)
                     score -= 4; // leaving the home row drops the garrison bonus
 
+                // docs/21 §5: steer clear of a REVEALED trap (unrevealed ones are invisible to the AI — fair)
+                // and of smoke (a unit that ends there can't attack). Unrevealed traps aren't in the AI's view.
+                if (s.CellStates.Any(cs => cs.Kind == "trap" && cs.Revealed && cs.Cell == m.To))
+                    score -= 6;
+                if (s.IsSmoked(m.To))
+                    score -= 3;
+
                 // 压力潮汐 awareness: once the tide is live (or one round out), being our ONLY unit in
                 // the enemy half is worth real leader HP — crossing in stops the bleed, retreating
                 // restarts it. Without this the bots race the tide instead of fighting (X2.1 gap).
@@ -193,6 +200,11 @@ public static class GreedyAi
         bool targetIsEnemy = target != null && target.OwnerSeat != seat;
         bool targetIsAlly = target != null && target.OwnerSeat == seat;
 
+        // 双模式 (docs/21 §1.8): an effect gated to the wrong side won't fire — score it 0 so 焰鞭's two halves
+        // don't cancel (its enemy-damage effect must not read as friendly-fire in the friendly-transfer mode).
+        if ((e.TargetSide == "enemy" && targetIsAlly) || (e.TargetSide == "ally" && targetIsEnemy))
+            return 0;
+
         switch (e.Action)
         {
             case "damage":
@@ -285,6 +297,25 @@ public static class GreedyAi
             }
             case "gain_mana":
                 return 0.5;
+
+            // ---- docs/21 §5 new-mechanic scoring (simple heuristics) ----
+            case "damage_scatter": // 燔火: `amount` missiles of 1 at random enemies — worth ~ per-missile enemy value.
+            {
+                int enemies = s.Units.Count(u => u.OwnerSeat != seat);
+                return enemies == 0 ? 0 : Math.Min(e.Amount, enemies * 3) * 1.5;
+            }
+            case "stat_transfer": // 焰鞭 friendly mode: only worth it on a cheap/dying/deathrattle body (SacrificeValue guards it).
+                return target == null || !targetIsAlly ? 0 : SacrificeValue(db, target) + 1.5;
+            case "place_smoke":
+                return 2;   // tempo denial (区内不能攻击/反击)
+            case "place_trap":
+                return 2;   // board-control setup
+            case "add_secret":
+                return 2;   // deterrent, constant EV (docs/21 §5 — no game-theory this patch)
+            case "amplify_next":
+                return 1.5; // banks a bigger 薪炎 order next turn
+            case "sacrifice_equip":
+                return 2;   // the 熔岩巨剑 payoff (the discard cost is not enumerated this patch)
             default:
                 return 1;
         }
