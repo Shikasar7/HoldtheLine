@@ -646,5 +646,43 @@
 	],
 	"text": "战吼:抽 2 张牌。运筹于帷幄之中。",
 	"art_prompt": "a serene grey-robed strategist by a candle and a battle map, a crane feather fan in hand"
+  },
+  {
+	"id": "nl_stealth",
+	"name": "匿踪",
+	"faction": "neutral",
+	"type": "order",
+	"rarity": "rare",
+	"cost": 2,
+	"effects": [
+	  {
+		"trigger": "play",
+		"action": "grant_keyword",
+		"target": "target_unit_ally",
+		"keyword": "hidden",
+		"duration": "permanent"
+	  }
+	],
+	"text": "一个友方随从获得潜行(不能被敌方指令/战吼选中,攻击后现形)。",
+	"art_prompt": "a soldier melting into cloak and shadow, outline half-transparent"
+  },
+  {
+	"id": "nl_spell_ward",
+	"name": "法术护体",
+	"faction": "neutral",
+	"type": "order",
+	"rarity": "rare",
+	"cost": 2,
+	"effects": [
+	  {
+		"trigger": "play",
+		"action": "grant_keyword",
+		"target": "target_unit_ally",
+		"keyword": "spell_ward",
+		"duration": "permanent"
+	  }
+	],
+	"text": "一个友方随从获得法术护体(抵挡下一次敌方指令/战吼效果)。",
+	"art_prompt": "a floating talisman forming a half-dome of light against an incoming spell"
   }
 ]

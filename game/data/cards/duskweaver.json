@@ -646,5 +646,99 @@
     ],
     "text": "你每施放一张指令牌后,将 1 张随机指令牌从你的墓地移回手牌,且本随从 +1/+1。永焰不熄。",
     "art_prompt": "a black-and-gold dusk matriarch enthroned in an eternal choir of flame, endlessly rekindling"
+  },
+  {
+    "id": "dw_molten_sword_priest",
+    "name": "熔剑祭士",
+    "faction": "duskweaver",
+    "type": "unit",
+    "rarity": "epic",
+    "cost": 4,
+    "atk": 2,
+    "hp": 4,
+    "effects": [
+      {
+        "trigger": "battlecry",
+        "action": "sacrifice_equip"
+      }
+    ],
+    "text": "战吼:你可以献祭手牌中 2 张指令牌;若如此做,装备熔岩巨剑(+3 攻,射程 2,贯穿)。",
+    "art_prompt": "a duskweaver warrior-priest drawing a molten greatsword, lava dripping from the blade"
+  },
+  {
+    "id": "dw_smoke_bomb",
+    "name": "烟幕弹",
+    "faction": "duskweaver",
+    "type": "order",
+    "rarity": "rare",
+    "cost": 3,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "place_smoke",
+        "target": "cell",
+        "anchor": "channel",
+        "anchor_range": 3
+      }
+    ],
+    "text": "引导·3:目标格及相邻十字成为烟幕区——区内随从无法攻击且不反击,走出即解除,持续到你的下回合。",
+    "art_prompt": "grey ash-smoke swallowing several trench cells, figures lost in the haze"
+  },
+  {
+    "id": "dw_ash_bind",
+    "name": "灰缚",
+    "faction": "duskweaver",
+    "type": "order",
+    "rarity": "common",
+    "cost": 1,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "grant_keyword",
+        "target": "target_unit",
+        "keyword": "rooted",
+        "duration": "your_next_turn",
+        "anchor": "channel",
+        "anchor_range": 3
+      }
+    ],
+    "text": "引导·3:定身一个随从直到你的下回合(不能移动,可攻击)。",
+    "art_prompt": "chains of ash and cinder binding a soldier's legs to the ground"
+  },
+  {
+    "id": "dw_oath_counter",
+    "name": "焰誓反制",
+    "faction": "duskweaver",
+    "type": "order",
+    "rarity": "rare",
+    "cost": 3,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "add_secret",
+        "secret_kind": "counter_order",
+        "amount": 3,
+        "school": "spell.kindle"
+      }
+    ],
+    "text": "暗牌:下次敌方指令牌选中你的随从时,该指令无效,改为对施放者一方随机随从造成 3 点薪炎伤害。",
+    "art_prompt": "a spell beam turned back on itself by a folding ashen sigil"
+  },
+  {
+    "id": "dw_ember_trap",
+    "name": "烬火陷阱",
+    "faction": "duskweaver",
+    "type": "order",
+    "rarity": "rare",
+    "cost": 3,
+    "effects": [
+      {
+        "trigger": "play",
+        "action": "place_trap",
+        "target": "cell"
+      }
+    ],
+    "text": "暗牌:在一个无人格子(敌方底线除外)埋设陷阱。随从进入即受 3 点薪炎灼蚀;现形后火焰持续 2 回合。",
+    "art_prompt": "a dark-red rune buried in cracked ground, a single spark at one corner"
   }
 ]

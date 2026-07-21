@@ -18,14 +18,14 @@ public class ContentTests
     public void All_shipped_cards_load_and_validate()
     {
         var db = Cards();
-        // Second batch (docs/10): +24 neutral, +14 each faction. 163 total.
-        // 40 neutral + coin | 30 iron_vow | 30 wildpack | 30+chick duskweaver | 30+sentry undervault.
-        Assert.Equal(163, db.All.Count);
+        // Second batch (docs/10): 163. docs/21 补丁#4 adds 7 new cards → 170:
+        // +5 duskweaver (熔剑祭士/烟幕弹/灰缚/焰誓反制/烬火陷阱), +2 neutral (匿踪/法术护体).
+        Assert.Equal(170, db.All.Count);
         Assert.Equal(30, db.All.Count(c => c.Faction == "iron_vow"));
         Assert.Equal(30, db.All.Count(c => c.Faction == "wildpack"));
-        Assert.Equal(31, db.All.Count(c => c.Faction == "duskweaver"));  // 30 + phoenix chick token
+        Assert.Equal(36, db.All.Count(c => c.Faction == "duskweaver"));  // 30 + chick token + 5 (docs/21)
         Assert.Equal(31, db.All.Count(c => c.Faction == "undervault"));  // 30 + sentry token
-        Assert.Equal(41, db.All.Count(c => c.Faction == "neutral"));     // 40 + military coin token
+        Assert.Equal(43, db.All.Count(c => c.Faction == "neutral"));     // 40 + coin token + 2 (docs/21)
     }
 
     [Fact]

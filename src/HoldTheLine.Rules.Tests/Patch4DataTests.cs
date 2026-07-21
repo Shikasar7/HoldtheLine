@@ -124,6 +124,28 @@ public class Patch4DataTests
         Assert.Equal("spell.kindle", Effect("dw_pyre_channeler", "damage").School);
     }
 
+    // ---- §2/§3.2 new cards (ids locked by the art pipeline) ----
+
+    [Theory]
+    [InlineData("dw_molten_sword_priest", "sacrifice_equip")]
+    [InlineData("dw_smoke_bomb", "place_smoke")]
+    [InlineData("dw_oath_counter", "add_secret")]
+    [InlineData("dw_ember_trap", "place_trap")]
+    public void New_cards_are_registered_with_their_action(string cardId, string action)
+    {
+        Assert.Contains(Db.Get(cardId).Effects, e => e.Action == action);
+    }
+
+    [Theory]
+    [InlineData("dw_ash_bind", Keyword.Rooted)]     // 灰缚 → 定身
+    [InlineData("nl_stealth", Keyword.Hidden)]      // 匿踪 → 潜行
+    [InlineData("nl_spell_ward", Keyword.SpellWard)] // 法术护体
+    public void Grant_cards_reference_their_keyword(string cardId, Keyword kw)
+    {
+        var e = Db.Get(cardId).Effects.Single(x => x.Action == "grant_keyword");
+        Assert.Equal(kw, e.GrantKeyword);
+    }
+
     [Fact]
     public void Chick_grows_into_phoenix_and_both_are_kindle_immune()
     {
