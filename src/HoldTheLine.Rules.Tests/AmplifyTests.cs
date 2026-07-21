@@ -1,3 +1,4 @@
+using HoldTheLine.Rules.Ai;
 using HoldTheLine.Rules.Commands;
 using HoldTheLine.Rules.Engine;
 using HoldTheLine.Rules.Events;
@@ -163,5 +164,46 @@ public class AmplifyTests
         var legal = CommandEnumerator.LegalCommands(state, TestKit.Db, TestKit.Leaders);
 
         Assert.Contains(legal, c => c is PlayCardCommand p && p.CardEntityId == card);
+    }
+
+    [Fact]
+    public void Greedy_ai_prefers_the_deepen_channeler_when_it_improves_damage()
+    {
+        var state = TestKit.NewGame();
+        state.Player(0).Mana = 10;
+        var plain = TestKit.Place(state, 0, "t_vanilla", new Cell(1, 1));
+        var deepen = TestKit.Place(state, 0, "t_deepen", new Cell(3, 1));
+        var enemy = TestKit.Place(state, 1, "t_big", new Cell(2, 2));
+        int card = TestKit.GiveCard(state, 0, "t_channel_zap");
+        Command[] choices =
+        [
+            new PlayCardCommand { Seat = 0, CardEntityId = card, TargetUnitId = enemy.EntityId, ChannelerUnitId = plain.EntityId },
+            new PlayCardCommand { Seat = 0, CardEntityId = card, TargetUnitId = enemy.EntityId, ChannelerUnitId = deepen.EntityId },
+        ];
+
+        var pick = Assert.IsType<PlayCardCommand>(GreedyAi.Pick(state, TestKit.Db, TestKit.Leaders, choices));
+
+        Assert.Equal(deepen.EntityId, pick.ChannelerUnitId);
+    }
+
+    [Fact]
+    public void Greedy_ai_prefers_the_discount_channeler_when_the_effect_is_otherwise_equal()
+    {
+        var state = TestKit.NewGame();
+        state.Player(0).Mana = 10;
+        var plain = TestKit.Place(state, 0, "t_vanilla", new Cell(1, 1));
+        var discount = TestKit.Place(state, 0, "t_discount", new Cell(3, 1));
+        TestKit.Place(state, 1, "t_big", new Cell(2, 3));
+        int card = TestKit.GiveCard(state, 0, "t_channel_col");
+        var targetCell = new Cell(2, 3);
+        Command[] choices =
+        [
+            new PlayCardCommand { Seat = 0, CardEntityId = card, TargetCell = targetCell, ChannelerUnitId = plain.EntityId },
+            new PlayCardCommand { Seat = 0, CardEntityId = card, TargetCell = targetCell, ChannelerUnitId = discount.EntityId },
+        ];
+
+        var pick = Assert.IsType<PlayCardCommand>(GreedyAi.Pick(state, TestKit.Db, TestKit.Leaders, choices));
+
+        Assert.Equal(discount.EntityId, pick.ChannelerUnitId);
     }
 }

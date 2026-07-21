@@ -3,7 +3,7 @@ using HoldTheLine.Rules.Cards;
 
 namespace HoldTheLine.Game;
 
-/// <summary>Developer-facing visual editor for <see cref="CardArtFraming"/>.</summary>
+/// <summary>Developer-facing card editor for illustration framing and presentation-only rich rules text.</summary>
 public partial class CardArtEditor : Control
 {
     private const float FaceW = 480f;
@@ -24,6 +24,10 @@ public partial class CardArtEditor : Control
     private Label _cardHeading = null!, _values = null!, _status = null!;
     private HSlider _zoom = null!, _x = null!, _y = null!;
     private LineEdit _search = null!;
+    private TextEdit _textEditor = null!;
+    private Control _artControls = null!, _textControls = null!;
+    private Button _artMode = null!, _textMode = null!;
+    private Label _textState = null!;
     private bool _syncing;
     private bool _dragging;
 
@@ -43,10 +47,10 @@ public partial class CardArtEditor : Control
         bg.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         AddChild(bg);
 
-        var title = BattleTheme.MakeTitle("插画取景台", 38, BattleTheme.TextMain);
+        var title = BattleTheme.MakeTitle("卡面编辑台", 38, BattleTheme.TextMain);
         title.Position = new Vector2(42, 26); title.Size = new Vector2(420, 52);
         AddChild(title);
-        var hint = BattleTheme.MakeLabel("拖动画面平移 · 滚轮缩放 · 配置按卡牌 ID 保存", 17, BattleTheme.TextDim);
+        var hint = BattleTheme.MakeLabel("插画取景与描述排版 · 所有视觉配置按卡牌 ID 保存", 17, BattleTheme.TextDim);
         hint.Position = new Vector2(44, 78); hint.Size = new Vector2(620, 28);
         AddChild(hint);
 
@@ -132,32 +136,111 @@ public partial class CardArtEditor : Control
     {
         var panel = PanelAt(new Vector2(1144, 124), new Vector2(730, 910), BattleTheme.PanelDark);
         AddChild(panel);
-        var heading = BattleTheme.MakeOutlinedLabel("取景参数", 26, BattleTheme.Accent);
+        var heading = BattleTheme.MakeOutlinedLabel("编辑工作台", 26, BattleTheme.Accent);
         heading.Position = new Vector2(34, 28); heading.Size = new Vector2(300, 38); panel.AddChild(heading);
-        var explain = BattleTheme.MakeLabel("1.00× 是铺满窗口，可在 0.50×–3.00× 间缩放。插画位于卡框下层；\n超出中央窗口的部分由当前阵营卡框遮住，未覆盖的位置保持为空。", 18, BattleTheme.TextDim);
-        explain.Position = new Vector2(34, 78); explain.Size = new Vector2(650, 70); panel.AddChild(explain);
 
-        _zoom = AddSlider(panel, "缩放", 170, CardArtFraming.MinZoom, CardArtFraming.MaxZoom, 0.01);
-        _x = AddSlider(panel, "水平位置", 270, -1, 1, 0.01);
-        _y = AddSlider(panel, "垂直位置", 370, -1, 1, 0.01);
+        _artMode = MakeButton("插画取景", new Vector2(34, 78), new Vector2(210, 50), () => ShowMode(true));
+        _textMode = MakeButton("描述排版", new Vector2(258, 78), new Vector2(210, 50), () => ShowMode(false));
+        panel.AddChild(_artMode); panel.AddChild(_textMode);
+
+        _artControls = new Control { Position = new Vector2(0, 142), Size = new Vector2(730, 700) };
+        _textControls = new Control { Position = new Vector2(0, 142), Size = new Vector2(730, 700) };
+        panel.AddChild(_artControls); panel.AddChild(_textControls);
+
+        BuildArtControls();
+        BuildTextControls();
+        ShowMode(true);
+
+        _status = BattleTheme.MakeOutlinedLabel("", 18, BattleTheme.HpColor);
+        _status.Position = new Vector2(36, 846); _status.Size = new Vector2(650, 42); panel.AddChild(_status);
+    }
+
+    private void BuildArtControls()
+    {
+        var explain = BattleTheme.MakeLabel("1.00× 是铺满窗口，可在 0.50×–3.00× 间缩放。插画位于卡框下层；\n超出窗口的部分由阵营卡框遮住，未覆盖的位置保持为空。", 18, BattleTheme.TextDim);
+        explain.Position = new Vector2(34, 4); explain.Size = new Vector2(650, 70); _artControls.AddChild(explain);
+
+        _zoom = AddSlider(_artControls, "缩放", 104, CardArtFraming.MinZoom, CardArtFraming.MaxZoom, 0.01);
+        _x = AddSlider(_artControls, "水平位置", 204, -1, 1, 0.01);
+        _y = AddSlider(_artControls, "垂直位置", 304, -1, 1, 0.01);
         _zoom.ValueChanged += _ => ApplyControls();
         _x.ValueChanged += _ => ApplyControls();
         _y.ValueChanged += _ => ApplyControls();
 
         _values = BattleTheme.MakeOutlinedLabel("", 18, BattleTheme.TextMain);
-        _values.Position = new Vector2(36, 454); _values.Size = new Vector2(640, 36); panel.AddChild(_values);
+        _values.Position = new Vector2(36, 388); _values.Size = new Vector2(640, 36); _artControls.AddChild(_values);
 
-        var reset = MakeButton("重置这张", new Vector2(34, 526), new Vector2(210, 58), ResetSelected);
-        panel.AddChild(reset);
-        var save = MakeButton("保存全部取景", new Vector2(264, 526), new Vector2(250, 58), Save);
+        var reset = MakeButton("重置取景", new Vector2(34, 458), new Vector2(210, 58), ResetSelected);
+        _artControls.AddChild(reset);
+        var save = MakeButton("保存全部卡面", new Vector2(264, 458), new Vector2(250, 58), Save);
         BattleTheme.SetButtonBg(save, BattleTheme.AccentSoft);
-        panel.AddChild(save);
+        _artControls.AddChild(save);
 
-        _status = BattleTheme.MakeOutlinedLabel("", 18, BattleTheme.HpColor);
-        _status.Position = new Vector2(36, 606); _status.Size = new Vector2(650, 60); panel.AddChild(_status);
+        var note = BattleTheme.MakeLabel("拖拽：平移　滚轮：缩放　双击：重置当前取景", 17, BattleTheme.TextDim);
+        note.Position = new Vector2(36, 552); note.Size = new Vector2(650, 34); _artControls.AddChild(note);
+    }
 
-        var note = BattleTheme.MakeLabel($"保存位置\n{CardArtFraming.ResourcePath}\n\n快捷操作\n拖拽：平移\n滚轮：缩放\n双击：重置当前卡", 17, BattleTheme.TextDim);
-        note.Position = new Vector2(36, 700); note.Size = new Vector2(650, 180); panel.AddChild(note);
+    private void BuildTextControls()
+    {
+        var explain = BattleTheme.MakeLabel("直接修改描述。先选择文字，再用下方工具设置样式；中央卡面会即时预览。", 17, BattleTheme.TextDim);
+        explain.Position = new Vector2(34, 2); explain.Size = new Vector2(660, 30); _textControls.AddChild(explain);
+
+        _textEditor = new TextEdit
+        {
+            Position = new Vector2(34, 42),
+            Size = new Vector2(660, 258),
+            PlaceholderText = "输入卡面描述……",
+            WrapMode = TextEdit.LineWrappingMode.Boundary,
+            // Formatting buttons take focus when clicked. Keep the text selection alive so their
+            // Pressed handlers can still read and replace the developer's selected range.
+            DeselectOnFocusLossEnabled = false,
+        };
+        _textEditor.AddThemeFontOverride("font", BattleTheme.UiFont);
+        _textEditor.AddThemeFontSizeOverride("font_size", 19);
+        _textEditor.TextChanged += OnDescriptionChanged;
+        _textControls.AddChild(_textEditor);
+
+        var formatLabel = BattleTheme.MakeOutlinedLabel("选区格式", 18, BattleTheme.Accent);
+        formatLabel.Position = new Vector2(34, 314); formatLabel.Size = new Vector2(140, 30); _textControls.AddChild(formatLabel);
+
+        AddFormatButton("粗体", 34, 350, () => WrapSelection("[b]", "[/b]"));
+        AddFormatButton("斜体", 138, 350, () => WrapSelection("[i]", "[/i]"));
+        AddFormatButton("下划线", 242, 350, () => WrapSelection("[u]", "[/u]"));
+        AddFormatButton("宋体", 366, 350, () => FontSelection("res://assets/fonts/SourceHanSerifSC-Bold.otf"));
+        AddFormatButton("清除样式", 470, 350, ClearSelectionStyle, 132);
+
+        AddFormatButton("词条黄", 34, 408, () => ColorSelection(CardTextFormatting.KeywordYellow));
+        AddFormatButton("辉尘青", 138, 408, () => ColorSelection(CardTextFormatting.AccentTeal));
+        AddFormatButton("警示红", 242, 408, () => ColorSelection(CardTextFormatting.DangerRed));
+        AddFormatButton("增益绿", 346, 408, () => ColorSelection(CardTextFormatting.BuffGreen));
+        AddFormatButton("词条样式 + 换行", 450, 408, KeywordLine, 230);
+
+        var defaults = BattleTheme.MakeLabel("默认即白色 · 黑体 · 常规字重；“清除样式”可恢复默认。直接按回车即可换行。", 15, BattleTheme.TextDim);
+        defaults.Position = new Vector2(36, 468); defaults.Size = new Vector2(650, 30); _textControls.AddChild(defaults);
+
+        _textState = BattleTheme.MakeLabel("", 16, BattleTheme.TextDim);
+        _textState.Position = new Vector2(36, 516); _textState.Size = new Vector2(650, 32); _textControls.AddChild(_textState);
+
+        var reset = MakeButton("恢复原始描述", new Vector2(34, 568), new Vector2(230, 58), ResetDescription);
+        _textControls.AddChild(reset);
+        var save = MakeButton("保存全部卡面", new Vector2(284, 568), new Vector2(250, 58), Save);
+        BattleTheme.SetButtonBg(save, BattleTheme.AccentSoft);
+        _textControls.AddChild(save);
+    }
+
+    private void AddFormatButton(string text, float x, float y, Action action, float width = 92)
+    {
+        var button = MakeButton(text, new Vector2(x, y), new Vector2(width, 44), action);
+        button.AddThemeFontSizeOverride("font_size", 16);
+        _textControls.AddChild(button);
+    }
+
+    private void ShowMode(bool art)
+    {
+        _artControls.Visible = art;
+        _textControls.Visible = !art;
+        BattleTheme.SetButtonBg(_artMode, art ? BattleTheme.AccentSoft : BattleTheme.PanelDark);
+        BattleTheme.SetButtonBg(_textMode, art ? BattleTheme.PanelDark : BattleTheme.AccentSoft);
     }
 
     private HSlider AddSlider(Control parent, string caption, float y, double min, double max, double step)
@@ -169,14 +252,81 @@ public partial class CardArtEditor : Control
         return slider;
     }
 
+    private void OnDescriptionChanged()
+    {
+        if (_syncing || _selected == null) return;
+        StoreDescription();
+    }
+
+    private void StoreDescription()
+    {
+        string fallback = BattleTheme.BodyText(_selected.Text);
+        CardTextFormatting.Set(_selected.Id, _textEditor.Text, fallback);
+        _textState.Text = TextState(_selected.Id);
+        _status.Text = "已修改，记得保存";
+        RefreshPreview();
+    }
+
+    private void WrapSelection(string open, string close)
+    {
+        if (!TryReplaceSelection(text => open + text + close)) return;
+        _textEditor.GrabFocus();
+    }
+
+    private void ColorSelection(string html) => WrapSelection($"[color={html}]", "[/color]");
+
+    private void FontSelection(string resourcePath) => WrapSelection($"[font={resourcePath}]", "[/font]");
+
+    private void KeywordLine()
+    {
+        if (_textEditor.HasSelection())
+        {
+            int fromLine = _textEditor.GetSelectionFromLine();
+            int fromColumn = _textEditor.GetSelectionFromColumn();
+            int toLine = _textEditor.GetSelectionToLine();
+            int toColumn = _textEditor.GetSelectionToColumn();
+            string line = _textEditor.GetLine(toLine);
+            if (toColumn < line.Length && line[toColumn] is '：' or ':')
+                _textEditor.Select(fromLine, fromColumn, toLine, toColumn + 1);
+        }
+        if (!TryReplaceSelection(text =>
+                $"[color={CardTextFormatting.KeywordYellow}][b]{text}[/b][/color]\n")) return;
+        _textEditor.GrabFocus();
+    }
+
+    private void ClearSelectionStyle()
+    {
+        if (!TryReplaceSelection(CardTextFormatting.PlainText)) return;
+        _textEditor.GrabFocus();
+    }
+
+    private bool TryReplaceSelection(Func<string, string> transform)
+    {
+        if (!_textEditor.HasSelection())
+        {
+            _textState.Text = "请先在描述框中选择要设置样式的文字";
+            return false;
+        }
+
+        string selected = _textEditor.GetSelectedText();
+        _syncing = true;
+        _textEditor.DeleteSelection();
+        _textEditor.InsertTextAtCaret(transform(selected));
+        _syncing = false;
+        StoreDescription();
+        return true;
+    }
+
     private void Select(CardDefinition def)
     {
         _selected = def;
         var f = CardArtFraming.Get(def.Id);
         _syncing = true;
         _zoom.Value = f.Zoom; _x.Value = f.OffsetX; _y.Value = f.OffsetY;
+        _textEditor.Text = CardTextFormatting.GetBbcode(def.Id, BattleTheme.BodyText(def.Text));
         _syncing = false;
         _status.Text = "";
+        _textState.Text = TextState(def.Id);
         RefreshPreview();
     }
 
@@ -244,17 +394,30 @@ public partial class CardArtEditor : Control
         _status.Text = "已重置，记得保存";
     }
 
+    private void ResetDescription()
+    {
+        CardTextFormatting.Reset(_selected.Id);
+        _syncing = true;
+        _textEditor.Text = BattleTheme.BodyText(_selected.Text);
+        _syncing = false;
+        _textState.Text = "已恢复规则数据中的原始描述";
+        _status.Text = "已重置，记得保存";
+        RefreshPreview();
+    }
+
     private void Save()
     {
-        if (CardArtFraming.Save(out var error))
+        bool artSaved = CardArtFraming.Save(out var artError);
+        bool textSaved = CardTextFormatting.Save(out var textError);
+        if (artSaved && textSaved)
         {
             _status.AddThemeColorOverride("font_color", BattleTheme.HpColor);
-            _status.Text = "✓ 已保存，所有卡面界面立即使用新取景";
+            _status.Text = "✓ 已保存，所有卡面界面立即使用新取景与描述";
         }
         else
         {
             _status.AddThemeColorOverride("font_color", BattleTheme.DangerColor);
-            _status.Text = $"保存失败：{error}";
+            _status.Text = $"保存失败：{string.Join("；", new[] { artError, textError }.Where(e => e.Length > 0))}";
         }
     }
 
@@ -263,6 +426,12 @@ public partial class CardArtEditor : Control
         _onClose?.Invoke();
         QueueFree();
     }
+
+    private static string TextState(string cardId) => CardTextFormatting.IsGenerated(cardId)
+        ? "已应用批量样式 · 继续编辑会转为手工覆盖"
+        : CardTextFormatting.HasOverride(cardId)
+            ? "手工覆盖 · 后续批量生成会保留此版本"
+            : "正在使用规则数据中的原始描述";
 
     private static Panel PanelAt(Vector2 pos, Vector2 size, Color color)
     {

@@ -23,6 +23,9 @@ public static class Prefs
     {
         public string LastLobbyDeck { get; init; } = "";   // server deck id or built-in id
         public string LastVsAiDeck { get; init; } = "";    // built-in id or "local:<StoredDeck.Id>"
+        // 同屏对战: each seat's last-picked deck (built-in id or "local:<StoredDeck.Id>"), preselected next open.
+        public string LastHotseatDeck0 { get; init; } = "";
+        public string LastHotseatDeck1 { get; init; } = "";
         // docs/16 login flow:
         public bool Entered { get; init; }                 // has the player chosen an entry (guest/login/register)?
         public string Nickname { get; init; } = "";        // persistent display name; hello sends it, set_name changes it
@@ -87,6 +90,18 @@ public static class Prefs
     {
         get => Get(s => s.LastVsAiDeck);
         set => Set(s => s with { LastVsAiDeck = value });
+    }
+
+    public static string LastHotseatDeck0
+    {
+        get => Get(s => s.LastHotseatDeck0);
+        set => Set(s => s with { LastHotseatDeck0 = value });
+    }
+
+    public static string LastHotseatDeck1
+    {
+        get => Get(s => s.LastHotseatDeck1);
+        set => Set(s => s with { LastHotseatDeck1 = value });
     }
 
     /// <summary>docs/16: set once the player picks an entry on the login page; startup skips straight to the

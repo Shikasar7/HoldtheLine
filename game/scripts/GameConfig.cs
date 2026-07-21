@@ -87,6 +87,22 @@ public static class GameConfig
         Configured = true;
     }
 
+    /// <summary>Same-screen (同屏对战) with a deck picked for EACH seat, mirroring
+    /// <see cref="SetVsAiMatch"/>: every seat is EITHER a built-in deck id OR an explicit card list + leader
+    /// (built-in null). Both seats are human — no AI profile is consumed — matching BattleScene's
+    /// ResolveOfflineDeck priority (explicit cards win over the built-in id).</summary>
+    public static void SetHotseatMatch(
+        string? deck0Builtin, IReadOnlyList<string>? deck0Cards, string? deck0Leader,
+        string? deck1Builtin, IReadOnlyList<string>? deck1Cards, string? deck1Leader)
+    {
+        VsAi = false; Online = false;
+        HumanSeat = 0;
+        ClearCustomDecks(); // clear first — the explicit lists below override the built-in id lookup
+        Deck0 = deck0Builtin ?? ""; Deck0CardIds = deck0Cards; Deck0Leader = deck0Leader;
+        Deck1 = deck1Builtin ?? ""; Deck1CardIds = deck1Cards; Deck1Leader = deck1Leader;
+        Configured = true;
+    }
+
     /// <summary>Online via the shared <see cref="Session"/> (M3 C1 lobby): the connection + match are
     /// already established, so BattleScene attaches to Session.Remote rather than dialing out itself.</summary>
     public static void SetOnlineAttached()

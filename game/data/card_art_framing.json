@@ -651,5 +651,10 @@
     "zoom": 1,
     "offset_x": -0.01,
     "offset_y": 0.25
+  },
+  "dw_spark": {
+    "zoom": 1,
+    "offset_x": -0.05,
+    "offset_y": -0.03
   }
 }

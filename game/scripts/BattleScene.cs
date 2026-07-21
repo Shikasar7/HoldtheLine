@@ -37,7 +37,8 @@ public partial class BattleScene : Control
 	private readonly Dictionary<int, Button> _standees = new();
 	private readonly HashSet<int> _emplacementUnits = new(); // entityIds of 架设 units — drives the "架设 +1" effect-damage tag
 	private Button _oppLeaderBtn = null!, _endTurnBtn = null!, _leaderPowerBtn = null!, _cancelBtn = null!;
-	private Label _turnLabel = null!, _selfInfo = null!, _logLabel = null!;
+	private Label _turnLabel = null!, _selfInfo = null!;
+	private RichTextLabel _logLabel = null!;
 	private readonly Label[] _oppStats = new Label[3]; // opponent hand / deck / dust capsules (docs/18 §4.4)
 	private Panel _detailPanel = null!; // left-side card inspector (click a piece to show it)
 
@@ -69,6 +70,7 @@ public partial class BattleScene : Control
 
 	private Control? _gameMenu; // in-match menu overlay (继续 / 查看牌组 / 投降 / 返回菜单)
 	private readonly IReadOnlyList<string>?[] _deckCards = new IReadOnlyList<string>?[2]; // brought decklists, for 查看牌组
+	private readonly string[] _seatFactionMark = { "", "" }; // hotseat 交接提示: each seat's short faction name (自选卡组后不再固定铁誓/游群)
 
 	private Control? _mulliganPanel;     // 起手重抽 overlay (docs/11 §6), offline + online
 	private int _mulliganMode;           // online only: 0 none, 1 selecting, 2 waiting-for-opponent
@@ -188,6 +190,9 @@ public partial class BattleScene : Control
 		var (cards1, leader1) = ResolveOfflineDeck(GameConfig.Deck1, GameConfig.Deck1CardIds, GameConfig.Deck1Leader);
 		_deckCards[0] = cards0;
 		_deckCards[1] = cards1;
+		// hotseat 交接提示按各自卡组的阵营命名(自选卡组后座位不再固定铁誓/游群)。
+		_seatFactionMark[0] = FactionMark(LeaderFaction(leader0));
+		_seatFactionMark[1] = FactionMark(LeaderFaction(leader1));
 
 		var config = new MatchConfig
 		{
@@ -373,7 +378,21 @@ public partial class BattleScene : Control
 		_hudLayer.AddChild(_cancelBtn);
 
 		// Log sits between board and hand (bigger hand cards now cover the old bottom slot).
-		_logLabel = BattleTheme.MakeOutlinedLabel("", 20, BattleTheme.TextDim, HorizontalAlignment.Center);
+		_logLabel = new RichTextLabel
+		{
+			BbcodeEnabled = true,
+			FitContent = false,
+			ScrollActive = false,
+			VerticalAlignment = VerticalAlignment.Center,
+			MouseFilter = MouseFilterEnum.Ignore,
+		};
+		_logLabel.AddThemeFontOverride("normal_font", BattleTheme.UiFont);
+		_logLabel.AddThemeFontOverride("bold_font", BattleTheme.UiFontBold);
+		_logLabel.AddThemeFontSizeOverride("normal_font_size", 20);
+		_logLabel.AddThemeFontSizeOverride("bold_font_size", 20);
+		_logLabel.AddThemeColorOverride("default_color", BattleTheme.TextDim);
+		_logLabel.AddThemeColorOverride("font_outline_color", new Color(0.08f, 0.07f, 0.05f, 0.92f));
+		_logLabel.AddThemeConstantOverride("outline_size", 6);
 		_logLabel.Position = new Vector2(360, 752);
 		_logLabel.Size = new Vector2(1200, 28);
 		_hudLayer.AddChild(_logLabel);
@@ -608,7 +627,7 @@ public partial class BattleScene : Control
 
 			// Rules text on a soft dark plate: the frames' leather panels vary too much in
 			// brightness (wildpack is near-dark) for bare ink to stay readable.
-			if (def.Text.Length > 0)
+			if (!string.IsNullOrWhiteSpace(CardTextFormatting.GetBbcode(def.Id, BattleTheme.BodyText(def.Text))))
 			{
 				var platePos = new Vector2(w * 0.14f, h * 0.715f);
 				var plateSize = new Vector2(w * 0.72f, h * (compact ? 0.19f : 0.215f)); // 两行完整显示
@@ -617,15 +636,10 @@ public partial class BattleScene : Control
 					new Color(0.07f, 0.06f, 0.05f, 0.78f), new Color(0.62f, 0.5f, 0.3f, 0.55f), 1, 8));
 				root.AddChild(plate);
 
-				// AutowrapMode BEFORE Size (wrap off → min width = full text width, Size gets clamped up).
-				var body = BattleTheme.MakeLabel(BattleTheme.BodyText(def.Text), bodySize,
-					new Color(0.93f, 0.89f, 0.8f), HorizontalAlignment.Center);
-				body.AddThemeFontOverride("font", BattleTheme.UiFontBold);
-				body.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+				var body = CardTextFormatting.MakeRichLabel(def.Id, BattleTheme.BodyText(def.Text), bodySize,
+					new Color(0.93f, 0.89f, 0.8f));
 				body.VerticalAlignment = VerticalAlignment.Center;
 				body.ClipContents = true;
-				if (compact)
-					body.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; // 悬停放大看全文
 				body.Position = platePos + new Vector2(w * 0.02f, 2);
 				body.Size = plateSize - new Vector2(w * 0.04f, 4);
 				root.AddChild(body);
@@ -640,8 +654,8 @@ public partial class BattleScene : Control
 			name.Size = new Vector2(w - 16, nameSize * 2.6f);
 			root.AddChild(name);
 
-			var body = BattleTheme.MakeLabel(BattleTheme.BodyText(def.Text), bodySize + 2, BattleTheme.TextDim, HorizontalAlignment.Center);
-			body.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+			var body = CardTextFormatting.MakeRichLabel(def.Id, BattleTheme.BodyText(def.Text), bodySize + 2,
+				BattleTheme.TextDim);
 			body.ClipContents = true;
 			body.Position = new Vector2(10, h * 0.42f);
 			body.Size = new Vector2(w - 20, h * 0.42f);
@@ -674,8 +688,10 @@ public partial class BattleScene : Control
 		HideCardPreview();
 
 		// Enlarged card + a full-rules plate below it (the frames' own text panels are too small for long texts).
-		string fullText = BattleTheme.BodyText(def.Text);
-		float plateH = fullText.Length > 0 ? 76f + 24f * Mathf.Ceil(fullText.Length / 15f) : 0f;
+		string fullText = CardTextFormatting.GetBbcode(def.Id, BattleTheme.BodyText(def.Text));
+		float plateH = fullText.Length > 0
+			? 76f + 24f * Mathf.Ceil(CardTextFormatting.PlainText(fullText).Length / 15f)
+			: 0f;
 		float totalH = PreviewSize.Y + (plateH > 0 ? plateH + 8f : 0f);
 		float x = Mathf.Clamp(cardX + HandCardSize.X / 2 - PreviewSize.X / 2, 10, BattleTheme.ScreenW - PreviewSize.X - 10);
 		var root = new Control
@@ -699,8 +715,8 @@ public partial class BattleScene : Control
 			tag.Size = new Vector2(PreviewSize.X - 24, 22);
 			plate.AddChild(tag);
 
-			var text = BattleTheme.MakeLabel(fullText, 19, BattleTheme.TextMain, HorizontalAlignment.Center);
-			text.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+			var text = CardTextFormatting.MakeRichLabel(def.Id, BattleTheme.BodyText(def.Text), 19,
+				BattleTheme.TextMain);
 			text.VerticalAlignment = VerticalAlignment.Top;
 			text.Position = new Vector2(14, 36);
 			text.Size = new Vector2(PreviewSize.X - 28, plateH - 44);
@@ -1114,6 +1130,9 @@ public partial class BattleScene : Control
 		// No-target card (e.g. 抽牌指令): a tap plays it immediately; a drag waits for the drop.
 		if (autoSubmit && _candidates.Count == 1 && CellOf(_candidates[0]) is null && UnitOf(_candidates[0]) is null)
 		{ Submit(_candidates[0]); return; }
+		// Non-directional channels (燔火/燎原) still need their channeler disambiguated. Previously they
+		// fell through to the unit-target prompt even though their commands carry no primary target.
+		if (_candidates.All(c => CellOf(c) is null && UnitOf(c) is null) && PromptExtraPick()) return;
 
 		HighlightCardCandidates();
 		RefreshSelectionUi(); // lift the card + show 取消 (skipped mid-drag; re-applied once the drag drops)
@@ -1127,13 +1146,19 @@ public partial class BattleScene : Control
 		{
 			foreach (var cell in cells)
 				HighlightCell(cell);
-			Log("选择一个格子放置 / 施放。");
+			if (CandidatesDealDamage())
+				LogPick("作用目标", BattleTheme.DangerColor, "选择一个格子施放。");
+			else
+				Log("选择一个格子放置 / 施放。");
 		}
 		else
 		{
+			bool receiver = CandidatesAreFriendlyReceivers();
+			var color = receiver ? BattleTheme.HpColor : BattleTheme.DangerColor;
 			foreach (var id in _candidates.Select(UnitOf).Where(u => u != null).Select(u => u!.Value).Distinct())
-				HighlightUnit(id);
-			Log("选择目标随从。");
+				HighlightUnitColor(id, color);
+			LogPick(receiver ? "接受目标" : "作用目标", color,
+				receiver ? "选择一个友方随从接受效果。" : "选择一个随从承受效果。");
 		}
 	}
 
@@ -1201,6 +1226,8 @@ public partial class BattleScene : Control
 	/// occupied cell must aim the AOE there, not fizzle (the standee sits on top of the cell button).</summary>
 	private bool TryPickUnitOrItsCell(int unitId)
 	{
+		if (_extraPick == ExtraPick.Channeler) { PickExtra(ChannelerOf, unitId); return true; }
+		if (_extraPick == ExtraPick.Secondary) { PickExtra(SecondaryOf, unitId); return true; }
 		if (TryPickUnitTarget(unitId)) return true;
 		var u = _host.GetView(ViewSeat).Units.FirstOrDefault(x => x.EntityId == unitId);
 		if (u != null && _candidates.Any(c => CellOf(c) is { } cc && cc == u.Cell))
@@ -1451,44 +1478,110 @@ public partial class BattleScene : Control
 	private void ShowSacrificePanel(PlayCardCommand deploy, List<CardInHandView> orders)
 	{
 		_sacrificePicks.Clear();
-		float pw = 940, ph = 470, px = (BattleTheme.ScreenW - pw) / 2f, py = (BattleTheme.ScreenH - ph) / 2f;
+		// The parchment has a thick painted frame (about 76 px on every edge), so all content lives inside
+		// an explicit safe area. Keep every child in panel-local coordinates: the old implementation mixed
+		// panel-local headings with screen-space cards/actions, which let them drift outside the canvas.
+		const float pw = 1300, cardsTop = 218, choiceH = 112, choiceGapY = 14;
+		const int choicesPerRow = 3;
+		int choiceRows = (orders.Count + choicesPerRow - 1) / choicesPerRow;
+		float cardsBottom = cardsTop + choiceRows * choiceH + (choiceRows - 1) * choiceGapY;
+		float pickCountY = cardsBottom + 18;
+		float actionsY = pickCountY + 42;
+		float buttonY = actionsY - 34; // lift the action pair clear of the parchment's bottom ornament
+		float ph = actionsY + 64 + 86; // bottom ornament safe area
+		float px = (BattleTheme.ScreenW - pw) / 2f, py = (BattleTheme.ScreenH - ph) / 2f;
+		var ember = Color.FromHtml("c65a3d");
+		var emberDark = Color.FromHtml("513029");
+		var bronze = Color.FromHtml("8f7247");
+		var charred = Color.FromHtml("2a2520");
 
 		var overlay = new Button { Name = "__sacrifice_panel", Flat = true };
 		overlay.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-		overlay.AddThemeStyleboxOverride("normal", BattleTheme.Box(new Color(0, 0, 0, 0.66f), null, 0, 0));
+		overlay.AddThemeStyleboxOverride("normal", BattleTheme.Box(new Color(0, 0, 0, 0.72f), null, 0, 0));
 
-		var panel = new Panel { Position = new Vector2(px, py), Size = new Vector2(pw, ph) };
+		var panel = new Panel
+		{
+			Position = new Vector2(px, py),
+			Size = new Vector2(pw, ph),
+			MouseFilter = MouseFilterEnum.Stop,
+		};
 		panel.AddThemeStyleboxOverride("panel", (StyleBox?)BattleTheme.ParchmentPanel() ?? BattleTheme.Box(BattleTheme.PanelDark, BattleTheme.Accent, 3, 12));
 		overlay.AddChild(panel);
 
-		var title = BattleTheme.MakeOutlinedLabel("熔剑祭士 · 献祭 2 张指令牌装备熔岩巨剑(+3 攻 / 射程 2 / 贯穿)", 26, BattleTheme.TextMain, HorizontalAlignment.Center);
-		title.Position = new Vector2(0, 26); title.Size = new Vector2(pw, 40);
+		// A short plaque title carries the dramatic beat; the rules are split into two quieter lines below it
+		// instead of forcing one long sentence through the ornamental frame.
+		var plaque = BattleTheme.TitlePlaque(new Vector2(240, 24), new Vector2(820, 96));
+		bool hasPlaque = plaque is not null;
+		if (plaque is not null) panel.AddChild(plaque);
+		var title = hasPlaque
+			? BattleTheme.MakeOutlinedLabel("熔剑祭士 · 熔岩献祭", 32, BattleTheme.TextMain, HorizontalAlignment.Center)
+			: BattleTheme.MakeLabel("熔剑祭士 · 熔岩献祭", 32, BattleTheme.InkMain, HorizontalAlignment.Center);
+		title.AddThemeFontOverride("font", BattleTheme.HeadingFont);
+		title.Position = new Vector2(250, 43); title.Size = new Vector2(800, 48);
 		panel.AddChild(title);
-		var hint = BattleTheme.MakeOutlinedLabel("被献祭的指令进入墓地(可被复燃/信使回收)。选满 2 张后点「装备」。", 18, BattleTheme.TextDim, HorizontalAlignment.Center);
-		hint.Position = new Vector2(0, 66); hint.Size = new Vector2(pw, 28);
+
+		var callout = BattleTheme.MakeLabel("选择 2 张指令牌投入炉火", 22, BattleTheme.InkMain, HorizontalAlignment.Center);
+		callout.AddThemeFontOverride("font", BattleTheme.UiFontBold);
+		callout.Position = new Vector2(90, 120); callout.Size = new Vector2(pw - 180, 34);
+		panel.AddChild(callout);
+		var reward = BattleTheme.MakeLabel("熔岩巨剑  ◆  +3 攻击   ◆  射程 2   ◆  贯穿", 20, emberDark, HorizontalAlignment.Center);
+		reward.AddThemeFontOverride("font", BattleTheme.UiFontBold);
+		reward.Position = new Vector2(90, 153); reward.Size = new Vector2(pw - 180, 32);
+		panel.AddChild(reward);
+		var hint = BattleTheme.MakeLabel("献祭牌进入墓地，之后仍可被复燃或信使回收", 16, BattleTheme.InkDim, HorizontalAlignment.Center);
+		hint.Position = new Vector2(90, 183); hint.Size = new Vector2(pw - 180, 26);
 		panel.AddChild(hint);
 
 		var cardBtns = new Dictionary<int, Button>();
+		var stateLabels = new Dictionary<int, Label>();
 		Button? equipBtn = null;
+		var pickCount = BattleTheme.MakeLabel("献祭槽  0 / 2", 18, BattleTheme.InkDim, HorizontalAlignment.Center);
+		pickCount.AddThemeFontOverride("font", BattleTheme.UiFontBold);
+		pickCount.Position = new Vector2(90, pickCountY); pickCount.Size = new Vector2(pw - 180, 30);
+		panel.AddChild(pickCount);
 		void Repaint()
 		{
 			foreach (var (id, b) in cardBtns)
-				BattleTheme.SetButtonBg(b, _sacrificePicks.Contains(id) ? BattleTheme.AccentSoft : BattleTheme.PanelDark,
-					_sacrificePicks.Contains(id) ? BattleTheme.Accent : BattleTheme.SeatColor0, _sacrificePicks.Contains(id) ? 4 : 2, 8);
+			{
+				bool selected = _sacrificePicks.Contains(id);
+				BattleTheme.SetButtonBg(b, selected ? emberDark : charred, selected ? ember : bronze, selected ? 4 : 2, 10);
+				stateLabels[id].Text = selected ? "◆  已选入炉" : "点击选择";
+				stateLabels[id].AddThemeColorOverride("font_color", selected ? new Color(1f, 0.69f, 0.46f) : BattleTheme.TextDim);
+			}
+			pickCount.Text = $"献祭槽  {_sacrificePicks.Count} / 2";
+			pickCount.AddThemeColorOverride("font_color", _sacrificePicks.Count == 2 ? emberDark : BattleTheme.InkDim);
 			if (equipBtn != null) equipBtn.Disabled = _sacrificePicks.Count != 2;
 		}
 
-		const float cw = 170, ch = 108, gap = 14;
-		int perRow = 5;
+		// Wide, card-like choice tiles: real card art provides recognition, while a stable name/cost column
+		// remains readable. Three columns keep the maximum eight eligible cards within three rows.
+		const float cw = 350, gapX = 20;
 		for (int i = 0; i < orders.Count; i++)
 		{
 			var o = orders[i];
 			_cards.TryGet(o.CardId, out var od);
-			int col = i % perRow, row = i / perRow;
-			float bx = px + 30 + col * (cw + gap), by = py + 108 + row * (ch + gap);
-			var b = BattleTheme.MakeButton(new Vector2(bx, by), new Vector2(cw, ch), BattleTheme.PanelDark, BattleTheme.SeatColor0, 2, 8);
-			b.Text = $"{od?.Name ?? o.CardId}\n{od?.Cost ?? 0} 费";
-			b.AddThemeFontSizeOverride("font_size", 18);
+			int col = i % choicesPerRow, row = i / choicesPerRow;
+			int rowCount = Math.Min(choicesPerRow, orders.Count - row * choicesPerRow);
+			float rowW = rowCount * cw + (rowCount - 1) * gapX;
+			float bx = (pw - rowW) / 2f + col * (cw + gapX), by = cardsTop + row * (choiceH + choiceGapY);
+			var b = BattleTheme.MakeButton(new Vector2(bx, by), new Vector2(cw, choiceH), charred, bronze, 2, 10);
+
+			var artFrame = new Panel { Position = new Vector2(12, 10), Size = new Vector2(78, 92), MouseFilter = MouseFilterEnum.Ignore };
+			artFrame.AddThemeStyleboxOverride("panel", BattleTheme.Box(new Color(0.08f, 0.07f, 0.06f, 1f), bronze, 2, 6));
+			b.AddChild(artFrame);
+			if (BattleTheme.Tex($"cards/{o.CardId}.png") is { } art)
+				b.AddChild(CardView.ArtWindow(art, o.CardId, new Vector2(16, 14), new Vector2(70, 84)));
+
+			var cardName = BattleTheme.MakeOutlinedLabel(od?.Name ?? o.CardId, 22, BattleTheme.TextMain, HorizontalAlignment.Left);
+			cardName.Position = new Vector2(106, 13); cardName.Size = new Vector2(226, 32);
+			b.AddChild(cardName);
+			var meta = BattleTheme.MakeLabel($"指令牌   ·   {od?.Cost ?? 0} 费", 17, new Color(0.57f, 0.82f, 0.78f), HorizontalAlignment.Left);
+			meta.AddThemeFontOverride("font", BattleTheme.UiFontBold);
+			meta.Position = new Vector2(106, 44); meta.Size = new Vector2(226, 26);
+			b.AddChild(meta);
+			var state = BattleTheme.MakeLabel("点击选择", 16, BattleTheme.TextDim, HorizontalAlignment.Left);
+			state.Position = new Vector2(106, 73); state.Size = new Vector2(226, 24);
+			b.AddChild(state);
 			int id = o.EntityId;
 			b.Pressed += () =>
 			{
@@ -1498,11 +1591,21 @@ public partial class BattleScene : Control
 				Repaint();
 			};
 			cardBtns[id] = b;
-			overlay.AddChild(b);
+			stateLabels[id] = state;
+			panel.AddChild(b);
 		}
 
-		equipBtn = BattleTheme.MakeButton(new Vector2(px + pw / 2f - 250, py + ph - 74), new Vector2(230, 54), BattleTheme.PanelDark, BattleTheme.CostColor, 3, 10);
-		equipBtn.Text = "装备(献祭 2 张)"; equipBtn.AddThemeFontSizeOverride("font_size", 22);
+		equipBtn = BattleTheme.MakeButton(new Vector2(pw / 2f - 270, buttonY), new Vector2(250, 64), BattleTheme.AtkColor, BattleTheme.AtkColor, 2, 10, textured: true);
+		// The gold plate uses 30 px nine-slice rails. Their implicit content margins used to force this control
+		// taller than its steel twin, despite identical Size/Position values. Keep the ornate rails, but give
+		// the text a compact content box so the two buttons resolve to the same 64 px visual height.
+		foreach (var stateName in new[] { "normal", "hover", "pressed", "focus", "disabled" })
+			if (equipBtn.GetThemeStylebox(stateName) is { } style)
+			{
+				style.ContentMarginTop = 10;
+				style.ContentMarginBottom = 10;
+			}
+		equipBtn.Text = "献祭并装备"; equipBtn.AddThemeFontSizeOverride("font_size", 22);
 		equipBtn.Pressed += () =>
 		{
 			if (_sacrificePicks.Count != 2) return;
@@ -1510,12 +1613,12 @@ public partial class BattleScene : Control
 			CloseSacrificePanel();
 			Submit(withSac);
 		};
-		overlay.AddChild(equipBtn);
+		panel.AddChild(equipBtn);
 
-		var skipBtn = BattleTheme.MakeButton(new Vector2(px + pw / 2f + 20, py + ph - 74), new Vector2(230, 54), BattleTheme.PanelDark, BattleTheme.SeatColor0, 2, 10);
-		skipBtn.Text = "不献祭直接上场"; skipBtn.AddThemeFontSizeOverride("font_size", 22);
+		var skipBtn = BattleTheme.MakeButton(new Vector2(pw / 2f + 20, buttonY), new Vector2(250, 64), BattleTheme.PanelDark, bronze, 2, 10, textured: true);
+		skipBtn.Text = "直接上场"; skipBtn.AddThemeFontSizeOverride("font_size", 22);
 		skipBtn.Pressed += () => { CloseSacrificePanel(); Submit(deploy); };
-		overlay.AddChild(skipBtn);
+		panel.AddChild(skipBtn);
 
 		Repaint();
 		_overlayLayer.AddChild(overlay);
@@ -1923,10 +2026,25 @@ public partial class BattleScene : Control
 				await Delay(0.26);
 				break;
 			case UnitTransformedEvent utr when _standees.TryGetValue(utr.UnitEntityId, out var utn):
-				_sfx.Play("play");
-				Flash(utn, BattleTheme.Accent);
-				FloatText(Center(utn), "成长!", BattleTheme.HpColor);
-				await Delay(0.28);
+				if (utr.IntoCardId == "dw_ash_phoenix")
+				{
+					_sfx.Play("phoenix_rebirth");
+					await PlayFxSheet("fx/phoenix_rebirth_sheet.png", Center(utn), new Vector2(330, 300), 0.105);
+					FloatText(Center(utn), "浴火重生!", BattleTheme.AtkColor);
+				}
+				else
+				{
+					_sfx.Play("play");
+					Flash(utn, BattleTheme.Accent);
+					FloatText(Center(utn), "成长!", BattleTheme.HpColor);
+					await Delay(0.28);
+				}
+				break;
+			case SpellWardConsumedEvent ward when _standees.TryGetValue(ward.UnitEntityId, out var warded):
+				_sfx.Play("spell_ward");
+				Flash(warded, BattleTheme.Accent);
+				await PlayFxSheet("fx/spell_ward_sheet.png", Center(warded), new Vector2(270, 240), 0.075);
+				FloatText(Center(warded) + new Vector2(0, -18), "法术护体!", BattleTheme.Accent);
 				break;
 			case StatTransferredEvent st when _standees.TryGetValue(st.ToUnitId, out var stn):
 				Flash(stn, BattleTheme.Accent);
@@ -1964,7 +2082,13 @@ public partial class BattleScene : Control
 			: AttackerHasRange(atk.AttackerEntityId);
 		Vector2 home = attacker?.Position ?? Vector2.Zero;
 
-		if (ranged)
+		bool moltenSword = IsMoltenSwordAttacker(atk.AttackerEntityId);
+		if (moltenSword)
+		{
+			_sfx.Play("molten_slam");
+			await PlayFxSheet("fx/molten_slam_sheet.png", targetPos, new Vector2(310, 330), 0.065);
+		}
+		else if (ranged)
 		{
 			_sfx.Play("shoot");
 			await FireProjectile(origin, targetPos);
@@ -1975,8 +2099,8 @@ public partial class BattleScene : Control
 		}
 
 		// contact frame
-		_sfx.Play("attack");
-		ScreenShake(ranged ? 2f : 3f);
+		if (!moltenSword) _sfx.Play("attack");
+		ScreenShake(moltenSword ? 5f : ranged ? 2f : 3f);
 
 		bool attackerDied = false;
 		int hits = 0;
@@ -2043,6 +2167,33 @@ public partial class BattleScene : Control
 		t.TweenProperty(proj, "position", to - size / 2f, 0.25).SetTrans(Tween.TransitionType.Sine);
 		await ToSignal(t, Tween.SignalName.Finished);
 		proj.QueueFree();
+	}
+
+	/// <summary>Play a 4x2, left-to-right sprite sheet over a board-space point.</summary>
+	private async Task PlayFxSheet(string path, Vector2 center, Vector2 size, double frameSeconds)
+	{
+		if (BattleTheme.Tex(path) is not { } sheet) return;
+		var frame = new TextureRect
+		{
+			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+			MouseFilter = MouseFilterEnum.Ignore,
+			Position = center - size / 2f,
+			Size = size,
+		};
+		_overlayLayer.AddChild(frame);
+		Vector2 textureSize = sheet.GetSize();
+		Vector2 cell = new(textureSize.X / 4f, textureSize.Y / 2f);
+		for (int i = 0; i < 8; i++)
+		{
+			frame.Texture = new AtlasTexture
+			{
+				Atlas = sheet,
+				Region = new Rect2((i % 4) * cell.X, (i / 4) * cell.Y, cell.X, cell.Y),
+			};
+			await Delay(frameSeconds);
+		}
+		frame.QueueFree();
 	}
 
 	// item 3 art: a warm impact spark at the hit point (additive-ish glow).
@@ -2191,6 +2342,13 @@ public partial class BattleScene : Control
 		_host.GetView(ViewSeat).Units.FirstOrDefault(u => u.EntityId == entityId)?.Keywords
 			.Any(k => k.Keyword == Keyword.Range) ?? false;
 
+	private bool IsMoltenSwordAttacker(int entityId)
+	{
+		var unit = _host.GetView(ViewSeat).Units.FirstOrDefault(u => u.EntityId == entityId);
+		return unit?.CardId == "dw_molten_sword_priest"
+			&& unit.Keywords.Any(k => k.Keyword == Keyword.MoltenSword);
+	}
+
 	// A brief camera-style shake of the whole scene. Kills any prior shake so overlapping hits don't fight.
 	private void ScreenShake(float px)
 	{
@@ -2323,7 +2481,7 @@ public partial class BattleScene : Control
 	{
 		_handLayer.Visible = false;
 		var panel = BattleTheme.MakeButton(Vector2.Zero, new Vector2(BattleTheme.ScreenW, BattleTheme.ScreenH), new Color(0.03f, 0.03f, 0.03f, 0.92f), radius: 0);
-		var msg = BattleTheme.MakeLabel($"轮到 {(seat == 0 ? "玩家1(铁誓)" : "玩家2(游群)")}\n\n点击继续", 44, BattleTheme.TextMain, HorizontalAlignment.Center);
+		var msg = BattleTheme.MakeLabel($"轮到 {SeatDisplayName(seat)}\n\n点击继续", 44, BattleTheme.TextMain, HorizontalAlignment.Center);
 		msg.Position = new Vector2(0, 420);
 		msg.Size = new Vector2(BattleTheme.ScreenW, 240);
 		panel.AddChild(msg);
@@ -2627,7 +2785,7 @@ public partial class BattleScene : Control
 		CloseMulligan();
 		_handLayer.Visible = false;
 		var panel = BattleTheme.MakeButton(Vector2.Zero, new Vector2(BattleTheme.ScreenW, BattleTheme.ScreenH), new Color(0.03f, 0.03f, 0.03f, 0.95f), radius: 0);
-		var msg = BattleTheme.MakeLabel($"轮到 {(seat == 0 ? "玩家1" : "玩家2")} 换牌\n\n点击继续", 44, BattleTheme.TextMain, HorizontalAlignment.Center);
+		var msg = BattleTheme.MakeLabel($"轮到 {SeatDisplayName(seat)} 换牌\n\n点击继续", 44, BattleTheme.TextMain, HorizontalAlignment.Center);
 		msg.Position = new Vector2(0, 420); msg.Size = new Vector2(BattleTheme.ScreenW, 240);
 		panel.AddChild(msg);
 		panel.Pressed += () =>
@@ -2950,17 +3108,16 @@ public partial class BattleScene : Control
 		y += 46 + 16;
 
 		// Rules text on the same dark plate style as the hand cards.
-		if (def.Text.Length > 0)
+		if (!string.IsNullOrWhiteSpace(CardTextFormatting.GetBbcode(def.Id, BattleTheme.BodyText(def.Text))))
 		{
-			string bodyText = BattleTheme.BodyText(def.Text);
-			float plateH = 26f + 26f * Mathf.Ceil(bodyText.Length / 26f);
+			string bodyText = CardTextFormatting.GetBbcode(def.Id, BattleTheme.BodyText(def.Text));
+			float plateH = 26f + 26f * Mathf.Ceil(CardTextFormatting.PlainText(bodyText).Length / 26f);
 			var plate = new Panel { Position = new Vector2(pad, y), Size = new Vector2(innerW, plateH), MouseFilter = MouseFilterEnum.Ignore };
 			plate.AddThemeStyleboxOverride("panel", BattleTheme.Box(
 				new Color(0.07f, 0.06f, 0.05f, 0.7f), new Color(0.62f, 0.5f, 0.3f, 0.45f), 1, 8));
 			_detailPanel.AddChild(plate);
-			var body = BattleTheme.MakeLabel(bodyText, 17, new Color(0.93f, 0.89f, 0.8f), HorizontalAlignment.Center);
-			body.AddThemeFontOverride("font", BattleTheme.UiFontBold);
-			body.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+			var body = CardTextFormatting.MakeRichLabel(def.Id, BattleTheme.BodyText(def.Text), 17,
+				new Color(0.93f, 0.89f, 0.8f));
 			body.VerticalAlignment = VerticalAlignment.Center;
 			body.ClipContents = true;
 			body.Position = new Vector2(pad + 12, y + 2);
@@ -3020,6 +3177,26 @@ public partial class BattleScene : Control
 		"undervault" => "掘世匠会",
 		_ => "中立",
 	};
+
+	/// <summary>Short faction tag for the hotseat 交接提示 (e.g. 铁誓 / 游群 / 教团 / 匠会 / 中立).</summary>
+	private static string FactionMark(string faction) => faction switch
+	{
+		"iron_vow" => "铁誓",
+		"wildpack" => "游群",
+		"duskweaver" => "教团",
+		"undervault" => "匠会",
+		_ => "中立",
+	};
+
+	private string LeaderFaction(string leaderId) => _leaders.TryGet(leaderId, out var l) ? l.Faction : "neutral";
+
+	/// <summary>Seat name shown on the hotseat pass overlay: 玩家1/2 tagged with the deck's faction it actually
+	/// brought (自选卡组后不再固定铁誓/游群). Falls back to a bare 玩家N if the faction is unknown.</summary>
+	private string SeatDisplayName(int seat)
+	{
+		var mark = _seatFactionMark[seat];
+		return string.IsNullOrEmpty(mark) ? $"玩家{seat + 1}" : $"玩家{seat + 1}({mark})";
+	}
 
 	private static string FactionLore(string faction) => faction switch
 	{
@@ -3191,7 +3368,7 @@ public partial class BattleScene : Control
 			_extraPick = ExtraPick.Channeler;
 			ClearHighlights();
 			foreach (var id in channelers) HighlightUnitColor(id, BattleTheme.CostColor); // teal = 引导
-			Log("选择一个友方随从引导(费用/伤害随引导者变化)。");
+			LogPick("引导者", BattleTheme.CostColor, "选择一个友方随从引导（费用/伤害随引导者变化）。");
 			RefreshSelectionUi();
 			return true;
 		}
@@ -3202,7 +3379,7 @@ public partial class BattleScene : Control
 			_extraPick = ExtraPick.Secondary;
 			ClearHighlights();
 			foreach (var id in secondaries) HighlightUnitColor(id, BattleTheme.HpColor);
-			Log("选择接收属性的另一个友方随从(二段目标)。");
+			LogPick("接受目标", BattleTheme.HpColor, "选择接收属性的另一个友方随从。");
 			RefreshSelectionUi();
 			return true;
 		}
@@ -3221,8 +3398,10 @@ public partial class BattleScene : Control
 			foreach (var cell in echoCells) HighlightCell(cell);
 			bool global = echoUnits.Count == 0 && echoCells.Count == 0; // 燎原/燔火: board-wide, no aim
 			ShowEchoBar(global);
-			Log(global ? "薪火回响·门德:再次施放这道薪炎指令,或点「空放」放弃。"
-					   : "薪火回响·门德:点选一个复述目标,或点「空放」放弃。");
+			if (global)
+				Log("薪火回响·门德：再次施放这道薪炎指令，或点「空放」放弃。");
+			else
+				LogPick("作用目标", BattleTheme.DangerColor, "选择一个复述目标，或点「空放」放弃。");
 			RefreshSelectionUi();
 			return true;
 		}
@@ -3528,5 +3707,34 @@ public partial class BattleScene : Control
 			SetStandeeStatuses(node, StandeeStatuses(uv));
 	}
 
-	private void Log(string message) => _logLabel.Text = message;
+	private bool CandidatesDealDamage()
+	{
+		if (_candidates.FirstOrDefault() is not PlayCardCommand p) return false;
+		var hand = _host.GetView(ActiveSeat).Self.Hand.FirstOrDefault(h => h.EntityId == p.CardEntityId);
+		return hand != null && _cards.Get(hand.CardId).Effects.Any(e =>
+			e.Trigger is "play" or "battlecry" && e.Action is "damage" or "sear" or "damage_scatter");
+	}
+
+	private bool CandidatesAreFriendlyReceivers()
+	{
+		var targetIds = _candidates.Select(UnitOf).Where(id => id != null).Select(id => id!.Value).Distinct().ToList();
+		if (targetIds.Count == 0) return false;
+		var units = _host.GetView(ActiveSeat).Units;
+		if (targetIds.Any(id => units.FirstOrDefault(u => u.EntityId == id)?.OwnerSeat != ActiveSeat)) return false;
+
+		if (_candidates.FirstOrDefault() is UseLeaderSkillCommand)
+			return _leaders.TryGet(_selfLeaderId, out var leader) && leader.SkillEffects.Any(IsReceiverEffect);
+		if (_candidates.FirstOrDefault() is not PlayCardCommand p) return false;
+		var hand = _host.GetView(ActiveSeat).Self.Hand.FirstOrDefault(h => h.EntityId == p.CardEntityId);
+		return hand != null && _cards.Get(hand.CardId).Effects.Any(IsReceiverEffect);
+	}
+
+	private static bool IsReceiverEffect(EffectSpec e) =>
+		e.Trigger is "play" or "battlecry" or "leader_skill"
+		&& e.Action is "buff" or "heal" or "grant_keyword" or "move_bonus" or "boost_range";
+
+	private void Log(string message) => _logLabel.Text = $"[center]{message}[/center]";
+
+	private void LogPick(string keyword, Color color, string instruction) =>
+		_logLabel.Text = $"[center][b][color=#{color.ToHtml(false)}]{keyword}[/color][/b]：{instruction}[/center]";
 }

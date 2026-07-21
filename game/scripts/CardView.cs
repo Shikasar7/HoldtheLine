@@ -76,7 +76,7 @@ public static class CardView
             name.Size = new Vector2(w - 16, nameSize + 10);
             root.AddChild(name);
 
-            if (def.Text.Length > 0)
+            if (!string.IsNullOrWhiteSpace(CardTextFormatting.GetBbcode(def.Id, BattleTheme.BodyText(def.Text))))
             {
                 var platePos = new Vector2(w * 0.14f, h * 0.715f);
                 var plateSize = new Vector2(w * 0.72f, h * 0.19f);
@@ -85,14 +85,10 @@ public static class CardView
                     new Color(0.07f, 0.06f, 0.05f, 0.78f), new Color(0.62f, 0.5f, 0.3f, 0.55f), 1, 8));
                 root.AddChild(plate);
 
-                // AutowrapMode BEFORE Size (wrap off → min width = full text width, Size gets clamped up).
-                var body = BattleTheme.MakeLabel(BattleTheme.BodyText(def.Text), bodySize,
-                    new Color(0.93f, 0.89f, 0.8f), HorizontalAlignment.Center);
-                body.AddThemeFontOverride("font", BattleTheme.UiFontBold);
-                body.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+                var body = CardTextFormatting.MakeRichLabel(def.Id, BattleTheme.BodyText(def.Text), bodySize,
+                    new Color(0.93f, 0.89f, 0.8f));
                 body.VerticalAlignment = VerticalAlignment.Center;
                 body.ClipContents = true;
-                body.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
                 body.Position = platePos + new Vector2(w * 0.02f, 2);
                 body.Size = plateSize - new Vector2(w * 0.04f, 4);
                 root.AddChild(body);
@@ -107,8 +103,8 @@ public static class CardView
             name.Size = new Vector2(w - 16, nameSize * 2.6f);
             root.AddChild(name);
 
-            var body = BattleTheme.MakeLabel(BattleTheme.BodyText(def.Text), bodySize + 2, BattleTheme.TextDim, HorizontalAlignment.Center);
-            body.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+            var body = CardTextFormatting.MakeRichLabel(def.Id, BattleTheme.BodyText(def.Text), bodySize + 2,
+                BattleTheme.TextDim);
             body.ClipContents = true;
             body.Position = new Vector2(10, h * 0.42f);
             body.Size = new Vector2(w - 20, h * 0.42f);
@@ -244,17 +240,16 @@ public static class CardView
         y += 46 + 16;
 
         // Rules text.
-        if (def.Text.Length > 0)
+        if (!string.IsNullOrWhiteSpace(CardTextFormatting.GetBbcode(def.Id, BattleTheme.BodyText(def.Text))))
         {
-            string bodyText = BattleTheme.BodyText(def.Text);
-            float plateH = 26f + 26f * Mathf.Ceil(bodyText.Length / 26f);
+            string bodyText = CardTextFormatting.GetBbcode(def.Id, BattleTheme.BodyText(def.Text));
+            float plateH = 26f + 26f * Mathf.Ceil(CardTextFormatting.PlainText(bodyText).Length / 26f);
             var plate = new Panel { Position = new Vector2(pad, y), Size = new Vector2(innerW, plateH), MouseFilter = Control.MouseFilterEnum.Ignore };
             plate.AddThemeStyleboxOverride("panel", BattleTheme.Box(
                 new Color(0.07f, 0.06f, 0.05f, 0.7f), new Color(0.62f, 0.5f, 0.3f, 0.45f), 1, 8));
             panel.AddChild(plate);
-            var body = BattleTheme.MakeLabel(bodyText, 17, new Color(0.93f, 0.89f, 0.8f), HorizontalAlignment.Center);
-            body.AddThemeFontOverride("font", BattleTheme.UiFontBold);
-            body.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+            var body = CardTextFormatting.MakeRichLabel(def.Id, BattleTheme.BodyText(def.Text), 17,
+                new Color(0.93f, 0.89f, 0.8f));
             body.VerticalAlignment = VerticalAlignment.Center;
             body.ClipContents = true;
             body.Position = new Vector2(pad + 12, y + 2);

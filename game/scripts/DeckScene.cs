@@ -88,7 +88,7 @@ public partial class DeckScene : Control
         AddChild(_status);
 
         if (OS.HasFeature("editor") || OS.IsDebugBuild())
-            AddChild(MakeButton("插画取景", new Vector2(1280, 24), new Vector2(200, 60), BattleTheme.PanelDark,
+            AddChild(MakeButton("卡面编辑", new Vector2(1280, 24), new Vector2(200, 60), BattleTheme.PanelDark,
                 () => CardArtEditor.Open(this, _cards, RebuildCollection), textured: true));
         AddChild(MakeButton("保存卡组", new Vector2(1500, 24), new Vector2(180, 60), BattleTheme.AccentSoft, OnSave, textured: true));
         AddChild(MakeButton("返回", new Vector2(1700, 24), new Vector2(160, 60), BattleTheme.PanelDark, () => SceneFx.ChangeScene(this, MenuPath), textured: true));

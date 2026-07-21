@@ -171,8 +171,23 @@ public static class GreedyAi
     private static double ScoreOrder(GameState s, CardDatabase db, PlayCardCommand p, CardDefinition def)
     {
         double score = 0;
+        int deepen = 0;
+        int manaSaved = 0;
+        if (p.ChannelerUnitId is { } channelerId && s.FindUnit(channelerId) is { } channeler
+            && channeler.OwnerSeat == p.Seat && EffectEngine.IsKindleDamageOrder(def))
+        {
+            // Score the complete play, not just its target. Different channelers can change both the
+            // resolved damage and the mana left for the rest of the turn.
+            deepen = EffectEngine.ChannelEffectAmount(db, channeler, "deepen");
+            int discount = EffectEngine.ChannelEffectAmount(db, channeler, "discount");
+            manaSaved = discount > 0 ? def.Cost - Math.Max(1, def.Cost - discount) : 0;
+        }
         foreach (var e in def.Effects.Where(e => e.Trigger == "play"))
-            score += ScoreEffect(s, db, p.Seat, e, p.TargetUnitId, p.TargetCell, def.Cost);
+            score += ScoreEffect(s, db, p.Seat, e, p.TargetUnitId, p.TargetCell, def.Cost, deepen);
+
+        // One saved mana is meaningfully better than deterministic tie jitter, while damage remains
+        // the dominant consideration when a deepen channeler changes a kill breakpoint.
+        score += manaSaved * 1.25;
 
         // 教团: any order also fires every friendly on-cast engine, so it is worth more while they are out.
         score += OnCastEngineBonus(s, db, p.Seat);
@@ -194,11 +209,13 @@ public static class GreedyAi
     }
 
     /// <summary>Value of one effect resolved with the given targets, from the acting seat's perspective.</summary>
-    private static double ScoreEffect(GameState s, CardDatabase db, int seat, EffectSpec e, int? targetUnitId, Cell? targetCell, int cost)
+    private static double ScoreEffect(GameState s, CardDatabase db, int seat, EffectSpec e, int? targetUnitId, Cell? targetCell,
+        int cost, int spellDamageBonus = 0)
     {
         var target = targetUnitId is { } id ? s.FindUnit(id) : null;
         bool targetIsEnemy = target != null && target.OwnerSeat != seat;
         bool targetIsAlly = target != null && target.OwnerSeat == seat;
+        int effectAmount = e.Amount + (e.IsSpellDamage ? spellDamageBonus : 0);
 
         // 双模式 (docs/21 §1.8): an effect gated to the wrong side won't fire — score it 0 so 焰鞭's two halves
         // don't cancel (its enemy-damage effect must not read as friendly-fire in the friendly-transfer mode).
@@ -216,15 +233,15 @@ public static class GreedyAi
                     case "target_unit":
                     case "target_unit_own_half":
                         if (target == null) return 0;
-                        return targetIsEnemy ? DamageValue(s, seat, target, e.Amount, sear) : -100;
+                        return targetIsEnemy ? DamageValue(s, seat, target, effectAmount, sear) : -100;
                     case "column_enemies":
-                        return SumDamage(s, seat, s.Units.Where(u => u.OwnerSeat != seat && InCol(u, targetCell)), e.Amount, sear);
+                        return SumDamage(s, seat, s.Units.Where(u => u.OwnerSeat != seat && InCol(u, targetCell)), effectAmount, sear);
                     case "row_enemies":
-                        return SumDamage(s, seat, s.Units.Where(u => u.OwnerSeat != seat && InRow(u, targetCell)), e.Amount, sear);
+                        return SumDamage(s, seat, s.Units.Where(u => u.OwnerSeat != seat && InRow(u, targetCell)), effectAmount, sear);
                     case "cell_cross_all":
-                        return targetCell is { } cc ? SumDamage(s, seat, CrossUnits(s, cc), e.Amount, sear) : 0;
+                        return targetCell is { } cc ? SumDamage(s, seat, CrossUnits(s, cc), effectAmount, sear) : 0;
                     case "unit_cross_all":
-                        return target == null ? 0 : SumDamage(s, seat, CrossUnits(s, target.Cell), e.Amount, sear);
+                        return target == null ? 0 : SumDamage(s, seat, CrossUnits(s, target.Cell), effectAmount, sear);
                     case "adjacent_enemies":
                         return 1.5; // source-relative on-cast/deathrattle — small flat credit
                     default:
@@ -302,7 +319,7 @@ public static class GreedyAi
             case "damage_scatter": // 燔火: `amount` missiles of 1 at random enemies — worth ~ per-missile enemy value.
             {
                 int enemies = s.Units.Count(u => u.OwnerSeat != seat);
-                return enemies == 0 ? 0 : Math.Min(e.Amount, enemies * 3) * 1.5;
+                return enemies == 0 ? 0 : Math.Min(effectAmount, enemies * 3) * 1.5;
             }
             case "stat_transfer": // 焰鞭 friendly mode: only worth it on a cheap/dying/deathrattle body (SacrificeValue guards it).
                 return target == null || !targetIsAlly ? 0 : SacrificeValue(db, target) + 1.5;

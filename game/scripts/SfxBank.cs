@@ -3,7 +3,7 @@ using Godot;
 namespace HoldTheLine.Game;
 
 /// <summary>
-/// Sound-effect bank for the 12 gameplay cues.  The shipped CC0 OGG assets are loaded first; the
+/// Sound-effect bank for gameplay cues. Shipped OGG/WAV assets are loaded first; the
 /// procedural clips remain as a safe fallback when an asset was omitted from a partial export or
 /// could not be imported.  A small voice pool lets rapid events (a multi-hit turn) overlap instead
 /// of cutting each other off.
@@ -31,6 +31,9 @@ public sealed class SfxBank
         LoadOrFallback("attack", Tone(120f, 0.12f, 10f, Wave.Square, 0.5f, noise: 0.4f));   // melee impact
         LoadOrFallback("shoot", Tone(520f, 0.12f, 9f, Wave.Triangle, 0.4f, noise: 0.15f));   // ranged launch
         LoadOrFallback("cast", Tone(784f, 0.16f, 6f, Wave.Triangle, 0.42f));                  // command cast
+        LoadOrFallback("molten_slam", Tone(74f, 0.42f, 6f, Wave.Square, 0.7f, noise: 0.35f)); // 熔岩巨剑
+        LoadOrFallback("spell_ward", Tone(988f, 0.34f, 5f, Wave.Triangle, 0.42f, noise: 0.08f)); // 法术护体
+        LoadOrFallback("phoenix_rebirth", Tone(659f, 0.85f, 2f, Wave.Triangle, 0.5f, noise: 0.12f)); // 浴火重生
         LoadOrFallback("death", Tone(90f, 0.22f, 7f, Wave.Square, 0.5f, noise: 0.55f));       // unit death
         LoadOrFallback("leaderhit", Tone(60f, 0.30f, 4f, Wave.Sine, 0.85f, noise: 0.15f));    // leader damage
         // --- flow / feedback ---
@@ -63,14 +66,17 @@ public sealed class SfxBank
 
     private void LoadOrFallback(string name, AudioStreamWav fallback)
     {
-        string path = AssetRoot + name + ".ogg";
-        if (ResourceLoader.Exists(path))
+        foreach (string ext in new[] { ".ogg", ".wav" })
         {
-            var stream = ResourceLoader.Load<AudioStream>(path);
-            if (stream != null)
+            string path = AssetRoot + name + ext;
+            if (ResourceLoader.Exists(path))
             {
-                _sounds[name] = stream;
-                return;
+                var stream = ResourceLoader.Load<AudioStream>(path);
+                if (stream != null)
+                {
+                    _sounds[name] = stream;
+                    return;
+                }
             }
         }
 

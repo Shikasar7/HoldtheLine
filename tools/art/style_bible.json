@@ -227,6 +227,24 @@
       "art_prompt": "glowing faded-teal energy bolt pointing exactly right with a short horizontal motion trail"
     },
     {
+      "id": "molten_slam_sheet",
+      "type": "fx",
+      "faction": "duskweaver",
+      "art_prompt": "4 by 2 sprite sheet with exactly eight chronological frames of a colossal black-iron molten greatsword descending into a violent cleave, molten impact burst and ember decay, pure black background"
+    },
+    {
+      "id": "spell_ward_sheet",
+      "type": "fx",
+      "faction": null,
+      "art_prompt": "4 by 2 sprite sheet with exactly eight chronological frames of a faded-teal rune plaque forming a hemispherical spell barrier, absorbing one incoming spell, fracturing into luminous shards and fading, pure black background"
+    },
+    {
+      "id": "phoenix_rebirth_sheet",
+      "type": "fx",
+      "faction": "duskweaver",
+      "art_prompt": "4 by 2 sprite sheet with exactly eight chronological frames of an ember egg erupting into a flame cocoon, a phoenix spreading both wings, then spiraling into a crown of embers, pure black background"
+    },
+    {
       "id": "hit_spark",
       "type": "fx",
       "faction": null,

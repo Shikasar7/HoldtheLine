@@ -1,0 +1,627 @@
+{
+  "dw_ash_acolyte": {
+    "bbcode": "\u4F60\u6BCF\u65BD\u653E\u4E00\u5F20\u6307\u4EE4\u724C\n\u672C\u968F\u4ECE [font=res://assets/fonts/SourceHanSerifSC-Bold.otf][color=#55c7b8]\u002B1[/color]/\u002B0[/font]"
+  },
+  "dw_cinder_moth": {
+    "bbcode": "[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u4EA1\u8BED[/font][/color]:\u76F8\u90BB\u654C\u65B9\u968F\u4ECE\u53D7\u5230 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font] \u70B9[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u4F24\u5BB3[/font][/color]"
+  },
+  "dw_pyre_channeler": {
+    "bbcode": "\u4F60\u6BCF\u65BD\u653E\u4E00\u5F20\u6307\u4EE4\u724C\u540E,\u76F8\u90BB\u654C\u65B9\u968F\u4ECE\u53D7\u5230 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u70B9[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u4F24\u5BB3[/font][/color]"
+  },
+  "dw_dusk_warden": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]",
+    "generated": true
+  },
+  "dw_flame_caster": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color](\u4EE5\u81EA\u8EAB\u4E3A\u951A\u70B9,[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]):\u5BF9\u4E00\u4E2A\u968F\u4ECE\u9020\u6210 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u70B9[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u4F24\u5BB3[/font][/color]",
+    "generated": true
+  },
+  "dw_ember_seer": {
+    "bbcode": "\u4F60\u6BCF\u65BD\u653E\u4E00\u5F20\u6307\u4EE4\u724C\n\u672C\u968F\u4ECE [font=res://assets/fonts/SourceHanSerifSC-Bold.otf][color=#55c7b8]\u002B1/\u002B1[/color][/font]"
+  },
+  "dw_flare_dancer": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u7A81\u88AD[/font][/color]\u3002\n[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u84C4\u80FD[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font](\u4F60\u7684\u4E0B\u4E00\u5F20[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u4F24\u5BB3[/font][/color]\u6307\u4EE4 [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B2[/font][/color])\u3002",
+    "generated": true
+  },
+  "dw_pyroclast": {
+    "bbcode": "\u7531\u672C\u968F\u4ECE[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5F15\u5BFC[/font][/color]\u7684[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E[/font][/color]\u6307\u4EE4\u4F24\u5BB3 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B2[/font]"
+  },
+  "dw_ash_phoenix": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u4EA1\u8BED[/font][/color]:\u5728\u4F60\u7684\u5E95\u7EBF\u884C\u53EC\u5524\u4E00\u53EA [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]/[font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u70EC\u706B\u96CF\u51E4,\u5E76\u5C06\u4E00\u5F20\u968F\u673A\u6307\u4EE4\u724C\u4ECE\u4F60\u7684\u5893\u5730\u79FB\u56DE\u624B\u724C\u3002\n[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u514D\u75AB\u85AA\u708E[/font][/color]"
+  },
+  "dw_first_ritualist": {
+    "bbcode": "\u4F60\u6BCF\u56DE\u5408\u65BD\u653E\u7684\u7B2C\u4E00\u5F20[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u4F24\u5BB3[/font][/color]\u6307\u4EE4\u53EF\u4EE5\u518D\u6B21\u65BD\u653E\u4E00\u6B21,\u7531\u4F60\u53E6\u9009\u76EE\u6807(\u6CA1\u6709\u654C\u65B9\u76EE\u6807\u5219\u7A7A\u653E/\u53D6\u6D88)",
+    "generated": true
+  },
+  "dw_spark": {
+    "bbcode": "\u5BF9\u4E00\u4E2A\u968F\u4ECE\u9020\u6210 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u70B9[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u4F24\u5BB3[/font][/color],\u62BD [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u5F20\u724C\u3002\n\u9700\u53CB\u65B9\u968F\u4ECE\u5F15\u5BFC(\u65BD\u6CD5\u8DDD\u79BB [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font])\u3002"
+  },
+  "dw_flame_lash": {
+    "bbcode": "\u53EF\u9009\u62E9\u654C\u65B9\u968F\u4ECE\u2192\u9020\u6210 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font] \u70B9[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u4F24\u5BB3[/font][/color]\uFF1B\u6216\u9009\u53CB\u65B9\u968F\u4ECE\u2192\u6D88\u706D\u5B83\uFF0C\u5C06\u5176\u653B/\u8840\u5168\u989D\u8F6C\u79FB\u7ED9\u53E6\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE\u3002\u9700\u53CB\u65B9\u968F\u4ECE\u5F15\u5BFC(\u65BD\u6CD5\u8DDD\u79BB 2)\u3002"
+  },
+  "dw_immolate": {
+    "bbcode": "\u732E\u796D\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE,\u62BD [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u5F20\u724C"
+  },
+  "dw_vesper_blast": {
+    "bbcode": "\u5BF9\u4E00\u4E2A\u683C\u5B50\u53CA\u5176\u76F8\u90BB\u683C\u7684\u6240\u6709\u968F\u4ECE\u9020\u6210 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u70B9[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u4F24\u5BB3[/font][/color](\u542B\u53CB\u65B9)\u3002\n\u9700\u53CB\u65B9\u968F\u4ECE[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5F15\u5BFC[/font][/color](\u65BD\u6CD5\u8DDD\u79BB [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font])\u3002",
+    "generated": true
+  },
+  "dw_fire_curtain": {
+    "bbcode": "\u9009\u62E9\u4E00\u884C:\u8BE5\u884C\u6240\u6709\u654C\u65B9\u968F\u4ECE\u53D7\u5230 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u70B9[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u4F24\u5BB3[/font][/color]\u3002\n\u9700\u53CB\u65B9\u968F\u4ECE[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5F15\u5BFC[/font][/color](\u65BD\u6CD5\u8DDD\u79BB [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font])\u3002",
+    "generated": true
+  },
+  "dw_column_inferno": {
+    "bbcode": "\u5BF9\u6240\u6709\u654C\u65B9\u968F\u4ECE\u9020\u6210 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font] \u70B9[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u707C\u8680\u4F24\u5BB3[/font][/color](\u65E0\u89C6[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color])\u3002\n\u9700\u53CB\u65B9\u968F\u4ECE[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5F15\u5BFC[/font][/color]\u3002",
+    "generated": true
+  },
+  "dw_phoenix_chick": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6210\u957F[/font][/color]: [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]4[/font] \u4E2A\u56DE\u5408\u540E\u5316\u4E3A\u7070\u70EC\u51E4\u51F0\uFF0C\u6BCF\u6B21\u53D7\u5230\u85AA\u708E\u4F24\u5BB3\u52A0\u5FEB [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u56DE\u5408\uFF0C[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u514D\u75AB\u85AA\u708E\u4F24\u5BB3[/font][/color]\u3002"
+  },
+  "dw_flame_adept": {
+    "bbcode": "\u7531\u672C\u968F\u4ECE\u5F15\u5BFC\u7684[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E[/font][/color]\u6307\u4EE4[font=res://assets/fonts/SourceHanSerifSC-Bold.otf][color=#df7467]\u6CD5\u672F\u52A0\u6DF1 1[/color][/font](\u4F24\u5BB3 \u002B1)"
+  },
+  "dw_scorch_zealot": {
+    "bbcode": "[font=res://assets/fonts/SourceHanSerifSC-Bold.otf][color=#e0b24a]\u5F52\u9B42[/color][/font]:\u4F60\u7684\u56DE\u5408\u5185\u53CB\u65B9\u968F\u4ECE\u6B7B\u4EA1\u65F6,\u83B7\u5F97 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u70B9\u672C\u56DE\u5408\u8F89\u5C18(\u6BCF\u56DE\u5408\u6700\u591A 2 \u6B21)"
+  },
+  "dw_choir_acolyte": {
+    "bbcode": "\u4F60\u6BCF\u65BD\u653E\u4E00\u5F20\u6307\u4EE4\u724C\n\u672C\u968F\u4ECE [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B0/[color=#55c7b8]\u002B1[/color][/font]"
+  },
+  "dw_ashen_courier": {
+    "bbcode": "[font=res://assets/fonts/SourceHanSerifSC-Bold.otf][color=#e0b24a]\u6218\u543C[/color][/font]:\u5C06 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u5F20\u968F\u673A\u6307\u4EE4\u724C\u4ECE\u4F60\u7684\u5893\u5730\u79FB\u56DE\u624B\u724C"
+  },
+  "dw_pyre_guard": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]",
+    "generated": true
+  },
+  "dw_conflagrate": {
+    "bbcode": "\u9020\u6210 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]5[/font] \u6B21 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u70B9[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u4F24\u5BB3[/font][/color],\u968F\u673A\u5206\u914D\u5230\u654C\u65B9\u968F\u4ECE(\u6BCF\u70B9[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u52A0\u6DF1[/font][/color]/[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u84C4\u80FD[/font][/color] [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1[/font][/color] \u53D1)\u3002\n\u9700\u53CB\u65B9\u968F\u4ECE[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5F15\u5BFC[/font][/color]\u3002",
+    "generated": true
+  },
+  "dw_searing_brand": {
+    "bbcode": "\u5BF9\u4E00\u4E2A\u968F\u4ECE\u968F\u673A\u9020\u6210 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u6216 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font] \u70B9[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u707C\u8680[/font][/color]\u4F24\u5BB3(\u65E0\u89C6\u575A\u5B88)\u3002\u9700\u53CB\u65B9\u968F\u4ECE\u5F15\u5BFC(\u65BD\u6CD5\u8DDD\u79BB 2)\u3002"
+  },
+  "dw_vesper_cantor": {
+    "bbcode": "\u7531\u672C\u968F\u4ECE[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5F15\u5BFC[/font][/color]\u7684[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u4F24\u5BB3[/font][/color]\u6307\u4EE4\u8D39\u7528 [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]-1[/font][/color](\u4E0B\u9650 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u8D39)",
+    "generated": true
+  },
+  "dw_rekindle": {
+    "bbcode": "\u5C06 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u5F20\u968F\u673A\u6307\u4EE4\u724C\u4ECE\u4F60\u7684\u5893\u5730\u79FB\u56DE\u624B\u724C"
+  },
+  "dw_flare_summoner": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u5728\u4F60\u7684\u5E95\u7EBF\u884C\u53EC\u5524\u4E00\u53EA [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]/[font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u70EC\u706B\u96CF\u51E4",
+    "generated": true
+  },
+  "dw_cinder_storm": {
+    "bbcode": "\u9009\u62E9\u4E00\u5217:\u8BE5\u5217\u6240\u6709\u654C\u65B9\u968F\u4ECE\u53D7\u5230 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u70B9[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u707C\u8680\u4F24\u5BB3[/font][/color]\u3002\n\u9700\u53CB\u65B9\u968F\u4ECE[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5F15\u5BFC[/font][/color](\u65BD\u6CD5\u8DDD\u79BB [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font])\u3002",
+    "generated": true
+  },
+  "dw_inferno_behemoth": {
+    "bbcode": "\u6BCF\u65BD\u653E\u4E00\u5F20 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]4[/font] \u8D39\u4EE5\u4E0A\u6307\u4EE4\u724C\uFF0C\u5BF9\u6240\u6709\u654C\u65B9\u968F\u4ECE\u9020\u6210 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u70B9[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u4F24\u5BB3[/font][/color]"
+  },
+  "dw_dusk_matriarch": {
+    "bbcode": "\u4F60\u6BCF\u65BD\u653E\u4E00\u5F20\u6307\u4EE4\u724C\u540E\n\u5C06 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u5F20\u968F\u673A\u6307\u4EE4\u724C\u4ECE\u4F60\u7684\u5893\u5730\u79FB\u56DE\u624B\u724C,\u4E14\u672C\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B1[/font][/color]\u3002\n\u6C38\u7130\u4E0D\u7184\u3002",
+    "generated": true
+  },
+  "dw_molten_sword_priest": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u4F60\u53EF\u4EE5\u732E\u796D\u624B\u724C\u4E2D [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u5F20\u6307\u4EE4\u724C\uFF1B\n\u82E5\u5982\u6B64\u505A,\u88C5\u5907[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u7194\u5CA9\u5DE8\u5251[/font][/color]([color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B3[/font][/color] \u653B,[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u8D2F\u7A7F[/font][/color])",
+    "generated": true
+  },
+  "dw_smoke_bomb": {
+    "bbcode": "\u76EE\u6807\u683C\u53CA\u76F8\u90BB\u5341\u5B57\u6210\u4E3A\u70DF\u5E55\u533A\uFF0C\u533A\u5185\u968F\u4ECE\u65E0\u6CD5\u653B\u51FB\u4E14\u4E0D\u53CD\u51FB\uFF0C\u8D70\u51FA\u5373\u89E3\u9664\uFF0C\u6301\u7EED\u5230\u4F60\u7684\u4E0B\u56DE\u5408\u3002\u9700\u53CB\u65B9\u968F\u4ECE\u5F15\u5BFC(\u65BD\u6CD5\u8DDD\u79BB 3)\u3002"
+  },
+  "dw_ash_bind": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5B9A\u8EAB[/font][/color] \u4E00\u4E2A\u968F\u4ECE\u76F4\u5230\u4F60\u7684\u4E0B\u56DE\u5408(\u4E0D\u80FD\u79FB\u52A8,\u53EF\u653B\u51FB)\u3002\u9700\u53CB\u65B9\u968F\u4ECE\u5F15\u5BFC(\u65BD\u6CD5\u8DDD\u79BB 3)\u3002"
+  },
+  "dw_oath_counter": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6697\u724C[/font][/color]:\u4E0B\u6B21\u654C\u65B9\u6307\u4EE4\u724C\u9009\u4E2D\u4F60\u7684\u968F\u4ECE\u65F6,\u8BE5\u6307\u4EE4\u65E0\u6548,\u6539\u4E3A\u5BF9\u65BD\u653E\u8005\u4E00\u65B9\u968F\u673A\u968F\u4ECE\u9020\u6210 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font] \u70B9[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u4F24\u5BB3[/font][/color]",
+    "generated": true
+  },
+  "dw_ember_trap": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6697\u724C[/font][/color]\uFF1A\u5728\u4E00\u4E2A\u65E0\u4EBA\u683C\u5B50\u57CB\u8BBE\u9677\u9631\u3002\u968F\u4ECE\u8FDB\u5165\u5373\u53D7 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3 \u70B9[color=#df7467]\u85AA\u708E\u707C\u8680[/color][/font]\uFF1B\u73B0\u5F62\u540E\u706B\u7130\u6301\u7EED [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u56DE\u5408\u3002(\u4E0D\u53EF\u8BBE\u5728\u654C\u65B9\u5E95\u7EBF)"
+  },
+  "iv_oath_squire": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color]",
+    "generated": true
+  },
+  "iv_shieldbearer": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]",
+    "generated": true
+  },
+  "iv_garrison_guard": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u9A7B\u9632[/font][/color](\u5728\u5DF1\u65B9\u5E95\u7EBF\u884C\u65F6 [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B1[/font][/color])",
+    "generated": true
+  },
+  "iv_line_sergeant": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u76F8\u90BB\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B0[/font][/color]",
+    "generated": true
+  },
+  "iv_oathguard": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]\u3001[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color]\n[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]\uFF1A\u76F8\u90BB\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\n\u002B0/\u002B1[/font][/color]\u3002"
+  },
+  "iv_bastion_archer": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]",
+    "generated": true
+  },
+  "iv_rampart_hammer": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color]",
+    "generated": true
+  },
+  "iv_oath_avenger": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u4EA1\u8BED[/font][/color]:\u76F8\u90BB\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B1[/font][/color]",
+    "generated": true
+  },
+  "iv_gate_titan": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]",
+    "generated": true
+  },
+  "iv_bulwark": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6301\u76FE[/font][/color]",
+    "generated": true
+  },
+  "iv_aegis_paragon": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6301\u76FE[/font][/color]",
+    "generated": true
+  },
+  "iv_fortress_lord": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]\u3001[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color]\u3001[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u9A7B\u9632[/font][/color]\n[u][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5B88\u5728\u5E95\u7EBF\uFF0C\u4FBF\u662F\u4E00\u5EA7\u57CE[/font][/u]"
+  },
+  "iv_oath_prayer": {
+    "bbcode": "\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B0/\u002B2[/font][/color]",
+    "generated": true
+  },
+  "iv_shield_wall": {
+    "bbcode": "\u4F7F\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE\u83B7\u5F97[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6301\u76FE[/font][/color]",
+    "generated": true
+  },
+  "iv_hold_the_line": {
+    "bbcode": "\u4F60\u5E95\u7EBF\u884C\u7684\u6240\u6709\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B1[/font][/color]",
+    "generated": true
+  },
+  "iv_overline_execution": {
+    "bbcode": "\u5BF9\u4F60\u534A\u573A\u5185\u7684\u4E00\u4E2A\u654C\u65B9\u968F\u4ECE\u9020\u6210 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]4[/font] \u70B9\u4F24\u5BB3",
+    "generated": true
+  },
+  "iv_gate_ward": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]",
+    "generated": true
+  },
+  "iv_shield_brother": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color]",
+    "generated": true
+  },
+  "iv_garrison_captain": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u9A7B\u9632[/font][/color](\u5728\u5DF1\u65B9\u5E95\u7EBF\u884C\u65F6 [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B1[/font][/color])",
+    "generated": true
+  },
+  "iv_bulwark_smith": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]\uFF1A\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\n\u002B0/\u002B2[/font][/color]"
+  },
+  "iv_wall_crossbow": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]",
+    "generated": true
+  },
+  "iv_stone_sentinel": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5B88\u62A4[/font][/color],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color]",
+    "generated": true
+  },
+  "iv_fortify": {
+    "bbcode": "\u4F7F\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE\u83B7\u5F97[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color]",
+    "generated": true
+  },
+  "iv_oath_banner": {
+    "bbcode": "\u4F60\u5E95\u7EBF\u884C\u7684\u6240\u6709\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B0/\u002B2[/font][/color]",
+    "generated": true
+  },
+  "iv_siege_anchor": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u9A7B\u9632[/font][/color](\u5728\u5DF1\u65B9\u5E95\u7EBF\u884C\u65F6 [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B1[/font][/color])",
+    "generated": true
+  },
+  "iv_aegis_sergeant": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6301\u76FE[/font][/color]\u3002\n[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE\u83B7\u5F97[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6301\u76FE[/font][/color]\u3002",
+    "generated": true
+  },
+  "iv_overline_judge": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color]\u3002\n[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u5BF9\u4F60\u534A\u573A\u5185\u7684\u4E00\u4E2A\u654C\u65B9\u968F\u4ECE\u9020\u6210 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u70B9\u4F24\u5BB3\u3002",
+    "generated": true
+  },
+  "iv_adamant_colossus": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5B88\u62A4[/font][/color],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color]",
+    "generated": true
+  },
+  "iv_last_bastion": {
+    "bbcode": "\u4F60\u5E95\u7EBF\u884C\u7684\u6240\u6709\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B1[/font][/color] \u5E76\u83B7\u5F97[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color]",
+    "generated": true
+  },
+  "iv_saint_warden": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]\u3001[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6301\u76FE[/font][/color]\u3001[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u798F\u6CFD[/font][/color]\n[font=res://assets/fonts/SourceHanSerifSC-Bold.otf][u]\u5723\u5149\uFF0C\u798F\u6CFD\u5929\u4E0B\uFF01[/u][/font]"
+  },
+  "neutral_coin": {
+    "bbcode": "\u83B7\u5F97 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u70B9\u672C\u56DE\u5408\u53EF\u7528\u7684\u8F89\u5C18",
+    "generated": true
+  },
+  "nl_militia": {
+    "bbcode": "[font=res://assets/fonts/SourceHanSerifSC-Bold.otf][u]\u62FF\u8D77\u8349\u53C9\u7684\u519C\u592B\n\u51B2\u5728\u6700\u524D[/u][/font]"
+  },
+  "nl_recruit": {
+    "bbcode": "[font=res://assets/fonts/SourceHanSerifSC-Bold.otf][u]\u521A\u9886\u5230\u519B\u9774\n\u8FD8\u6CA1\u9886\u5230\u52C7\u6C14[/u][/font]"
+  },
+  "nl_barrier_squad": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]\n[font=res://assets/fonts/SourceHanSerifSC-Bold.otf][u]\u5B83\u4E0D\u8FD8\u624B\uFF0C\u53EA\u6321\u8DEF[/u][/font]"
+  },
+  "nl_crossbowman": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]",
+    "generated": true
+  },
+  "nl_scout": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u75BE\u884C[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]",
+    "generated": true
+  },
+  "nl_pikeman": {
+    "bbcode": "[font=res://assets/fonts/SourceHanSerifSC-Bold.otf][u]\u66F2\u7EBF\u4E0A\u7684\u8001\u5B9E\u4EBA[/u][/font]"
+  },
+  "nl_supply_officer": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u62BD\u4E00\u5F20\u724C",
+    "generated": true
+  },
+  "nl_field_medic": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]\uFF1A\u4F7F\u4E00\u4E2A\u968F\u4ECE[color=#87c878][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6062\u590D[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u70B9\u751F\u547D"
+  },
+  "nl_line_breaker": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u7A81\u88AD[/font][/color]",
+    "generated": true
+  },
+  "nl_ballista": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font]",
+    "generated": true
+  },
+  "nl_mercenary_king": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u51B2\u950B[/font][/color]\u3001[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u8DF5\u8E0F[/font][/color]\n[font=res://assets/fonts/SourceHanSerifSC-Bold.otf][u]\u843D\u5730\u5373\u6495\u5F00\u7F3A\u53E3[/u][/font]"
+  },
+  "nl_warhulk": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u7A81\u88AD[/font][/color]\n[font=res://assets/fonts/SourceHanSerifSC-Bold.otf][u]\u8981\u81EA\u5DF1\u78BE\u8FC7\u53BB[/u][/font]"
+  },
+  "nl_volley": {
+    "bbcode": "\u5BF9\u4E00\u4E2A\u4F4D\u4E8E\u4F60\u534A\u573A\u7684\u968F\u4ECE\u9020\u6210 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u70B9\u4F24\u5BB3",
+    "generated": true
+  },
+  "nl_requisition": {
+    "bbcode": "\u62BD\u4E24\u5F20\u724C",
+    "generated": true
+  },
+  "nl_entrench": {
+    "bbcode": "\u4F7F\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE\u83B7\u5F97[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]",
+    "generated": true
+  },
+  "nl_focused_barrage": {
+    "bbcode": "\u9009\u62E9\u4E00\u5217:\u8BE5\u5217\u6240\u6709\u654C\u65B9\u968F\u4ECE\u53D7\u5230 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u70B9\u4F24\u5BB3",
+    "generated": true
+  },
+  "nl_torchbearer": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u4EA1\u8BED[/font][/color]:\u5BF9\u76F8\u90BB\u654C\u65B9\u968F\u4ECE\u9020\u6210 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u70B9\u4F24\u5BB3",
+    "generated": true
+  },
+  "nl_quartermaster": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE\n [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B0[/font][/color]"
+  },
+  "nl_outrider": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u75BE\u884C[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]",
+    "generated": true
+  },
+  "nl_watchtower_archer": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]",
+    "generated": true
+  },
+  "nl_sapper": {
+    "bbcode": "[font=res://assets/fonts/SourceHanSerifSC-Bold.otf][color=#e0b24a]\u6218\u543C[/color][/font]\uFF1A\u5BF9\u4E00\u4E2A\u968F\u4ECE\u9020\u6210 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u70B9\u4F24\u5BB3(\u4EE5\u81EA\u8EAB\u4E3A\u951A\u70B9,\u5C04\u7A0B2)"
+  },
+  "nl_halberdier": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color]",
+    "generated": true
+  },
+  "nl_shield_veteran": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]",
+    "generated": true
+  },
+  "nl_standard_bearer": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u76F8\u90BB\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B1[/font][/color]",
+    "generated": true
+  },
+  "nl_longbow_line": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]",
+    "generated": true
+  },
+  "nl_battering_ram": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u8DF5\u8E0F[/font][/color]",
+    "generated": true
+  },
+  "nl_field_dressing": {
+    "bbcode": "\u4E00\u4E2A\u968F\u4ECE[color=#87c878]\u6062\u590D[/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font] \u70B9\u751F\u547D"
+  },
+  "nl_tactician": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u62BD [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u5F20\u724C",
+    "generated": true
+  },
+  "nl_mercenary_captain": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u51B2\u950B[/font][/color]",
+    "generated": true
+  },
+  "nl_sharpshooter": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font]",
+    "generated": true
+  },
+  "nl_shadow_agent": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5077\u88AD[/font][/color]",
+    "generated": true
+  },
+  "nl_watch_commander": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE\u83B7\u5F97[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]",
+    "generated": true
+  },
+  "nl_drillmaster": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u4F60\u7684\u6240\u6709\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B0[/font][/color]",
+    "generated": true
+  },
+  "nl_forced_march": {
+    "bbcode": "\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE\u672C\u56DE\u5408\u79FB\u52A8\u529B [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1[/font]\u3001\u62BD [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u5F20\u724C"
+  },
+  "nl_royal_lancer": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u51B2\u950B[/font][/color]",
+    "generated": true
+  },
+  "nl_juggernaut": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u8DF5\u8E0F[/font][/color],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color]",
+    "generated": true
+  },
+  "nl_grand_banner": {
+    "bbcode": "\u4F60\u7684\u6240\u6709\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B1[/font][/color]",
+    "generated": true
+  },
+  "nl_strategist": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u62BD [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u5F20\u724C\u3002\n\u8FD0\u7B79\u4E8E\u5E37\u5E44\u4E4B\u4E2D\u3002",
+    "generated": true
+  },
+  "nl_stealth": {
+    "bbcode": "\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE\u83B7\u5F97[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6F5C\u884C[/font][/color](\u4E0D\u80FD\u88AB\u654C\u65B9\u6307\u4EE4/\u6218\u543C\u9009\u4E2D\uFF0C\u653B\u51FB\u540E\u73B0\u5F62)"
+  },
+  "nl_spell_ward": {
+    "bbcode": "\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE\u83B7\u5F97[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6CD5\u672F\u62A4\u4F53[/font][/color](\u62B5\u6321\u4E0B\u4E00\u6B21\u654C\u65B9\u6307\u4EE4/\u6218\u543C\u6548\u679C)"
+  },
+  "uv_cog_apprentice": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B0/\u002B1[/font][/color]",
+    "generated": true
+  },
+  "uv_barricade_frame": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]",
+    "generated": true
+  },
+  "uv_scattergunner": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]",
+    "generated": true
+  },
+  "uv_bolt_turret": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u67B6\u8BBE[/font][/color]",
+    "generated": true
+  },
+  "uv_repair_sapper": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u4E00\u4E2A\u968F\u4ECE\u6062\u590D [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u70B9\u751F\u547D",
+    "generated": true
+  },
+  "uv_flak_battery": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]",
+    "generated": true
+  },
+  "uv_line_engineer": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE\u83B7\u5F97[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]",
+    "generated": true
+  },
+  "uv_precision_cannon": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u8D2F\u7A7F[/font][/color](\u8FDC\u7A0B\u653B\u51FB\u65F6,\u540C\u65F6\u5BF9\u76EE\u6807\u6B63\u540E\u65B9\u4E00\u683C\u7684\u968F\u4ECE\u9020\u6210\u7B49\u989D\u4F24\u5BB3)",
+    "generated": true
+  },
+  "uv_siege_platform": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u67B6\u8BBE[/font][/color]",
+    "generated": true
+  },
+  "uv_ironclad": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]",
+    "generated": true
+  },
+  "uv_grand_cannon": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u8D2F\u7A7F[/font][/color],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u67B6\u8BBE[/font][/color]\u3002\n\u843D\u6210\u5373\u5C01\u9501\u4E00\u6A2A\u4E00\u7EB5\u3002",
+    "generated": true
+  },
+  "uv_calibrate": {
+    "bbcode": "\u4E00\u4E2A\u53CB\u65B9[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u67B6\u8BBE[/font][/color]\u968F\u4ECE\u672C\u56DE\u5408\u53EF\u79FB\u52A8\u4E00\u683C",
+    "generated": true
+  },
+  "uv_emergency_repair": {
+    "bbcode": "\u4E00\u4E2A\u968F\u4ECE\u6062\u590D [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]4[/font] \u70B9\u751F\u547D",
+    "generated": true
+  },
+  "uv_deploy_sentries": {
+    "bbcode": "\u5728\u4F60\u7684\u5E95\u7EBF\u884C\u53EC\u5524\u4E24\u5EA7 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font]/[font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u54E8\u6212\u70AE([color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]\u3001[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u67B6\u8BBE[/font][/color])",
+    "generated": true
+  },
+  "uv_fire_lattice": {
+    "bbcode": "\u9009\u62E9\u4E00\u5217:\u8BE5\u5217\u6240\u6709\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B1[/font][/color]",
+    "generated": true
+  },
+  "uv_overcharge": {
+    "bbcode": "\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B1[/font][/color],\u5E76\u83B7\u5F97[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u8D2F\u7A7F[/font][/color]",
+    "generated": true
+  },
+  "uv_sentry_token": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u67B6\u8BBE[/font][/color]",
+    "generated": true
+  },
+  "uv_spike_barrier": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]",
+    "generated": true
+  },
+  "uv_repair_apprentice": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u4E00\u4E2A\u968F\u4ECE\u6062\u590D [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u70B9\u751F\u547D",
+    "generated": true
+  },
+  "uv_steam_gunner": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font]",
+    "generated": true
+  },
+  "uv_mortar_crew": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u67B6\u8BBE[/font][/color]",
+    "generated": true
+  },
+  "uv_armored_hauler": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color]",
+    "generated": true
+  },
+  "uv_twin_bolt_tower": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u67B6\u8BBE[/font][/color],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u8D2F\u7A7F[/font][/color]",
+    "generated": true
+  },
+  "uv_entrench_line": {
+    "bbcode": "\u4F60\u7684\u6240\u6709[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u67B6\u8BBE[/font][/color]\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B0/\u002B2[/font][/color]",
+    "generated": true
+  },
+  "uv_gear_foreman": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u4F60\u7684\u6240\u6709[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u67B6\u8BBE[/font][/color]\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B0[/font][/color]",
+    "generated": true
+  },
+  "uv_lockdown": {
+    "bbcode": "\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B0/\u002B2[/font][/color] \u5E76\u83B7\u5F97[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5632\u8BBD[/font][/color]\u548C[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color]",
+    "generated": true
+  },
+  "uv_salvage_crew": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u62BD [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u5F20\u724C",
+    "generated": true
+  },
+  "uv_longshot_engine": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u67B6\u8BBE[/font][/color],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u8D2F\u7A7F[/font][/color]",
+    "generated": true
+  },
+  "uv_thunder_battery": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5C04\u7A0B[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u8D2F\u7A7F[/font][/color]",
+    "generated": true
+  },
+  "uv_fortress_crawler": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5B88\u62A4[/font][/color],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u575A\u5B88[/font][/color]",
+    "generated": true
+  },
+  "uv_master_artificer": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u5728\u4F60\u7684\u5E95\u7EBF\u884C\u53EC\u5524\u4E24\u5EA7 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font]/[font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u54E8\u6212\u70AE,\u4F60\u7684\u6240\u6709[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u67B6\u8BBE[/font][/color]\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B1[/font][/color]\u3002\n\u4E00\u4EBA\u6210\u9635\u3002",
+    "generated": true
+  },
+  "wp_pup": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u75BE\u884C[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]",
+    "generated": true
+  },
+  "wp_fang_rider": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u51B2\u950B[/font][/color]",
+    "generated": true
+  },
+  "wp_flanker": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u75BE\u884C[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u56F4\u730E[/font][/color](\u653B\u51FB\u4E00\u4E2A\u4E0E\u4F60\u53E6\u4E00\u53CB\u65B9\u76F8\u90BB\u7684\u654C\u65B9\u968F\u4ECE\u65F6,\u4F24\u5BB3 [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B2[/font][/color])",
+    "generated": true
+  },
+  "wp_raider": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u51B2\u950B[/font][/color],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u56F4\u730E[/font][/color](\u653B\u51FB\u4E00\u4E2A\u4E0E\u4F60\u53E6\u4E00\u53CB\u65B9\u76F8\u90BB\u7684\u654C\u65B9\u968F\u4ECE\u65F6,\u4F24\u5BB3 [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B2[/font][/color])",
+    "generated": true
+  },
+  "wp_stalker": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5077\u88AD[/font][/color]",
+    "generated": true
+  },
+  "wp_howler": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u76F8\u90BB\u53CB\u65B9\u968F\u4ECE\u672C\u56DE\u5408\u79FB\u52A8\u529B [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1[/font][/color]",
+    "generated": true
+  },
+  "wp_dire_wolf": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u75BE\u884C[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]",
+    "generated": true
+  },
+  "wp_ambusher": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5077\u88AD[/font][/color]",
+    "generated": true
+  },
+  "wp_pack_alpha": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u8DF5\u8E0F[/font][/color]\u3001[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u56F4\u730E[/font][/color]"
+  },
+  "wp_rift_leaper": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u75BE\u884C[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font]\u3001[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u8DC3\u969C[/font][/color](\u53EF\u8DE8\u8FC7\u968F\u4ECE\u8DF3\u8DC3 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u683C)"
+  },
+  "wp_windrunner": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u51B2\u950B[/font][/color]\u3001[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u75BE\u884C[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]"
+  },
+  "wp_packlord": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u51B2\u950B[/font][/color]\u3001[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u8DF5\u8E0F[/font][/color]\u3001[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u56F4\u730E[/font][/color]\n[font=res://assets/fonts/SourceHanSerifSC-Bold.otf][u]\u5927\u5730\u4E3A\u4E4B\u9707\u98A4[/u][/font]"
+  },
+  "wp_hunt_signal": {
+    "bbcode": "\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE\u672C\u56DE\u5408\u79FB\u52A8\u529B [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B2[/font][/color]",
+    "generated": true
+  },
+  "wp_pounce": {
+    "bbcode": "\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE\u83B7\u5F97[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5077\u88AD[/font][/color],\u76F4\u5230\u56DE\u5408\u7ED3\u675F",
+    "generated": true
+  },
+  "wp_blood_scent": {
+    "bbcode": "\u6240\u6709\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B0[/font][/color]",
+    "generated": true
+  },
+  "wp_pack_call": {
+    "bbcode": "\u5728\u4F60\u7684\u5E95\u7EBF\u884C\u53EC\u5524\u4E24\u53EA\u63A0\u7FA4\u5E7C\u72FC([font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font]/[font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u75BE\u884C[/font][/color][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font])",
+    "generated": true
+  },
+  "wp_trail_sniffer": {
+    "bbcode": "\u79FB\u52A8\u540E:\u672C\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B0[/font][/color](\u6BCF\u56DE\u5408\u6700\u591A [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u6B21)",
+    "generated": true
+  },
+  "wp_night_prowler": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5077\u88AD[/font][/color]",
+    "generated": true
+  },
+  "wp_bone_gnawer": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u56F4\u730E[/font][/color]",
+    "generated": true
+  },
+  "wp_den_mother": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:\u5728\u4F60\u7684\u5E95\u7EBF\u884C\u53EC\u5524\u4E00\u53EA [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font]/[font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u63A0\u7FA4\u5E7C\u72FC",
+    "generated": true
+  },
+  "wp_hunt_matron": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u56F4\u730E[/font][/color],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u75BE\u884C[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]",
+    "generated": true
+  },
+  "wp_throat_ripper": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u51B2\u950B[/font][/color]",
+    "generated": true
+  },
+  "wp_wild_instinct": {
+    "bbcode": "\u4F7F\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE\u83B7\u5F97[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u56F4\u730E[/font][/color]",
+    "generated": true
+  },
+  "wp_blood_tracker": {
+    "bbcode": "\u79FB\u52A8\u540E:\u5BF9\u76F8\u90BB\u654C\u65B9\u968F\u4ECE\u9020\u6210 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u70B9\u4F24\u5BB3",
+    "generated": true
+  },
+  "wp_encircle": {
+    "bbcode": "\u4F60\u7684\u6240\u6709\u53CB\u65B9\u968F\u4ECE\u672C\u56DE\u5408\u79FB\u52A8\u529B [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1[/font][/color]",
+    "generated": true
+  },
+  "wp_wild_heart": {
+    "bbcode": "\u4E00\u4E2A\u53CB\u65B9\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B1/\u002B1[/font][/color] \u5E76\u83B7\u5F97[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u56F4\u730E[/font][/color]",
+    "generated": true
+  },
+  "wp_shadow_pouncer": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5077\u88AD[/font][/color],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u56F4\u730E[/font][/color]",
+    "generated": true
+  },
+  "wp_ghost_of_wilds": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u75BE\u884C[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font]\n\u79FB\u52A8\u540E:\u672C\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B2/\u002B0[/font][/color](\u6BCF\u56DE\u5408\u6700\u591A [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u6B21)\u3002"
+  },
+  "wp_alpha_matriarch": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u51B2\u950B[/font][/color],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u56F4\u730E[/font][/color]",
+    "generated": true
+  },
+  "wp_moon_huntress": {
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u5077\u88AD[/font][/color]\u3001[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u75BE\u884C[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font]\n\u79FB\u52A8\u540E:\u672C\u968F\u4ECE [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B2/\u002B0[/font][/color](\u6BCF\u56DE\u5408\u6700\u591A [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u6B21)\u3002\n\u6708\u5F71\u4E4B\u4E0B,\u4E00\u51FB\u5C01\u5589\u3002"
+  }
+}

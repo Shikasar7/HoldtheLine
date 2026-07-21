@@ -57,6 +57,8 @@ public static class BattleTheme
 
     public static readonly Font UiFont = LoadUiFont("res://assets/fonts/SourceHanSansSC-Regular.otf", 400);
     public static readonly Font UiFontBold = LoadUiFont("res://assets/fonts/SourceHanSansSC-Bold.otf", 700);
+    public static readonly Font UiFontItalic = Slanted(UiFont);
+    public static readonly Font UiFontBoldItalic = Slanted(UiFontBold);
     public static readonly Font TitleFont = LoadUiFont("res://assets/fonts/SourceHanSerifSC-Heavy.otf", 900); // display / logo
     public static readonly Font HeadingFont = LoadUiFont("res://assets/fonts/SourceHanSerifSC-Bold.otf", 700); // panel H1/H2
 
@@ -64,6 +66,14 @@ public static class BattleTheme
         ResourceLoader.Exists(path)
             ? GD.Load<Font>(path)
             : new SystemFont { FontNames = ["Microsoft YaHei UI", "Microsoft YaHei"], FontWeight = weight };
+
+    private static Font Slanted(Font baseFont) => new FontVariation
+    {
+        BaseFont = baseFont,
+        // Source Han Sans SC does not ship an italic face. A restrained synthetic shear keeps Chinese
+        // strokes legible while making the editor's italic command visibly distinct from regular text.
+        VariationTransform = new Transform2D(1f, 0f, -0.18f, 1f, 0f, 0f),
+    };
 
     /// <summary>Strip the trailing 。 when the text is a single sentence (ability one-liners read cleaner bare).</summary>
     public static string BodyText(string text) =>

@@ -9,7 +9,7 @@ using HoldTheLine.Rules.Cards;
 
 namespace HoldTheLine.Game;
 
-/// <summary>Main menu (plan P4): pick vs-AI (choose your deck) or hotseat, then load the battle.</summary>
+/// <summary>Main menu (plan P4): pick vs-AI or same-screen (同屏对战) — both choose their decks — then load the battle.</summary>
 public partial class MenuScene : Control
 {
     private const string BattlePath = "res://scenes/battle/Battle.tscn";
@@ -58,7 +58,7 @@ public partial class MenuScene : Control
         // Main menu (docs/12 C1): one entry per mode. Uniform steel plates + a left entry icon (docs/18 §4.1),
         // no more per-button rainbow — colour is reserved for state, not identity.
         AddButton("人机对战", "icon_vs_ai", new Vector2(660, 440), () => ShowVsAiPanel());
-        AddButton("双人热座", "icon_hotseat", new Vector2(660, 528), StartHotseat);
+        AddButton("同屏对战", "icon_hotseat", new Vector2(660, 528), ShowHotseatPanel);
         AddButton("联机对战", "icon_online", new Vector2(660, 616), ShowOnlinePanel);
         AddButton("卡组管理", "icon_decks", new Vector2(660, 704), ShowDeckManager);
         AddButton("退出", "icon_exit", new Vector2(660, 792), () => GetTree().Quit());
@@ -909,6 +909,50 @@ public partial class MenuScene : Control
         SceneFx.ChangeScene(this, BattlePath);
     }
 
+    // ---------- same-screen setup (同屏对战): one deck grid per seat, both human on this device ----------
+
+    private string _hotseatDeck0 = "";  // "" until first open; a built-in id or "local:<id>"
+    private string _hotseatDeck1 = "";
+
+    /// <summary>Preselected seat deck: last used → the supplied built-in fallback → first option.</summary>
+    private static string DefaultHotseatDeck(List<(string Key, string Label, Color Color, string Tip)> opts, string last, string fallbackBuiltin)
+    {
+        if (opts.Any(o => o.Key == last)) return last;
+        if (opts.Any(o => o.Key == fallbackBuiltin)) return fallbackBuiltin;
+        return opts[0].Key;
+    }
+
+    /// <summary>同屏对战 setup: each player picks a deck (local or built-in), both driven from this device.</summary>
+    private void ShowHotseatPanel()
+    {
+        var opts = DeckGridOptions(withRandom: false);
+        if (opts.All(o => o.Key != _hotseatDeck0)) _hotseatDeck0 = DefaultHotseatDeck(opts, Prefs.LastHotseatDeck0, "iron_wall");
+        if (opts.All(o => o.Key != _hotseatDeck1)) _hotseatDeck1 = DefaultHotseatDeck(opts, Prefs.LastHotseatDeck1, "wildpack_hunt");
+
+        float winH = WinContentTop + 34 + GridHeight(opts.Count) + 26 + 34 + GridHeight(opts.Count) + 36 + 76 + 16 + 52 + WinContentBottom;
+        var win = WindowPanelTitled(new Vector2(1160, winH), "同 屏 对 战");
+
+        float y = WinContentTop;
+        WinLabel(win, "玩 家 一 · 卡 组", y, 22, BattleTheme.InkMain); y += 34;
+        y += GridSelect(win, y, opts, () => _hotseatDeck0, k => _hotseatDeck0 = k) + 26;
+
+        WinLabel(win, "玩 家 二 · 卡 组", y, 22, BattleTheme.InkMain); y += 34;
+        y += GridSelect(win, y, opts, () => _hotseatDeck1, k => _hotseatDeck1 = k) + 36;
+
+        win.AddChild(BtnPrimary("开  战", new Vector2((1160 - 520) / 2f, y), new Vector2(520, 76), StartHotseatMatch)); y += 92;
+        win.AddChild(Btn("返回", new Vector2((1160 - 520) / 2f, y), new Vector2(520, 52), CloseOverlay));
+    }
+
+    private void StartHotseatMatch()
+    {
+        Prefs.LastHotseatDeck0 = _hotseatDeck0; // preselect each seat next time the panel opens
+        Prefs.LastHotseatDeck1 = _hotseatDeck1;
+        var (b0, c0, l0) = ResolveVsAiDeck(_hotseatDeck0); // shared grid-key resolver: built-in id or local card list
+        var (b1, c1, l1) = ResolveVsAiDeck(_hotseatDeck1);
+        GameConfig.SetHotseatMatch(b0, c0, l0, b1, c1, l1);
+        SceneFx.ChangeScene(this, BattlePath);
+    }
+
     // ---------- deck manager (local storage: multiple decks, edit / rename / copy / delete / vs-AI) ----------
 
     private void ShowDeckManager()
@@ -1337,11 +1381,5 @@ public partial class MenuScene : Control
         if (icon != null && BattleTheme.Icon(icon, 46, new Color(0.97f, 0.92f, 0.8f), new Vector2(30, 14)) is { } ic)
             btn.AddChild(ic);
         AddChild(btn);
-    }
-
-    private void StartHotseat()
-    {
-        GameConfig.SetHotseat();
-        SceneFx.ChangeScene(this, BattlePath);
     }
 }
