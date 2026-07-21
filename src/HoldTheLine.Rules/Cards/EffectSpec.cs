@@ -79,8 +79,8 @@ public sealed record EffectSpec
           "amplify_next", "deepen", "discount",
           // docs/21 §3.1: 燔火's scatter missiles (Amount = missile count, each 1 薪炎; 加深/蓄能 add missiles).
           "damage_scatter",
-          // docs/21 §1.6: place a 烟幕区 on the target cell + its cross (烟幕弹).
-          "place_smoke" };
+          // docs/21 §1.6/§1.7: place a 烟幕区 (烟幕弹) or a hidden 烬火陷阱 on the target cell.
+          "place_smoke", "place_trap" };
 
     public static readonly IReadOnlySet<string> KnownTargets = new HashSet<string>
         { "none", "self", "target_unit", "target_unit_own_half", "target_unit_ally",

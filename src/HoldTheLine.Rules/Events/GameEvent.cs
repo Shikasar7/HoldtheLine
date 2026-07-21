@@ -34,6 +34,8 @@ namespace HoldTheLine.Rules.Events;
 [JsonDerivedType(typeof(SpellChargeChangedEvent), "spell_charge_changed")]
 [JsonDerivedType(typeof(SmokeAppliedEvent), "smoke_applied")]
 [JsonDerivedType(typeof(SmokeExpiredEvent), "smoke_expired")]
+[JsonDerivedType(typeof(TrapTriggeredEvent), "trap_triggered")]
+[JsonDerivedType(typeof(TrapExpiredEvent), "trap_expired")]
 [JsonDerivedType(typeof(MulliganResolvedEvent), "mulligan_resolved")]
 [JsonDerivedType(typeof(MulliganCompletedEvent), "mulligan_completed")]
 [JsonDerivedType(typeof(GameEndedEvent), "game_ended")]
@@ -232,6 +234,25 @@ public sealed record SmokeExpiredEvent : GameEvent
 {
     public required int Seat { get; init; }
     public required IReadOnlyList<Cell> Cells { get; init; }
+}
+
+/// <summary>烬火陷阱 fired (docs/21 §1.7): a unit entered a trapped cell, or a revealed trap re-ticked at a
+/// turn end. Public — the trap is now revealed (its fire visible). Carries the victim + the 灼蚀 dealt.</summary>
+public sealed record TrapTriggeredEvent : GameEvent
+{
+    public required int OwnerSeat { get; init; }
+    public required Cell Cell { get; init; }
+    public required int VictimUnitId { get; init; }
+    public required int Damage { get; init; }
+    /// <summary>True on the first trigger (the trap was hidden until now).</summary>
+    public bool Revealed { get; init; }
+}
+
+/// <summary>A revealed trap's fire burned out (docs/21 §1.7).</summary>
+public sealed record TrapExpiredEvent : GameEvent
+{
+    public required int OwnerSeat { get; init; }
+    public required Cell Cell { get; init; }
 }
 
 /// <summary>

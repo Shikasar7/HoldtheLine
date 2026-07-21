@@ -24,6 +24,10 @@ internal sealed class ResolutionContext
     /// <summary>自体成长上限 (docs/21 §1.9): max capped ally_order_played self-growths per unit per turn.</summary>
     public const int OrderGrowthCap = 2;
 
+    /// <summary>烬火陷阱 (docs/21 §1.7): 薪炎 灼蚀 dealt per trigger, and how many turns its fire burns after reveal.</summary>
+    public const int TrapSearDamage = 3;
+    public const int TrapBurnTurns = 2;
+
     public GameState State { get; }
     public CardDatabase Db { get; }
     public List<GameEvent> Events { get; } = new();
@@ -299,6 +303,61 @@ internal sealed class ResolutionContext
         Emit(new SmokeExpiredEvent { Seat = seat, Cells = gone.Select(s => s.Cell).ToList() });
     }
 
+    // ---- 格子状态: 烬火陷阱 (docs/21 §1.7) ----
+
+    /// <summary>Buries a hidden 烬火陷阱 on <paramref name="cell"/> owned by <paramref name="seat"/> — only that
+    /// seat sees it (PlayerView redaction). Legality (empty cell, not the enemy backline) is checked in the
+    /// resolver before this runs.</summary>
+    public void PlaceTrap(int seat, Cell cell) =>
+        State.CellStates.Add(new CellState { Cell = cell, Kind = "trap", OwnerSeat = seat, Hidden = true });
+
+    /// <summary>Entry trigger (docs/21 §1.7): if <paramref name="unit"/> now stands on a trap it takes 薪炎 灼蚀;
+    /// the first trigger reveals the trap and lights its 2-turn fire. Re-entering a burning trap deals it again
+    /// without resetting the timer. No-op if the unit died en route (e.g. lost 驻防 HP before this check).</summary>
+    public void TriggerTrapOnEntry(UnitInstance unit)
+    {
+        if (State.FindUnit(unit.EntityId) is null)
+            return;
+        var trap = State.CellStates.FirstOrDefault(s => s.Kind == "trap" && s.Cell == unit.Cell);
+        if (trap is null)
+            return;
+        bool firstTrigger = trap.Hidden;
+        if (firstTrigger)
+        {
+            trap.Hidden = false;
+            trap.Revealed = true;
+            trap.TurnsLeft = TrapBurnTurns;
+        }
+        ApplyTrapSear(trap, unit, firstTrigger);
+        ProcessDeaths();
+    }
+
+    /// <summary>End-of-turn re-tick (docs/21 §1.7): every revealed trap burns its current occupant, then counts
+    /// down; the fire is removed when it reaches zero.</summary>
+    public void TickTraps()
+    {
+        foreach (var trap in State.CellStates.Where(s => s.Kind == "trap" && s.Revealed).ToList())
+        {
+            if (State.UnitAt(trap.Cell) is { } occupant)
+                ApplyTrapSear(trap, occupant, revealed: false);
+            trap.TurnsLeft--;
+            if (trap.TurnsLeft <= 0)
+            {
+                State.CellStates.Remove(trap);
+                Emit(new TrapExpiredEvent { OwnerSeat = trap.OwnerSeat, Cell = trap.Cell });
+            }
+        }
+        ProcessDeaths();
+    }
+
+    private void ApplyTrapSear(CellState trap, UnitInstance victim, bool revealed)
+    {
+        int amount = TrapSearDamage + (victim.HasKeyword(Keyword.Emplacement) ? 1 : 0);
+        Emit(new TrapTriggeredEvent
+        { OwnerSeat = trap.OwnerSeat, Cell = trap.Cell, VictimUnitId = victim.EntityId, Damage = amount, Revealed = revealed });
+        DamageUnit(victim, amount, ignoreHoldFast: true); // 薪炎灼蚀 ignores 坚守 (福泽/守护/持盾 still apply)
+    }
+
     // ---- P2 effect mutations ----
 
     public void HealUnit(UnitInstance target, int amount)
@@ -371,6 +430,7 @@ internal sealed class ResolutionContext
                 Cell = cell, Atk = unit.Atk, Hp = unit.CurrentHp,
             });
             RecomputeGarrison(unit);
+            TriggerTrapOnEntry(unit); // 烬火陷阱: 含召唤落点 (docs/21 §1.7)
             placed++;
         }
     }

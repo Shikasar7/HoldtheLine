@@ -359,6 +359,20 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "place_smoke", Target = "cell" }],
     };
 
+    /// <summary>烬火陷阱 pattern: buries a hidden trap on an empty non-enemy-backline cell (docs/21 §1.7).</summary>
+    public static readonly CardDefinition TrapOrder = new()
+    {
+        Id = "t_trap", Name = "Trap", Type = CardType.Order, Rarity = Rarity.Rare, Cost = 3,
+        Effects = [new EffectSpec { Trigger = "play", Action = "place_trap", Target = "cell" }],
+    };
+
+    /// <summary>Summons a single pup — used to test 含召唤落点 trap triggering (docs/21 §1.7).</summary>
+    public static readonly CardDefinition SummonOneOrder = new()
+    {
+        Id = "t_summon1", Name = "Summon One", Type = CardType.Order, Cost = 2,
+        Effects = [new EffectSpec { Trigger = "play", Action = "summon", SummonCardId = "t_pup", Amount = 1 }],
+    };
+
     public static CardDatabase Db { get; } = new([
         Vanilla, BigVanilla, Charger, Assaulter, Scout, Archer, GuardUnit, Holder,
         GuardianUnit, GuardianHolder, BlessUnit,
@@ -371,7 +385,7 @@ public static class TestKit
         SearOrder, SelfMovedGrower, SelfMovedPinger, EmplacementBuffOrder, RedeployOrder,
         AnchorBomber, ChannelZap, ChannelColumn, ChannelMana,
         ChargeUnit, DeepenChanneler, DiscountChanneler, SoulReturnUnit, UncappedGrower, RootOrder,
-        ScatterOrder, AllEnemiesSear, SmokeOrder,
+        ScatterOrder, AllEnemiesSear, SmokeOrder, TrapOrder, SummonOneOrder,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.

@@ -177,6 +177,11 @@ public sealed class Resolver
                 anchorCenter: channeler?.Cell) is { } targetError)
             return targetError;
 
+        // 烬火陷阱 placement rule (docs/21 §1.7): an empty cell that is not the enemy's backline.
+        if (def.Effects.Any(e => e.Trigger == "play" && e.Action == "place_trap")
+            && PlaceTrapLegality(ctx.State, cmd) is { } trapError)
+            return trapError;
+
         int cost = EffectiveCost(ctx.State, cmd, def);
         player.Mana -= cost;
         player.Hand.Remove(card);
@@ -200,6 +205,23 @@ public sealed class Resolver
             ctx.ConsumeSpellCharge(cmd.Seat);
         ctx.FireAllyOrderPlayed(cmd.Seat); // 教团: each of your units reacts once the order has fully resolved.
         ctx.CheckGameEnd();
+        return null;
+    }
+
+    /// <summary>烬火陷阱 (docs/21 §1.7) placement: the 落点 must be an empty in-board cell that is not the
+    /// caster's enemy home row, and not already trapped.</summary>
+    private static RuleError? PlaceTrapLegality(GameState state, PlayCardCommand cmd)
+    {
+        if (cmd.TargetCell is not { } cell)
+            return new RuleError(RuleErrorCode.InvalidTarget, "陷阱需要一个目标格子。");
+        if (!BoardGeometry.IsInside(cell))
+            return new RuleError(RuleErrorCode.CellOutsideBoard, $"{cell} is outside the board.");
+        if (state.UnitAt(cell) != null)
+            return new RuleError(RuleErrorCode.CellOccupied, "陷阱只能埋在无人格子。");
+        if (cell.Row == BoardGeometry.EnemyHomeRow(cmd.Seat))
+            return new RuleError(RuleErrorCode.InvalidTarget, "不能埋在敌方底线。");
+        if (state.CellStates.Any(s => s.Kind == "trap" && s.Cell == cell))
+            return new RuleError(RuleErrorCode.CellOccupied, "该格已有陷阱。");
         return null;
     }
 
@@ -244,6 +266,7 @@ public sealed class Resolver
         ctx.Emit(new UnitMovedEvent { UnitEntityId = unit.EntityId, From = from, To = cmd.To });
         ctx.RecomputeGarrison(unit); // leaving/entering the home row toggles 驻防
         ctx.ProcessDeaths();         // losing borrowed 驻防 HP can be lethal
+        ctx.TriggerTrapOnEntry(unit); // 烬火陷阱: entering a trapped cell (docs/21 §1.7), before self_moved
 
         // self_moved (docs/10 §6#1): the mover reacts to its own step — 游群's "speed IS the payoff".
         // Fires once per move command (Leap counts; summons / passive shoves never route through here).
@@ -416,6 +439,7 @@ public sealed class Resolver
     private static RuleError? ResolveEndTurn(ResolutionContext ctx)
     {
         ctx.ExpireEndOfTurnGrants(); // pounce, etc. lapse before control passes
+        ctx.TickTraps();             // 烬火陷阱: revealed fire re-ticks its occupant + counts down (docs/21 §1.7)
         ctx.Emit(new TurnEndedEvent { Seat = ctx.State.ActiveSeat, TurnNumber = ctx.State.TurnNumber });
         TurnFlow.StartTurn(ctx, 1 - ctx.State.ActiveSeat);
         return null;

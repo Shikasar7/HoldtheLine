@@ -161,6 +161,12 @@ internal static class EffectEngine
                     ctx.PlaceSmoke(ownerSeat, smokeCell);
                 break;
 
+            case "place_trap":
+                // 烬火陷阱 (docs/21 §1.7): bury a hidden trap; placement legality is pre-checked in the resolver.
+                if (targetCell is { } trapCell)
+                    ctx.PlaceTrap(ownerSeat, trapCell);
+                break;
+
             // deepen / discount are passive 引导者 markers (trigger == channel) — the amplify pipeline reads
             // them via ChannelEffectAmount; RunTrigger never dispatches a channel effect, so they never land here.
 
