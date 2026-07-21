@@ -12,6 +12,32 @@ namespace HoldTheLine.Game;
 /// </summary>
 public static class CardView
 {
+    /// <summary>Freely framed art for standalone rectangular surfaces without a faction-frame mask.</summary>
+    public static Control ArtWindow(Texture2D tex, string cardId, Vector2 pos, Vector2 size)
+    {
+        var host = new Control
+        {
+            Position = pos,
+            Size = size,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            ClipContents = true,
+        };
+        var frame = CardArtFraming.Get(cardId);
+        float cover = Mathf.Max(size.X / tex.GetWidth(), size.Y / tex.GetHeight());
+        var drawSize = new Vector2(tex.GetWidth(), tex.GetHeight()) * cover * frame.Zoom;
+        var drawPos = (size - drawSize) / 2f
+            + new Vector2(size.X * 0.5f * frame.OffsetX, size.Y * 0.5f * frame.OffsetY);
+        host.AddChild(BattleTheme.Art(tex, drawPos, drawSize, TextureRect.StretchModeEnum.Scale));
+        return host;
+    }
+
+    /// <summary>Full-face art masked by the central transparent aperture extracted from its real frame.</summary>
+    public static TextureRect FaceArt(Texture2D art, string cardId, Texture2D frame, Vector2 cardSize) =>
+        CardFrameMask.BuildArt(art, frame, CardArtFraming.Get(cardId), cardSize);
+
+    /// <summary>Normalized window bounds extracted from a frame; used by the developer preview overlay.</summary>
+    public static Rect2 FrameWindowBounds(Texture2D frame) => CardFrameMask.Get(frame).Bounds;
+
     // ---------- framed card face (mirrors the battle scene's hand-card look) ----------
 
     /// <summary>Full card face: art, faction frame, cost/atk/hp gems, type badge, name, rules text.</summary>
@@ -19,7 +45,9 @@ public static class CardView
     {
         float w = size.X, h = size.Y;
         bool isOrder = def.Type != CardType.Unit;
-        var root = new Control { Size = size, MouseFilter = Control.MouseFilterEnum.Ignore };
+        // The illustration may extend beyond the nominal aperture so each faction frame can mask it using
+        // its own painted thickness. Only the card's outside edge is a hard clip.
+        var root = new Control { Size = size, MouseFilter = Control.MouseFilterEnum.Ignore, ClipContents = true };
 
         if (backing)
         {
@@ -38,7 +66,7 @@ public static class CardView
         if (art != null && frame != null)
         {
             // Frame art window measured on the generated frames: x 16.5%~84%, y 15.2%~68.8%.
-            root.AddChild(BattleTheme.Art(art, new Vector2(w * 0.165f, h * 0.152f), new Vector2(w * 0.675f, h * 0.536f)));
+            root.AddChild(FaceArt(art, def.Id, frame, size));
             root.AddChild(BattleTheme.Art(frame, Vector2.Zero, size, TextureRect.StretchModeEnum.Scale));
 
             var name = BattleTheme.MakeOutlinedLabel(def.Name, nameSize,
@@ -167,10 +195,10 @@ public static class CardView
         float innerW = PanelW - pad * 2;
         var faction = FactionColor(def.Faction);
 
-        // Card art.
+        // Card art uses the same per-card framing as the face, adapted to this window's aspect.
         const float artH = 288f;
         if (BattleTheme.Tex($"cards/{def.Id}.png") is { } artTex)
-            panel.AddChild(BattleTheme.Art(artTex, new Vector2(pad, pad), new Vector2(innerW, artH)));
+            panel.AddChild(ArtWindow(artTex, def.Id, new Vector2(pad, pad), new Vector2(innerW, artH)));
         else
         {
             panel.AddChild(new ColorRect { Color = faction.Darkened(0.2f), Position = new Vector2(pad, pad), Size = new Vector2(innerW, artH), MouseFilter = Control.MouseFilterEnum.Ignore });

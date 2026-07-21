@@ -36,7 +36,8 @@ public partial class BattleScene : Control
 	private readonly Dictionary<int, Button> _standees = new();
 	private readonly HashSet<int> _emplacementUnits = new(); // entityIds of 架设 units — drives the "架设 +1" effect-damage tag
 	private Button _oppLeaderBtn = null!, _endTurnBtn = null!, _leaderPowerBtn = null!, _cancelBtn = null!;
-	private Label _turnLabel = null!, _oppInfo = null!, _selfInfo = null!, _logLabel = null!;
+	private Label _turnLabel = null!, _selfInfo = null!, _logLabel = null!;
+	private readonly Label[] _oppStats = new Label[3]; // opponent hand / deck / dust capsules (docs/18 §4.4)
 	private Panel _detailPanel = null!; // left-side card inspector (click a piece to show it)
 
 	// docs/17 压力潮汐提示: a persistent HUD hint under the turn label (countdown → next-tide amount →
@@ -260,35 +261,61 @@ public partial class BattleScene : Control
 				btn.Pressed += () => OnCellClicked(sc, sr);
 				btn.MouseEntered += () => OnCellHover(sc, sr); // 友伤确认: preview the AOE footprint
 				btn.MouseExited += OnCellHoverExit;
+				// docs/18 rev4: the empty-cell marker is a ghosted standee base at bottom-center — the exact
+				// oval a unit's base occupies, so empty and occupied cells share one visual anchor.
+				if (BattleTheme.CellSocket(new Vector2((BattleTheme.CellW - 104) / 2f, BattleTheme.CellH - 66), new Vector2(104, 58)) is { } socket)
+					btn.AddChild(socket);
 				_boardLayer.AddChild(btn);
 				_cellButtons[scol, srow] = btn;
 			}
 
-		// HUD.
-		_turnLabel = BattleTheme.MakeOutlinedLabel("", 34, BattleTheme.TextMain, HorizontalAlignment.Center);
-		_turnLabel.Position = new Vector2(660, 20);
-		_turnLabel.Size = new Vector2(600, 44);
+		// HUD. docs/18 §4.4: an engraved banner carries the turn status at the top center. The turn text sits
+		// INSIDE the banner's central band (rev2 — it used to overlap the plate's top edge); the tide hint
+		// floats just below the banner as its own outlined line.
+		if (BattleTheme.Banner(new Vector2(700, 8), new Vector2(520, 92)) is { } turnBanner)
+			_hudLayer.AddChild(turnBanner);
+		_turnLabel = BattleTheme.MakeTitle("", 26, BattleTheme.TextMain, HorizontalAlignment.Center);
+		_turnLabel.Position = new Vector2(660, 56);
+		_turnLabel.Size = new Vector2(600, 36);
 		_hudLayer.AddChild(_turnLabel);
 
-		// docs/17: tide hint sits just under the turn label, same center column.
-		_tideLabel = BattleTheme.MakeOutlinedLabel("", 22, BattleTheme.TextDim, HorizontalAlignment.Center);
-		_tideLabel.Position = new Vector2(660, 62);
-		_tideLabel.Size = new Vector2(600, 30);
+		// docs/17: tide hint just below the banner, same center column.
+		_tideLabel = BattleTheme.MakeOutlinedLabel("", 19, BattleTheme.TextDim, HorizontalAlignment.Center);
+		_tideLabel.Position = new Vector2(660, 106);
+		_tideLabel.Size = new Vector2(600, 26);
 		_tideLabel.Visible = false;
 		_hudLayer.AddChild(_tideLabel);
 
-		// Opponent strip: card-back chip + info + leader plate (avatar filled per-render, hotseat flips it).
-		if (_cardBackTex != null)
-			_hudLayer.AddChild(BattleTheme.Art(_cardBackTex, new Vector2(60, 52), new Vector2(52, 78)));
-		_oppInfo = BattleTheme.MakeOutlinedLabel("", 24, BattleTheme.TextMain);
-		_oppInfo.Position = new Vector2(_cardBackTex != null ? 128 : 60, 70);
-		_oppInfo.Size = new Vector2(700, 40);
-		_hudLayer.AddChild(_oppInfo);
+		// Opponent resources as three dark capsules — icon + "手牌 4" caption+number (rev2: icons alone were
+		// unreadable against the table art; the pill background + word makes each stat self-explanatory).
+		string[] resIcons = ["icon_hand", "icon_deck", "icon_dust"];
+		float px2 = 20;
+		float[] pillW = [148, 148, 172];
+		var iconTint = new Color(0.97f, 0.92f, 0.8f); // lift the engraved icons off the dark pill
+		for (int i = 0; i < 3; i++)
+		{
+			var pill = new Panel { Position = new Vector2(px2, 76), Size = new Vector2(pillW[i], 40), MouseFilter = MouseFilterEnum.Ignore };
+			pill.AddThemeStyleboxOverride("panel", BattleTheme.Box(
+				new Color(0.07f, 0.06f, 0.05f, 0.82f), new Color(0.62f, 0.5f, 0.3f, 0.4f), 1, 20));
+			_hudLayer.AddChild(pill);
+			if (BattleTheme.Icon(resIcons[i], 26, iconTint, new Vector2(12, 7)) is { } ic)
+				pill.AddChild(ic);
+			var lab = BattleTheme.MakeOutlinedLabel("", 20, BattleTheme.TextMain);
+			lab.Position = new Vector2(46, 2);
+			lab.Size = new Vector2(pillW[i] - 52, 36);
+			pill.AddChild(lab);
+			_oppStats[i] = lab;
+			px2 += pillW[i] + 14;
+		}
 
 		_oppLeaderBtn = BattleTheme.MakeButton(new Vector2(1500, 40), new Vector2(360, 96), BattleTheme.PanelDark, BattleTheme.SeatColor1, 3, 10);
 		_oppLeaderBtn.Pressed += () => OnLeaderClicked(1);
 		_oppLeaderBtn.MouseEntered += () => ShowLeaderTooltip(_oppLeaderId, _oppLeaderBtn.GetRect(), below: true);
 		_oppLeaderBtn.MouseExited += HideLeaderTooltip;
+		BattleTheme.SetTextInsetLeft(_oppLeaderBtn, 102); // name/HP clear the round avatar (rev2: long names overlapped it)
+		// docs/18: round steel medallion behind the leader portrait (portraits are circular-crop friendly).
+		if (BattleTheme.Tex("ui/button_plate_round.png") is { } roundOpp)
+			_oppLeaderBtn.AddChild(BattleTheme.Art(roundOpp, new Vector2(2, 2), new Vector2(92, 92)));
 		_oppAvatar = new TextureRect
 		{
 			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
@@ -300,6 +327,8 @@ public partial class BattleScene : Control
 		_hudLayer.AddChild(_oppLeaderBtn);
 
 		// Self leader block: stacked vertically at the far left so the hand strip gets the width.
+		if (BattleTheme.Tex("ui/button_plate_round.png") is { } roundSelf)
+			_hudLayer.AddChild(BattleTheme.Art(roundSelf, new Vector2(16, 788), new Vector2(116, 116)));
 		_selfAvatar = new TextureRect
 		{
 			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
@@ -314,31 +343,22 @@ public partial class BattleScene : Control
 		_selfInfo.Size = new Vector2(226, 92);
 		_hudLayer.AddChild(_selfInfo);
 
-		_leaderPowerBtn = BattleTheme.MakeButton(new Vector2(24, 916), new Vector2(336, 68), BattleTheme.PanelDark, BattleTheme.SeatColor0, 2, 10);
+		_leaderPowerBtn = BattleTheme.MakeButton(new Vector2(24, 916), new Vector2(336, 68), BattleTheme.PanelDark, BattleTheme.SeatColor0, 2, 10, textured: true);
 		_leaderPowerBtn.Pressed += OnLeaderPower;
 		_leaderPowerBtn.MouseEntered += () => ShowLeaderTooltip(_selfLeaderId, _leaderPowerBtn.GetRect(), below: false);
 		_leaderPowerBtn.MouseExited += HideLeaderTooltip;
 		_hudLayer.AddChild(_leaderPowerBtn);
 
-		_endTurnBtn = BattleTheme.MakeButton(new Vector2(1600, 844), new Vector2(260, 90), BattleTheme.AccentSoft, BattleTheme.Accent, 2, 12);
-		if (BattleTheme.Tex("ui/button_plate.png") is { } plate)
-		{
-			_endTurnBtn.AddChild(BattleTheme.Art(plate, Vector2.Zero, new Vector2(260, 90)));
-			var etLabel = BattleTheme.MakeOutlinedLabel("结束回合", 28, BattleTheme.TextMain, HorizontalAlignment.Center);
-			etLabel.Size = new Vector2(260, 90);
-			_endTurnBtn.AddChild(etLabel);
-		}
-		else
-		{
-			_endTurnBtn.Text = "结束回合";
-			_endTurnBtn.AddThemeFontSizeOverride("font_size", 28);
-		}
+		// Primary CTA: the gold plate (docs/18 rev4 — AtkColor bg routes to the batch-2 brass art).
+		_endTurnBtn = BattleTheme.MakeButton(new Vector2(1600, 844), new Vector2(260, 90), BattleTheme.AtkColor, BattleTheme.Accent, 2, 12, textured: true);
+		_endTurnBtn.Text = "结束回合";
+		_endTurnBtn.AddThemeFontSizeOverride("font_size", 28);
 		_endTurnBtn.Pressed += OnEndTurn;
 		_hudLayer.AddChild(_endTurnBtn);
 
 		// 取消: back out of a card/unit/leader selection (also bound to Esc). Hidden until something is
 		// being aimed — sits just above 结束回合, clear of the hand strip.
-		_cancelBtn = BattleTheme.MakeButton(new Vector2(1600, 752), new Vector2(260, 74), BattleTheme.PanelDark, BattleTheme.DangerColor, 2, 12);
+		_cancelBtn = BattleTheme.MakeButton(new Vector2(1600, 752), new Vector2(260, 74), BattleTheme.PanelDark, BattleTheme.DangerColor, 2, 12, textured: true);
 		_cancelBtn.Text = "✕ 取消 (Esc)";
 		_cancelBtn.AddThemeFontSizeOverride("font_size", 24);
 		_cancelBtn.Visible = false;
@@ -351,9 +371,14 @@ public partial class BattleScene : Control
 		_logLabel.Size = new Vector2(1200, 28);
 		_hudLayer.AddChild(_logLabel);
 
-		var menuBtn = BattleTheme.MakeButton(new Vector2(20, 20), new Vector2(120, 44), BattleTheme.PanelDark, BattleTheme.TextDim, 1, 8);
-		menuBtn.Text = "菜单 (Esc)";
+		// rev3: text stays centered on the plate (the inset approach pushed it off-center); the 2-char label
+		// never reaches the left-edge cog anyway.
+		var menuBtn = BattleTheme.MakeButton(new Vector2(20, 20), new Vector2(150, 44), BattleTheme.PanelDark, BattleTheme.TextDim, 1, 8, textured: true);
+		menuBtn.Text = "菜单";
+		menuBtn.TooltipText = "游戏菜单 (Esc)";
 		menuBtn.AddThemeFontSizeOverride("font_size", 18);
+		if (BattleTheme.Icon("icon_settings", 26, new Color(0.97f, 0.92f, 0.8f), new Vector2(16, 9)) is { } cog)
+			menuBtn.AddChild(cog);
 		menuBtn.Pressed += ToggleGameMenu;
 		_hudLayer.AddChild(menuBtn);
 
@@ -446,9 +471,9 @@ public partial class BattleScene : Control
 				btn.AddChild(kwl);
 			}
 
-			// Status indicators (buffs/debuffs) on the card face — driven by LIVE state (u.ShieldActive), not
-			// the static keyword list, so 持盾 shows/clears the moment the charge is granted/spent.
-			SetStandeeStatuses(btn, StandeeStatuses(u.ShieldActive));
+			// Status badges on the card face (buffs left / debuffs right) — driven by LIVE state, not the static
+			// keyword list, so 持盾/坚守 track the current charge / not-moved condition rather than mere presence.
+			SetStandeeStatuses(btn, StandeeStatuses(u));
 
 			// Dim the active player's own units that can no longer act (集结中 or already spent).
 			if (u.OwnerSeat == view.ActiveSeat && !actionable.Contains(u.EntityId))
@@ -492,8 +517,8 @@ public partial class BattleScene : Control
 			card.SetMeta("basePos", pos);                  // restored by ClearCardHighlight
 			card.SetMeta("border", border);                // the card-type cue, re-applied after de-selecting
 			card.ButtonDown += () => BeginCardDrag(id); // tap = select, drag = play (see _Input/EndCardDrag)
-			card.MouseEntered += () => ShowCardPreview(def, cardX);
-			card.MouseExited += HideCardPreview;
+			card.MouseEntered += () => { ShowCardPreview(def, cardX); HoverLift(card, true); };
+			card.MouseExited += () => { HideCardPreview(); HoverLift(card, false); };
 			card.AddChild(BuildCardVisual(def, HandCardSize, compact: true));
 			_handLayer.AddChild(card);
 			_handCards[id] = card;
@@ -508,7 +533,9 @@ public partial class BattleScene : Control
 	{
 		float w = size.X, h = size.Y;
 		bool isOrder = def.Type != CardType.Unit;
-		var root = new Control { Size = size, MouseFilter = MouseFilterEnum.Ignore };
+		// Artwork is allowed past the nominal aperture; the faction frame above is the exact mask.
+		// Clip only at the outside of the card so large zoom values cannot bleed into neighbouring UI.
+		var root = new Control { Size = size, MouseFilter = MouseFilterEnum.Ignore, ClipContents = true };
 
 		if (backing)
 		{
@@ -527,7 +554,7 @@ public partial class BattleScene : Control
 		if (art != null && frame != null)
 		{
 			// Frame art window measured on the generated frames: x 16.5%~84%, y 15.2%~68.8%.
-			root.AddChild(BattleTheme.Art(art, new Vector2(w * 0.165f, h * 0.152f), new Vector2(w * 0.675f, h * 0.536f)));
+			root.AddChild(CardView.FaceArt(art, def.Id, frame, size));
 			root.AddChild(BattleTheme.Art(frame, Vector2.Zero, size, TextureRect.StretchModeEnum.Scale));
 
 			var name = BattleTheme.MakeOutlinedLabel(def.Name, nameSize,
@@ -719,7 +746,9 @@ public partial class BattleScene : Control
 		var opp = view.Opponent;
 		_selfLeaderId = self.LeaderId;
 		_oppLeaderId = opp.LeaderId;
-		_oppInfo.Text = $"手牌 {opp.HandCount}   牌库 {opp.DeckCount}   辉尘 {opp.Mana}/{opp.ManaMax}";
+		_oppStats[0].Text = $"手牌 {opp.HandCount}";
+		_oppStats[1].Text = $"牌库 {opp.DeckCount}";
+		_oppStats[2].Text = $"辉尘 {opp.Mana}/{opp.ManaMax}";
 		_oppLeaderBtn.Text = $"{LeaderName(opp.LeaderId)}\n♥ {opp.LeaderHp}";
 		_oppLeaderBtn.AddThemeFontSizeOverride("font_size", 24);
 		// Stacked next to the avatar: name / vitals on separate lines to keep the block narrow.
@@ -863,6 +892,27 @@ public partial class BattleScene : Control
 
 	// item: 高亮当前生效卡 — pull the selected hand card half-out, enlarge it, and ring it in accent so a
 	// mid-target-pick player can't misread which card's effect they are resolving.
+	/// <summary>docs/18 P4: hover raises the card a touch (tweened) — the full selection lift overrides it.
+	/// The running tween is tracked in meta so a selection can kill it before snapping the card's transform.</summary>
+	private void HoverLift(Button card, bool on)
+	{
+		if (!IsInstanceValid(card) || ReferenceEquals(_liftedCard, card)) return;
+		KillHoverTween(card);
+		var basePos = (Vector2)card.GetMeta("basePos");
+		var tw = card.CreateTween();
+		tw.SetParallel();
+		tw.SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+		tw.TweenProperty(card, "position", on ? basePos - new Vector2(0, 22) : basePos, 0.12);
+		tw.TweenProperty(card, "scale", on ? new Vector2(1.05f, 1.05f) : Vector2.One, 0.12);
+		card.SetMeta("hoverTw", tw);
+	}
+
+	private static void KillHoverTween(Button card)
+	{
+		if (card.HasMeta("hoverTw") && card.GetMeta("hoverTw").As<Tween>() is { } old && old.IsValid())
+			old.Kill();
+	}
+
 	private void HighlightSelectedCard(int cardEntityId)
 	{
 		if (!_handCards.TryGetValue(cardEntityId, out var card) || !IsInstanceValid(card))
@@ -872,6 +922,7 @@ public partial class BattleScene : Control
 		}
 		if (ReferenceEquals(_liftedCard, card)) return; // already lifted — idempotent, avoids restyle thrash
 		ClearCardHighlight();                            // drop any previously-lifted card first
+		KillHoverTween(card);                            // a hover tween in flight must not fight the snap below
 		card.SetMeta("baseIndex", card.GetIndex());      // restore draw/hit order on de-select (overlapping hands)
 		var basePos = (Vector2)card.GetMeta("basePos");
 		card.Position = basePos - new Vector2(0, 96); // 抽出半截
@@ -885,6 +936,7 @@ public partial class BattleScene : Control
 	{
 		if (_liftedCard is { } card && IsInstanceValid(card))
 		{
+			KillHoverTween(card);
 			card.Position = (Vector2)card.GetMeta("basePos");
 			card.Scale = Vector2.One;
 			BattleTheme.SetButtonBg(card, BattleTheme.PanelDark, (Color)card.GetMeta("border"), 3, 10);
@@ -1639,7 +1691,7 @@ public partial class BattleScene : Control
 			case UnitKeywordGrantedEvent kg when kg.Keyword == Keyword.Shield && _standees.TryGetValue(kg.UnitEntityId, out var kn):
 				_sfx.Play("play");
 				Flash(kn, BattleTheme.CostColor);
-				SetStandeeStatuses(kn, StandeeStatuses(true)); // 持盾新增 → 立刻更新卡面指示器
+				RefreshStandeeStatus(kg.UnitEntityId); // 持盾新增 → 立刻更新卡面指示器
 				await Delay(0.1);
 				break;
 			case PressureTideEvent tide:
@@ -1810,7 +1862,7 @@ public partial class BattleScene : Control
 			_sfx.Play("attack");
 			Flash(node, BattleTheme.CostColor);
 			ShieldPop(Center(node)); // 蓝闪 + 盾纹章,与真实掉血区分
-			SetStandeeStatuses(node, StandeeStatuses(false)); // 持盾被消耗 → 立刻清掉卡面指示器
+			RefreshStandeeStatus(d.UnitEntityId); // 持盾被消耗 → 立刻更新卡面指示器
 			if (d.GuardRedirect) FloatBonusTag(Center(node) + new Vector2(0, 20), "守护-0"); // 守护单位被盾挡下
 			await Delay(0.12);
 			return;
@@ -2083,7 +2135,8 @@ public partial class BattleScene : Control
 			Size = panelSize,
 			MouseFilter = MouseFilterEnum.Stop, // clicks on the panel must not close via the backdrop
 		};
-		panel.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.PanelDark, BattleTheme.Accent, 2, 16));
+		// docs/18 §4.2: a leather ledger frame when the art is present, else the flat panel.
+		panel.AddThemeStyleboxOverride("panel", (StyleBox?)BattleTheme.LeatherPanel() ?? BattleTheme.Box(BattleTheme.PanelDark, BattleTheme.Accent, 2, 16));
 		dim.AddChild(panel);
 		return panel;
 	}
@@ -2091,21 +2144,19 @@ public partial class BattleScene : Control
 	private void ShowGameMenu()
 	{
 		bool over = _host.GetView(ViewSeat).Result != null;
-		var panel = NewMenuOverlay(new Vector2(480, 512));
+		// rev3: no title — four buttons, evenly inset within the leather frame's inner field (the frame border
+		// is ~74px; the old 60px inset let plates overlap it).
+		var panel = NewMenuOverlay(new Vector2(480, 460));
 
-		var title = BattleTheme.MakeOutlinedLabel("菜 单", 44, BattleTheme.TextMain, HorizontalAlignment.Center);
-		title.Position = new Vector2(0, 28); title.Size = new Vector2(480, 60);
-		panel.AddChild(title);
-
-		float by = 116f;
+		float by = 78f;
 		Button Row(string text, Color color, System.Action onPressed)
 		{
-			var b = BattleTheme.MakeButton(new Vector2(60, by), new Vector2(360, 72), color, BattleTheme.Accent, 2, 12);
+			var b = BattleTheme.MakeButton(new Vector2(84, by), new Vector2(312, 64), color, BattleTheme.Accent, 2, 12, textured: true);
 			b.Text = text;
-			b.AddThemeFontSizeOverride("font_size", 28);
+			b.AddThemeFontSizeOverride("font_size", 26);
 			b.Pressed += () => { _sfx.Play("button"); onPressed(); };
 			panel.AddChild(b);
-			by += 88f;
+			by += 80f;
 			return b;
 		}
 
@@ -2117,7 +2168,7 @@ public partial class BattleScene : Control
 		{
 			if (_online && !over) { ConfirmLeaveOnline(); return; }
 			CloseGameMenu();
-			GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn");
+			SceneFx.ChangeScene(this, "res://scenes/menu/Menu.tscn");
 		});
 	}
 
@@ -2137,11 +2188,11 @@ public partial class BattleScene : Control
 		sub.Position = new Vector2(0, 132); sub.Size = new Vector2(480, 36);
 		panel.AddChild(sub);
 
-		var yes = BattleTheme.MakeButton(new Vector2(56, 220), new Vector2(180, 88), BattleTheme.DangerColor, BattleTheme.Accent, 2, 12);
+		var yes = BattleTheme.MakeButton(new Vector2(84, 230), new Vector2(150, 64), BattleTheme.DangerColor, BattleTheme.Accent, 2, 12, textured: true);
 		yes.Text = "离开"; yes.AddThemeFontSizeOverride("font_size", 28);
 		yes.Pressed += () => { _sfx.Play("button"); CloseGameMenu(); LeaveAsConcede(); };
 		panel.AddChild(yes);
-		var no = BattleTheme.MakeButton(new Vector2(244, 220), new Vector2(180, 88), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12);
+		var no = BattleTheme.MakeButton(new Vector2(246, 230), new Vector2(150, 64), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12, textured: true);
 		no.Text = "取消"; no.AddThemeFontSizeOverride("font_size", 28);
 		no.Pressed += () => { _sfx.Play("button"); ShowGameMenu(); };
 		panel.AddChild(no);
@@ -2153,7 +2204,7 @@ public partial class BattleScene : Control
 	/// let the server's new-match guard settle the forfeit — otherwise the player is locked in the scene.</summary>
 	private void LeaveAsConcede()
 	{
-		if (_connFailed) { GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn"); return; }
+		if (_connFailed) { SceneFx.ChangeScene(this, "res://scenes/menu/Menu.tscn"); return; }
 		ConcedeMatch();
 	}
 
@@ -2168,11 +2219,11 @@ public partial class BattleScene : Control
 		sub.Position = new Vector2(0, 132); sub.Size = new Vector2(480, 36);
 		panel.AddChild(sub);
 
-		var yes = BattleTheme.MakeButton(new Vector2(56, 220), new Vector2(180, 88), BattleTheme.DangerColor, BattleTheme.Accent, 2, 12);
+		var yes = BattleTheme.MakeButton(new Vector2(84, 230), new Vector2(150, 64), BattleTheme.DangerColor, BattleTheme.Accent, 2, 12, textured: true);
 		yes.Text = "投降"; yes.AddThemeFontSizeOverride("font_size", 28);
 		yes.Pressed += () => { _sfx.Play("button"); CloseGameMenu(); ConcedeMatch(); };
 		panel.AddChild(yes);
-		var no = BattleTheme.MakeButton(new Vector2(244, 220), new Vector2(180, 88), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12);
+		var no = BattleTheme.MakeButton(new Vector2(246, 230), new Vector2(150, 64), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12, textured: true);
 		no.Text = "取消"; no.AddThemeFontSizeOverride("font_size", 28);
 		no.Pressed += () => { _sfx.Play("button"); ShowGameMenu(); };
 		panel.AddChild(no);
@@ -2203,9 +2254,11 @@ public partial class BattleScene : Control
 	/// Click a card for its detail popup.</summary>
 	private void ShowDeckList()
 	{
+		// rev4: cards live INSIDE the leather frame's inner field (~74px border) — the old 24px inset let the
+		// grid ride over the frame art (user 图1).
 		var panel = NewMenuOverlay(new Vector2(1200, 900));
-		var title = BattleTheme.MakeOutlinedLabel("我 的 牌 组", 40, BattleTheme.TextMain, HorizontalAlignment.Center);
-		title.Position = new Vector2(0, 20); title.Size = new Vector2(1200, 54);
+		var title = BattleTheme.MakeTitle("我 的 牌 组", 34, BattleTheme.AtkColor);
+		title.Position = new Vector2(0, 18); title.Size = new Vector2(1200, 48);
 		panel.AddChild(title);
 
 		var cards = _deckCards[ViewSeat];
@@ -2217,10 +2270,10 @@ public partial class BattleScene : Control
 		}
 		else
 		{
-			var scroll = new ScrollContainer { Position = new Vector2(24, 92), Size = new Vector2(1152, 720) };
+			var scroll = new ScrollContainer { Position = new Vector2(84, 90), Size = new Vector2(1032, 654) };
 			scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
 			panel.AddChild(scroll);
-			var grid = new GridContainer { Columns = 6, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+			var grid = new GridContainer { Columns = 5, SizeFlagsHorizontal = SizeFlags.ExpandFill };
 			grid.AddThemeConstantOverride("h_separation", 14);
 			grid.AddThemeConstantOverride("v_separation", 14);
 			scroll.AddChild(grid);
@@ -2248,7 +2301,7 @@ public partial class BattleScene : Control
 			}
 		}
 
-		var close = BattleTheme.MakeButton(new Vector2(500, 826), new Vector2(200, 60), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12);
+		var close = BattleTheme.MakeButton(new Vector2(500, 760), new Vector2(200, 56), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12, textured: true);
 		close.Text = "返回"; close.AddThemeFontSizeOverride("font_size", 26);
 		close.Pressed += () => { _sfx.Play("button"); ShowGameMenu(); };
 		panel.AddChild(close);
@@ -2418,8 +2471,8 @@ public partial class BattleScene : Control
 		_mulliganPanel = dim;
 
 		string who = _vsAi || _online ? "起 手 换 牌" : (seat == 0 ? "玩家1 · 起手换牌" : "玩家2 · 起手换牌");
-		var title = BattleTheme.MakeOutlinedLabel(who, 46, BattleTheme.TextMain, HorizontalAlignment.Center);
-		title.Position = new Vector2(0, 84); title.Size = new Vector2(BattleTheme.ScreenW, 60);
+		var title = BattleTheme.MakeTitle(who, 52, BattleTheme.TextMain, HorizontalAlignment.Center);
+		title.Position = new Vector2(0, 80); title.Size = new Vector2(BattleTheme.ScreenW, 64);
 		dim.AddChild(title);
 		var sub = BattleTheme.MakeLabel("点击要换掉的牌,然后确认(仅一次机会)", 26, BattleTheme.TextDim, HorizontalAlignment.Center);
 		sub.Position = new Vector2(0, 160); sub.Size = new Vector2(BattleTheme.ScreenW, 40);
@@ -2450,7 +2503,9 @@ public partial class BattleScene : Control
 		float startX = Mathf.Max(20f, (BattleTheme.ScreenW - totalW) / 2f);
 		const float y = 300f;
 
-		var confirm = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2 - 200, 664), new Vector2(400, 84), BattleTheme.AccentSoft, BattleTheme.Accent, 2, 12);
+		// rev5: back to the teal plate — gold read as out-of-place here (user feedback), and the side icon
+		// made the label look off-center.
+		var confirm = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2 - 200, 664), new Vector2(400, 84), BattleTheme.AccentSoft, BattleTheme.Accent, 2, 12, textured: true);
 		confirm.AddThemeFontSizeOverride("font_size", 30);
 		void UpdateConfirm() => confirm.Text = selected.Count == 0 ? "确认 · 全部保留" : $"确认 · 换 {selected.Count} 张";
 		UpdateConfirm();
@@ -2509,9 +2564,9 @@ public partial class BattleScene : Control
 			panel.AddChild(illus);
 		}
 
-		var msg = BattleTheme.MakeOutlinedLabel(who, 64, tint, HorizontalAlignment.Center);
-		msg.Position = new Vector2(0, 250);
-		msg.Size = new Vector2(BattleTheme.ScreenW, 100);
+		var msg = BattleTheme.MakeTitle(who, 88, tint, HorizontalAlignment.Center);
+		msg.Position = new Vector2(0, 232);
+		msg.Size = new Vector2(BattleTheme.ScreenW, 120);
 		panel.AddChild(msg);
 
 		// Match stats: rounds, line-breaks (推过底线打脸), leader damage taken.
@@ -2545,18 +2600,18 @@ public partial class BattleScene : Control
 		// same-room rematch is N3), so online shows only "return to menu", centered.
 		if (!_online)
 		{
-			var again = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2 - 320, 570), new Vector2(280, 80), BattleTheme.AccentSoft, BattleTheme.Accent, 2, 12);
+			var again = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2 - 320, 570), new Vector2(280, 80), BattleTheme.AtkColor, BattleTheme.Accent, 2, 12, textured: true);
 			again.Text = "再来一局";
 			again.AddThemeFontSizeOverride("font_size", 26);
-			again.Pressed += () => { _sfx.Play("button"); GetTree().ReloadCurrentScene(); };
+			again.Pressed += () => { _sfx.Play("button"); SceneFx.Reload(this); };
 			panel.AddChild(again);
 		}
 
 		var menuX = _online ? BattleTheme.ScreenW / 2 - 140 : BattleTheme.ScreenW / 2 + 40;
-		var menu = BattleTheme.MakeButton(new Vector2(menuX, 570), new Vector2(280, 80), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12);
+		var menu = BattleTheme.MakeButton(new Vector2(menuX, 570), new Vector2(280, 80), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12, textured: true);
 		menu.Text = "返回菜单";
 		menu.AddThemeFontSizeOverride("font_size", 26);
-		menu.Pressed += () => { _sfx.Play("button"); GetTree().ChangeSceneToFile("res://scenes/menu/Menu.tscn"); };
+		menu.Pressed += () => { _sfx.Play("button"); SceneFx.ChangeScene(this, "res://scenes/menu/Menu.tscn"); };
 		panel.AddChild(menu);
 	}
 
@@ -2618,7 +2673,7 @@ public partial class BattleScene : Control
 		var artPath = $"{BattleTheme.ArtRoot}/cards/{def.Id}.png";
 		if (ResourceLoader.Exists(artPath))
 		{
-			_detailPanel.AddChild(BattleTheme.Art(GD.Load<Texture2D>(artPath), new Vector2(pad, pad), new Vector2(innerW, artH)));
+			_detailPanel.AddChild(CardView.ArtWindow(GD.Load<Texture2D>(artPath), def.Id, new Vector2(pad, pad), new Vector2(innerW, artH)));
 		}
 		else
 		{
@@ -2940,18 +2995,16 @@ public partial class BattleScene : Control
 				Keyword.Assault => "突",
 				Keyword.Swift => $"疾{k.Value}",
 				Keyword.Range => $"程{k.Value}",
-				Keyword.HoldFast => "坚",
 				Keyword.Trample => "踏",
 				Keyword.CheapShot => "偷",
-				// 持盾 is shown by the live status chip (SetStandeeStatuses), NOT here — the keyword can linger
-				// after its charge is spent, so a static "盾" would lie about protection. Chip tracks ShieldActive.
+				// 持盾 / 坚守 / 福泽 are shown by the side status badges (SetStandeeStatuses), NOT here — those are
+				// live states (charge / not-moved / aura) that the static keyword strip would misrepresent.
 				Keyword.Garrison => "防",
 				Keyword.Leap => "跃",
 				Keyword.PackTactics => "围",
 				Keyword.Emplacement => "架",
 				Keyword.Pierce => "贯",
 				Keyword.Taunt => "嘲",
-				Keyword.Blessing => "福",
 				Keyword.Guardian => "护",
 				_ => "",
 			});
@@ -2959,62 +3012,80 @@ public partial class BattleScene : Control
 	}
 
 	// ---------- on-standee status indicators (buffs / debuffs) ----------
+	//
+	// EXTENSION POINT: to add a status, add ONE line to StandeeStatuses — a short glyph + a StatusKind. Buff →
+	// left edge (green), Debuff → right edge (red). Stacking, side and colour are all handled automatically.
 
-	/// <summary>One status a unit advertises on its card face.</summary>
-	private readonly record struct StatusBadge(string Text, Color Bg, Color Border);
+	private enum StatusKind { Buff, Debuff }
+
+	/// <summary>One status a unit advertises on its card face: a short glyph, and whether it is a buff or debuff.</summary>
+	private readonly record struct StatusBadge(string Glyph, StatusKind Kind);
 
 	private const string StatusStripName = "__status_strip";
 
-	/// <summary>The statuses to show for a unit, computed from its LIVE view state (not the static keyword
-	/// list). Extensible: new buffs/debuffs add a line here. Today only 持盾 (the ShieldActive charge).</summary>
-	private static List<StatusBadge> StandeeStatuses(bool shieldActive)
+	/// <summary>The statuses to show for a unit, computed from its LIVE view state (not the static keyword list
+	/// — so 坚守 shows only while it is actually reducing damage). Buffs land on the left, debuffs on the right.</summary>
+	private static List<StatusBadge> StandeeStatuses(UnitView u)
 	{
-		var badges = new List<StatusBadge>();
-		if (shieldActive)
-			badges.Add(new StatusBadge("持盾", BattleTheme.ShieldStatusBg, BattleTheme.ShieldStatusBorder));
-		return badges;
+		var s = new List<StatusBadge>();
+		// ---- buffs (left column) ----
+		if (u.ShieldActive)
+			s.Add(new StatusBadge("盾", StatusKind.Buff));                                    // 持盾
+		if (u.Keywords.Any(k => k.Keyword == Keyword.Blessing))
+			s.Add(new StatusBadge("福", StatusKind.Buff));                                    // 福泽
+		if (u.Keywords.Any(k => k.Keyword == Keyword.HoldFast) && !u.MovedThisRound)
+			s.Add(new StatusBadge("坚", StatusKind.Buff));                                    // 坚守 (only while in effect)
+		// ---- debuffs (right column) ----
+		// (none yet) e.g. if (u.Snared) s.Add(new StatusBadge("缚", StatusKind.Debuff));
+		return s;
 	}
 
-	/// <summary>(Re)build a standee's status strip — a centred row of chips near the top, clear of the corner
-	/// atk/hp pips. Removes any prior strip first so it can be called live mid-animation (shield pop/grant)
-	/// as well as during a full render.</summary>
+	/// <summary>(Re)build a standee's status badges: buffs stack down the LEFT edge, debuffs down the RIGHT edge,
+	/// both starting below the corner atk/hp pips. Removes any prior set first so it can be called live
+	/// mid-animation (a 持盾 grant/consume) as well as during a full render.</summary>
 	private static void SetStandeeStatuses(Control standee, List<StatusBadge> badges)
 	{
 		if (standee.GetNodeOrNull(StatusStripName) is { } old) { standee.RemoveChild(old); old.QueueFree(); }
 		if (badges.Count == 0)
 			return;
 
-		var size = new Vector2(BattleTheme.CellW - 14, BattleTheme.CellH - 14);
-		const float chipH = 22f, gap = 3f;
-		var widths = badges.Select(b => (float)(b.Text.Length * 15 + 12)).ToArray();
-		float total = widths.Sum() + gap * (badges.Count - 1);
+		float w = BattleTheme.CellW - 14;
+		const float bs = 20f, gap = 3f, topY = 42f, margin = 3f; // start just below the pips (y 4..42)
+		var holder = new Control { Name = StatusStripName, MouseFilter = MouseFilterEnum.Ignore };
 
-		var strip = new Control
+		int leftRow = 0, rightRow = 0;
+		foreach (var b in badges)
 		{
-			Name = StatusStripName,
-			Position = new Vector2((size.X - total) / 2f, 3f),
-			Size = new Vector2(total, chipH),
-			MouseFilter = MouseFilterEnum.Ignore,
-		};
-		float x = 0f;
-		for (int i = 0; i < badges.Count; i++)
-		{
-			strip.AddChild(StatusChip(badges[i], new Vector2(x, 0), new Vector2(widths[i], chipH)));
-			x += widths[i] + gap;
+			bool buff = b.Kind == StatusKind.Buff;
+			int row = buff ? leftRow++ : rightRow++;
+			float x = buff ? margin : w - margin - bs;
+			holder.AddChild(StatusBadgeNode(b, new Vector2(x, topY + row * (bs + gap)), bs));
 		}
-		standee.AddChild(strip);
+		standee.AddChild(holder);
 	}
 
-	private static Control StatusChip(StatusBadge b, Vector2 pos, Vector2 size)
+	private static Control StatusBadgeNode(StatusBadge b, Vector2 pos, float s)
 	{
-		var chip = new Panel { Position = pos, Size = size, MouseFilter = MouseFilterEnum.Ignore };
-		chip.AddThemeStyleboxOverride("panel", BattleTheme.Box(b.Bg, b.Border, 2, 7));
-		var label = BattleTheme.MakeOutlinedLabel(b.Text, 13, BattleTheme.TextMain, HorizontalAlignment.Center);
+		var (bg, border) = b.Kind == StatusKind.Buff
+			? (BattleTheme.BuffStatusBg, BattleTheme.BuffStatusBorder)
+			: (BattleTheme.DebuffStatusBg, BattleTheme.DebuffStatusBorder);
+		var chip = new Panel { Position = pos, Size = new Vector2(s, s), MouseFilter = MouseFilterEnum.Ignore };
+		chip.AddThemeStyleboxOverride("panel", BattleTheme.Box(bg, border, 2, 5));
+		var label = BattleTheme.MakeOutlinedLabel(b.Glyph, 14, BattleTheme.TextMain, HorizontalAlignment.Center);
 		label.VerticalAlignment = VerticalAlignment.Center;
 		label.Position = Vector2.Zero;
-		label.Size = size;
+		label.Size = new Vector2(s, s);
 		chip.AddChild(label);
 		return chip;
+	}
+
+	/// <summary>Rebuild one standee's status badges from the host's CURRENT view — for live mid-animation updates
+	/// (a 持盾 grant/consume) where only the entity id is known. A full render otherwise refreshes everything.</summary>
+	private void RefreshStandeeStatus(int entityId)
+	{
+		if (_standees.TryGetValue(entityId, out var node)
+			&& _host.GetView(ViewSeat).Units.FirstOrDefault(x => x.EntityId == entityId) is { } uv)
+			SetStandeeStatuses(node, StandeeStatuses(uv));
 	}
 
 	private void Log(string message) => _logLabel.Text = message;

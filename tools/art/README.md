@@ -1,6 +1,6 @@
 # AI 美术流水线(tools/art)
 
-规划见 [docs/03 §9](../../docs/03-PC原型实现计划.md)。人工环节只有一个:四选一筛选。
+规划见 [docs/03 §9](../../docs/03-（已实现）PC原型实现计划.md)。人工环节只有一个:四选一筛选。
 
 ## 文件
 
@@ -19,9 +19,11 @@
 ## 后处理(已建):postprocess.py
 
 `python postprocess.py`(全量)或 `--ids <id>...`。依赖 `pip install rembg onnxruntime opencv-python-headless pillow`。
-按 prompts.json 的 type 分流:unit → rembg 去背+底座合成立牌 & 按主体位置裁 4:3 卡面;order → 中心裁 4:3;
+按 prompts.json 的 type 分流:unit → rembg 去背+底座合成立牌 & 完整缩放为 512×768 卡面;order → 完整缩放为 768×512 卡面;
 leader → 512 圆裁;卡框/按钮板 → 泛洪抠透明(固定范围,种子=四角+插画窗中心);宝石/纹章 → rembg 抠出缩 256。
 输出 `game/assets/art/{cards,standees,leaders,board,ui,screens}/<id>.png`。
+
+只更新卡面可运行 `python postprocess.py --cards-only`，不会触发 rembg，也不会重建立牌/UI。卡面不再预裁切，最终构图由开发模式的「插画取景」逐卡保存。
 
 Godot 侧已接入(BattleTheme.Tex 按 ID 加载,缺图自动回退几何占位):棋盘底图、立牌、手牌卡框+插画+宝石、
 领袖头像、卡背、结束回合按钮板、结算图、主菜单 Key Art+纹章。重新生成美术后只需重跑 postprocess + 编辑器重扫。

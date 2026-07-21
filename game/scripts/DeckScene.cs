@@ -73,7 +73,7 @@ public partial class DeckScene : Control
             AddChild(a);
         }
 
-        var title = BattleTheme.MakeOutlinedLabel("卡组编辑", 40, BattleTheme.TextMain);
+        var title = BattleTheme.MakeTitle("卡组编辑", 40, BattleTheme.TextMain, HorizontalAlignment.Left);
         title.Position = new Vector2(40, 26);
         title.Size = new Vector2(360, 52);
         AddChild(title);
@@ -84,18 +84,21 @@ public partial class DeckScene : Control
 
         _status = BattleTheme.MakeOutlinedLabel("", 22, BattleTheme.DangerColor);
         _status.Position = new Vector2(864, 34);
-        _status.Size = new Vector2(560, 40);
+        _status.Size = new Vector2(396, 40);
         AddChild(_status);
 
-        AddChild(MakeButton("保存卡组", new Vector2(1500, 24), new Vector2(180, 60), BattleTheme.AccentSoft, OnSave));
-        AddChild(MakeButton("返回", new Vector2(1700, 24), new Vector2(160, 60), BattleTheme.PanelDark, () => GetTree().ChangeSceneToFile(MenuPath)));
+        if (OS.HasFeature("editor") || OS.IsDebugBuild())
+            AddChild(MakeButton("插画取景", new Vector2(1280, 24), new Vector2(200, 60), BattleTheme.PanelDark,
+                () => CardArtEditor.Open(this, _cards, RebuildCollection), textured: true));
+        AddChild(MakeButton("保存卡组", new Vector2(1500, 24), new Vector2(180, 60), BattleTheme.AccentSoft, OnSave, textured: true));
+        AddChild(MakeButton("返回", new Vector2(1700, 24), new Vector2(160, 60), BattleTheme.PanelDark, () => SceneFx.ChangeScene(this, MenuPath), textured: true));
 
         // Faction tabs.
         string[] names = ["铁誓", "游群", "教团", "匠会", "中立"];
         for (int i = 0; i < FactionOrder.Length; i++)
         {
             string f = FactionOrder[i];
-            _tabs[i] = MakeButton(names[i], new Vector2(40 + i * 172, 104), new Vector2(160, 52), BattleTheme.PanelDark, () => { _filter = f; RebuildCollection(); RepaintTabs(); });
+            _tabs[i] = MakeButton(names[i], new Vector2(40 + i * 172, 104), new Vector2(160, 52), BattleTheme.PanelDark, () => { _filter = f; RebuildCollection(); RepaintTabs(); }, textured: true);
             AddChild(_tabs[i]);
         }
         RepaintTabs();
@@ -111,24 +114,28 @@ public partial class DeckScene : Control
         scroll.AddChild(grid);
         _gridHost = grid;
 
-        // Right column: deck panel.
+        // Right column: deck panel — a leather ledger (docs/18 §4.3). rev4: ALL content sits inside the
+        // frame's ~74px inner field (it used to ride over the border art — user 图4).
         var panel = new Panel { Position = new Vector2(1200, 104), Size = new Vector2(680, 944) };
-        panel.AddThemeStyleboxOverride("panel", BattleTheme.Box(new Color(0.08f, 0.07f, 0.06f, 0.9f), BattleTheme.Accent, 2, 12));
+        panel.AddThemeStyleboxOverride("panel", (StyleBox?)BattleTheme.LeatherPanel() ?? BattleTheme.Box(new Color(0.08f, 0.07f, 0.06f, 0.9f), BattleTheme.Accent, 2, 12));
         AddChild(panel);
 
-        _countLabel = BattleTheme.MakeOutlinedLabel("0 / 30", 30, BattleTheme.TextMain);
-        _countLabel.Position = new Vector2(24, 16); _countLabel.Size = new Vector2(300, 40);
+        _countLabel = BattleTheme.MakeOutlinedLabel("0 / 30", 28, BattleTheme.TextMain);
+        _countLabel.Position = new Vector2(78, 84); _countLabel.Size = new Vector2(220, 38);
         panel.AddChild(_countLabel);
-        _leaderLabel = BattleTheme.MakeOutlinedLabel("", 22, BattleTheme.Accent, HorizontalAlignment.Right);
-        _leaderLabel.Position = new Vector2(340, 22); _leaderLabel.Size = new Vector2(316, 32);
+        _leaderLabel = BattleTheme.MakeOutlinedLabel("", 18, BattleTheme.Accent, HorizontalAlignment.Right);
+        _leaderLabel.Position = new Vector2(282, 92); _leaderLabel.Size = new Vector2(324, 28);
         panel.AddChild(_leaderLabel);
 
-        // Cost curve.
-        _curveHost = new Control { Position = new Vector2(24, 64), Size = new Vector2(632, 108) };
+        // Cost curve — labelled so the chart explains itself (每个费用档几张牌).
+        var curveCaption = BattleTheme.MakeLabel("费用曲线 · 每档张数", 16, BattleTheme.TextDim);
+        curveCaption.Position = new Vector2(78, 132); curveCaption.Size = new Vector2(320, 24);
+        panel.AddChild(curveCaption);
+        _curveHost = new Control { Position = new Vector2(78, 160), Size = new Vector2(524, 152) };
         panel.AddChild(_curveHost);
 
         // Deck list (scroll).
-        var deckScroll = new ScrollContainer { Position = new Vector2(16, 188), Size = new Vector2(648, 700) };
+        var deckScroll = new ScrollContainer { Position = new Vector2(70, 330), Size = new Vector2(542, 452) };
         deckScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         panel.AddChild(deckScroll);
         var list = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -137,7 +144,7 @@ public partial class DeckScene : Control
         _deckList = list;
 
         _verdict = BattleTheme.MakeOutlinedLabel("", 22, BattleTheme.DangerColor, HorizontalAlignment.Center);
-        _verdict.Position = new Vector2(16, 900); _verdict.Size = new Vector2(648, 34);
+        _verdict.Position = new Vector2(78, 794); _verdict.Size = new Vector2(524, 34);
         panel.AddChild(_verdict);
 
         Session.DeckSavedOk += OnDeckSaved;
@@ -155,7 +162,11 @@ public partial class DeckScene : Control
     private void RepaintTabs()
     {
         for (int i = 0; i < _tabs.Length; i++)
-            BattleTheme.SetButtonBg(_tabs[i], _filter == FactionOrder[i] ? BattleTheme.AccentSoft : BattleTheme.PanelDark);
+        {
+            bool sel = _filter == FactionOrder[i];
+            BattleTheme.SetButtonBg(_tabs[i], sel ? BattleTheme.AccentSoft : BattleTheme.PanelDark);
+            BattleTheme.SetSelected(_tabs[i], sel);
+        }
     }
 
     private void RebuildCollection()
@@ -177,7 +188,7 @@ public partial class DeckScene : Control
         HookInspect(tile, def); // hover = enlarged preview, right-click = full detail popup
 
         if (BattleTheme.Tex($"cards/{def.Id}.png") is { } art)
-            tile.AddChild(BattleTheme.Art(art, new Vector2(4, 4), new Vector2(size.X - 8, 78), TextureRect.StretchModeEnum.KeepAspectCovered));
+            tile.AddChild(CardView.ArtWindow(art, def.Id, new Vector2(4, 4), new Vector2(size.X - 8, 78)));
 
         tile.AddChild(CostBadge(def.Cost, new Vector2(6, 6)));
         var name = BattleTheme.MakeOutlinedLabel(ShortName(def.Name), 17, BattleTheme.TextMain, HorizontalAlignment.Center);
@@ -236,11 +247,11 @@ public partial class DeckScene : Control
                      .OrderBy(x => x.Def.Cost).ThenBy(x => x.Def.Name, System.StringComparer.Ordinal))
         {
             var def = g.Def;
-            var row = MakeButton($"{g.Count}×  {ShortName(def.Name)}", Vector2.Zero, new Vector2(632, 40), BattleTheme.PanelDark, () => RemoveOne(def.Id));
+            var row = MakeButton($"{g.Count}×  {ShortName(def.Name)}", Vector2.Zero, new Vector2(516, 40), BattleTheme.PanelDark, () => RemoveOne(def.Id));
             row.AddThemeStyleboxOverride("normal", BattleTheme.Box(BattleTheme.PanelDark, CardView.FactionColor(def.Faction), 1, 6));
             row.AddThemeFontSizeOverride("font_size", 18);
             row.Alignment = HorizontalAlignment.Left;
-            row.AddChild(CostBadge(def.Cost, new Vector2(580, 4), 30));
+            row.AddChild(CostBadge(def.Cost, new Vector2(470, 5), 30));
             HookInspect(row, def); // hover = preview, right-click = detail. Left-click still removes one.
             _deckList.AddChild(row);
         }
@@ -251,26 +262,38 @@ public partial class DeckScene : Control
 
     private void BuildCurve()
     {
+        // rev4 chart language: rounded bars on a baseline, count on top, and the axis labelled with the SAME
+        // blue cost discs the cards wear — so "each disc = that cost, bar = how many copies" reads instantly.
         foreach (Node c in _curveHost.GetChildren()) c.QueueFree();
         var buckets = new int[8]; // 0..6, 7 = 7+
         foreach (var id in _deck)
             buckets[System.Math.Min(7, _cards.Get(id).Cost)]++;
         int max = System.Math.Max(1, buckets.Max());
+
+        const float baselineY = 114f, chartH = 88f;
         float bw = _curveHost.Size.X / 8f;
+
+        var baseline = new ColorRect { Color = new Color(0.62f, 0.5f, 0.3f, 0.55f), Position = new Vector2(0, baselineY), Size = new Vector2(_curveHost.Size.X, 2), MouseFilter = MouseFilterEnum.Ignore };
+        _curveHost.AddChild(baseline);
+
         for (int i = 0; i < 8; i++)
         {
-            float h = 78f * buckets[i] / max;
-            var bar = new ColorRect { Color = BattleTheme.Accent, Position = new Vector2(i * bw + 6, 80 - h), Size = new Vector2(bw - 12, h), MouseFilter = MouseFilterEnum.Ignore };
-            _curveHost.AddChild(bar);
-            var lab = BattleTheme.MakeLabel(i == 7 ? "7+" : i.ToString(), 15, BattleTheme.TextDim, HorizontalAlignment.Center);
-            lab.Position = new Vector2(i * bw, 84); lab.Size = new Vector2(bw, 20);
-            _curveHost.AddChild(lab);
+            float cx = i * bw;
             if (buckets[i] > 0)
             {
+                float h = Mathf.Max(6f, chartH * buckets[i] / max);
+                var bar = new Panel { Position = new Vector2(cx + (bw - 34) / 2f, baselineY - h), Size = new Vector2(34, h), MouseFilter = MouseFilterEnum.Ignore };
+                var sb = new StyleBoxFlat { BgColor = BattleTheme.Accent, BorderColor = BattleTheme.AccentSoft, CornerRadiusTopLeft = 5, CornerRadiusTopRight = 5 };
+                sb.SetBorderWidthAll(1);
+                bar.AddThemeStyleboxOverride("panel", sb);
+                _curveHost.AddChild(bar);
+
                 var n = BattleTheme.MakeOutlinedLabel(buckets[i].ToString(), 15, BattleTheme.TextMain, HorizontalAlignment.Center);
-                n.Position = new Vector2(i * bw, 80 - h - 20); n.Size = new Vector2(bw, 18);
+                n.Position = new Vector2(cx, baselineY - h - 22); n.Size = new Vector2(bw, 18);
                 _curveHost.AddChild(n);
             }
+            // Axis: a small cost disc (same look as the cost gem on every card).
+            _curveHost.AddChild(CostBadge(i, new Vector2(cx + (bw - 26) / 2f, baselineY + 8), 26, i == 7 ? "7+" : null));
         }
     }
 
@@ -325,7 +348,7 @@ public partial class DeckScene : Control
         }
 
         DeckEditContext.Editing = null;
-        GetTree().ChangeSceneToFile(MenuPath);
+        SceneFx.ChangeScene(this, MenuPath);
     }
 
     private void OnDeckSaved(DeckSaved ds) => Callable.From(() =>
@@ -334,7 +357,7 @@ public partial class DeckScene : Control
             DeckStorage.SetServerId(_pendingLocalId, ds.DeckId); // link the local deck to its server copy
         _ = Session.SendAsync(new GetProfile()); // refresh Profile.Decks so the online lobby shows the new deck
         DeckEditContext.Editing = null;
-        GetTree().ChangeSceneToFile(MenuPath);
+        SceneFx.ChangeScene(this, MenuPath);
     }).CallDeferred();
 
     // A failed server push still leaves the deck saved locally; surface it but don't lose the local copy.
@@ -344,21 +367,24 @@ public partial class DeckScene : Control
 
     private void Flash(string msg) => _status.Text = msg;
 
-    private Control CostBadge(int cost, Vector2 pos, int px = 34)
+    private Control CostBadge(int cost, Vector2 pos, int px = 34, string? textOverride = null)
     {
         var holder = new Control { Position = pos, Size = new Vector2(px, px), MouseFilter = MouseFilterEnum.Ignore };
         var disc = new Panel { Size = new Vector2(px, px), MouseFilter = MouseFilterEnum.Ignore };
         disc.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.CostColor.Darkened(0.1f), Colors.White, 1, px / 2));
         holder.AddChild(disc);
-        var n = BattleTheme.MakeOutlinedLabel(cost.ToString(), Mathf.RoundToInt(px * 0.55f), Colors.White, HorizontalAlignment.Center);
+        var n = BattleTheme.MakeOutlinedLabel(textOverride ?? cost.ToString(),
+            Mathf.RoundToInt(px * (textOverride != null ? 0.42f : 0.55f)), Colors.White, HorizontalAlignment.Center);
         n.Size = new Vector2(px, px);
         holder.AddChild(n);
         return holder;
     }
 
-    private Button MakeButton(string text, Vector2 pos, Vector2 size, Color bg, System.Action onPressed)
+    // textured=true skins the button with the steel plate (real chrome: save/return/tabs); tiles and deck-list
+    // rows stay false because they override the normal stylebox with a card-art / faction-tinted flat box.
+    private Button MakeButton(string text, Vector2 pos, Vector2 size, Color bg, System.Action onPressed, bool textured = false)
     {
-        var b = BattleTheme.MakeButton(pos, size, bg, BattleTheme.Accent, 2, 8);
+        var b = BattleTheme.MakeButton(pos, size, bg, BattleTheme.Accent, 2, 8, textured);
         b.CustomMinimumSize = size; // containers (grid/vbox) lay out by min size, not Size — set it so tiles/rows don't collapse
         b.Text = text;
         b.AddThemeFontSizeOverride("font_size", 22);

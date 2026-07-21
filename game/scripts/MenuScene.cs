@@ -40,22 +40,28 @@ public partial class MenuScene : Control
             AddChild(art);
         }
 
-        var title = BattleTheme.MakeOutlinedLabel("守 线", 96, BattleTheme.TextMain, HorizontalAlignment.Center);
-        title.Position = new Vector2(0, 130);
-        title.Size = new Vector2(BattleTheme.ScreenW, 120);
+        // Display-serif logo (docs/18 §3.3): carved gold title over a dark outline, an accent hairline beneath.
+        var title = BattleTheme.MakeTitle("守 线", 104, BattleTheme.AtkColor, HorizontalAlignment.Center);
+        title.Position = new Vector2(0, 118);
+        title.Size = new Vector2(BattleTheme.ScreenW, 132);
         AddChild(title);
 
-        var subtitle = BattleTheme.MakeLabel("HOLD THE LINE   ·   原型 Demo", 30, BattleTheme.Accent, HorizontalAlignment.Center);
-        subtitle.Position = new Vector2(0, 250);
-        subtitle.Size = new Vector2(BattleTheme.ScreenW, 44);
+        var rule = new ColorRect { Color = BattleTheme.Accent, Position = new Vector2(BattleTheme.ScreenW / 2f - 170, 256), Size = new Vector2(340, 2) };
+        rule.MouseFilter = MouseFilterEnum.Ignore;
+        AddChild(rule);
+
+        var subtitle = BattleTheme.MakeLabel("HOLD THE LINE   ·   原型 Demo", 28, BattleTheme.Accent, HorizontalAlignment.Center);
+        subtitle.Position = new Vector2(0, 268);
+        subtitle.Size = new Vector2(BattleTheme.ScreenW, 40);
         AddChild(subtitle);
 
-        // Main menu (docs/12 C1): one entry per mode. Deck/difficulty/opponent for vs-AI are chosen in the panel.
-        AddButton("人机对战", new Vector2(660, 456), BattleTheme.SeatColor0, () => ShowVsAiPanel());
-        AddButton("双人热座", new Vector2(660, 542), BattleTheme.AccentSoft, StartHotseat);
-        AddButton("联机对战", new Vector2(660, 628), BattleTheme.SeatColor1, ShowOnlinePanel);
-        AddButton("卡组管理", new Vector2(660, 714), Color.FromHtml("8b5fa6"), ShowDeckManager);
-        AddButton("退出", new Vector2(660, 806), BattleTheme.PanelDark, () => GetTree().Quit());
+        // Main menu (docs/12 C1): one entry per mode. Uniform steel plates + a left entry icon (docs/18 §4.1),
+        // no more per-button rainbow — colour is reserved for state, not identity.
+        AddButton("人机对战", "icon_vs_ai", new Vector2(660, 440), () => ShowVsAiPanel());
+        AddButton("双人热座", "icon_hotseat", new Vector2(660, 528), StartHotseat);
+        AddButton("联机对战", "icon_online", new Vector2(660, 616), ShowOnlinePanel);
+        AddButton("卡组管理", "icon_decks", new Vector2(660, 704), ShowDeckManager);
+        AddButton("退出", "icon_exit", new Vector2(660, 792), () => GetTree().Quit());
 
         AddVersionLabel();
         AddUpdateBanner();
@@ -80,7 +86,7 @@ public partial class MenuScene : Control
     /// overlays always render above it; RefreshUpdateBanner only mutates it, never re-adds it.</summary>
     private void AddUpdateBanner()
     {
-        _updateBanner = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2f - 460, 356), new Vector2(920, 56), BattleTheme.PanelDark, BattleTheme.Accent, 2, 10);
+        _updateBanner = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2f - 460, 356), new Vector2(920, 56), BattleTheme.PanelDark, BattleTheme.Accent, 2, 10, textured: true);
         _updateBanner.AddThemeFontSizeOverride("font_size", 22);
         _updateBanner.Visible = false;
         _updateBanner.Pressed += () => _bannerAction?.Invoke();
@@ -233,26 +239,26 @@ public partial class MenuScene : Control
     /// closes onto the (already-connected) menu. Reachable again only via logout.</summary>
     private void ShowLoginPage()
     {
-        var p = NewPanel();
-        PanelLabel(p, "守 线", 120, 84, BattleTheme.TextMain);
-        PanelLabel(p, "HOLD THE LINE", 224, 26, BattleTheme.Accent);
-        PanelLabel(p, "登录、注册,或以游客身份进入", 296, 22, BattleTheme.TextDim);
+        // docs/18 P4: parchment window like the rest of the shell.
+        var win = WindowPanelTitled(new Vector2(760, 650), "守 线");
+        WinLabel(win, "HOLD THE LINE", WinContentTop, 20, BattleTheme.InkDim);
+        WinLabel(win, "登录、注册,或以游客身份进入", WinContentTop + 36, 22, BattleTheme.InkMain);
 
         // Server address (defaults to the public wss server; editable for LAN/local play). Captured into
         // GameConfig before any entry so all three flows dial the same host.
-        PanelLabel(p, "服务器地址", 690, 20, BattleTheme.TextDim);
-        var url = Field(GameConfig.ServerUrl, "ws://主机IP:5210/ws", new Vector2(Cx, 724), 600);
+        WinLabel(win, "服 务 器 地 址", 452, 20, BattleTheme.InkMain);
+        var url = Field(GameConfig.ServerUrl, "ws://主机IP:5210/ws", new Vector2(120, 484), 520);
         url.AddThemeFontSizeOverride("font_size", 20);
-        p.AddChild(url);
+        win.AddChild(url);
         void Go(System.Action next)
         {
             GameConfig.ServerUrl = string.IsNullOrWhiteSpace(url.Text) ? GameConfig.ServerUrl : url.Text.Trim();
             next();
         }
 
-        p.AddChild(Btn("登录", new Vector2(Cx, 392), new Vector2(600, 76), () => Go(() => ShowAuthForm(isRegister: false))));
-        p.AddChild(Btn("注册新账号", new Vector2(Cx, 484), new Vector2(600, 76), () => Go(() => ShowAuthForm(isRegister: true))));
-        p.AddChild(Btn("游客进入", new Vector2(Cx, 576), new Vector2(600, 76), () => Go(EnterAsGuest)));
+        win.AddChild(Btn("登录", new Vector2(120, 212), new Vector2(520, 64), () => Go(() => ShowAuthForm(isRegister: false))));
+        win.AddChild(Btn("注册新账号", new Vector2(120, 292), new Vector2(520, 64), () => Go(() => ShowAuthForm(isRegister: true))));
+        win.AddChild(Btn("游客进入", new Vector2(120, 372), new Vector2(520, 64), () => Go(EnterAsGuest)));
     }
 
     /// <summary>Ensure a connection to the CURRENT server URL for the login-page entries. Reconnects when the
@@ -282,19 +288,18 @@ public partial class MenuScene : Control
     /// only in copy, password floor, the register-only fresh-identity, and which auth call + offerName.</summary>
     private void ShowAuthForm(bool isRegister)
     {
-        var p = NewPanel();
-        PanelLabel(p, isRegister ? "注 册 新 账 号" : "登 录", 150, 56, BattleTheme.TextMain);
-        PanelLabel(p, isRegister ? "创建一个全新账号(与任何游客进度无关),用户名+密码登录"
-                                 : "登录已有账号(会挤下其它已登录的设备)", 236, 22, BattleTheme.TextDim);
-        PanelLabel(p, "用户名", 320, 22, BattleTheme.Accent);
-        var user = Field(isRegister ? "" : Prefs.LastUsername, "2-20 个字符", new Vector2(Cx, 356), 600);
-        p.AddChild(user);
-        PanelLabel(p, "密码", 452, 22, BattleTheme.Accent);
-        var pass = Field("", "至少 8 位", new Vector2(Cx, 488), 600);
+        var win = WindowPanelTitled(new Vector2(760, 660), isRegister ? "注 册 新 账 号" : "登 录");
+        WinLabel(win, isRegister ? "创建一个全新账号(与任何游客进度无关),用户名+密码登录"
+                                 : "登录已有账号(会挤下其它已登录的设备)", WinContentTop, 20, BattleTheme.InkDim);
+        WinLabel(win, "用 户 名", 170, 22, BattleTheme.InkMain);
+        var user = Field(isRegister ? "" : Prefs.LastUsername, "2-20 个字符", new Vector2(120, 202), 520);
+        win.AddChild(user);
+        WinLabel(win, "密 码", 276, 22, BattleTheme.InkMain);
+        var pass = Field("", "至少 8 位", new Vector2(120, 308), 520);
         pass.Secret = true;
-        p.AddChild(pass);
-        var status = PanelLabel(p, "", 586, 24, BattleTheme.DangerColor);
-        var go = Btn(isRegister ? "注册" : "登录", new Vector2(Cx, 648), new Vector2(600, 72), null!);
+        win.AddChild(pass);
+        var status = WinLabel(win, "", 382, 22, BattleTheme.DangerColor);
+        var go = BtnPrimary(isRegister ? "注册" : "登录", new Vector2(120, 424), new Vector2(520, 64), null!);
         // Guarded against the panel being freed mid-await (返回 during a slow connect/auth).
         void Set(string t, Color c) { if (GodotObject.IsInstanceValid(status)) { status.Text = t; status.AddThemeColorOverride("font_color", c); } }
         void Enable() { if (GodotObject.IsInstanceValid(go)) go.Disabled = false; }
@@ -305,7 +310,7 @@ public partial class MenuScene : Control
             if (u.Length is < 2 or > 20) { Set("用户名需 2-20 个字符", BattleTheme.DangerColor); return; }
             if (pass.Text.Length < (isRegister ? 8 : 1)) { Set(isRegister ? "密码至少 8 位" : "请输入密码", BattleTheme.DangerColor); return; }
             if (GodotObject.IsInstanceValid(go)) go.Disabled = true;
-            Set("连接中…", BattleTheme.TextDim);
+            Set("连接中…", BattleTheme.InkDim); // dark ink — TextDim washes out on the parchment window
             // 方案 A (docs/16 §2): a brand-new account = a brand-new guest identity. Clear only when NOT already
             // connected — the login page appears solely when there is nothing to protect.
             if (isRegister && !Session.Connected) Identity.Clear();
@@ -316,8 +321,8 @@ public partial class MenuScene : Control
             if (err is null) { Prefs.LastUsername = u; FinishEntry(offerName: isRegister); }
             else { Enable(); Set(AuthErrorText(err), BattleTheme.DangerColor); }
         };
-        p.AddChild(go);
-        p.AddChild(Btn("返回", new Vector2(Cx, 736), new Vector2(600, 60), ShowLoginPage));
+        win.AddChild(go);
+        win.AddChild(Btn("返回", new Vector2(120, 504), new Vector2(520, 52), ShowLoginPage));
     }
 
     private async void EnterAsGuest()
@@ -343,13 +348,12 @@ public partial class MenuScene : Control
     /// <summary>First-time display-name prompt (docs/16 §3). Skippable; changeable later in 账号.</summary>
     private void PromptFirstName()
     {
-        var p = NewPanel();
-        PanelLabel(p, "设 置 昵 称", 300, 52, BattleTheme.TextMain);
-        PanelLabel(p, "给自己起个显示名(之后可在“账号”里随时修改)", 380, 22, BattleTheme.TextDim);
-        var field = Field("", "1-20 个字符", new Vector2(Cx, 456), 600);
-        p.AddChild(field);
-        var status = PanelLabel(p, "", 540, 22, BattleTheme.DangerColor);
-        p.AddChild(Btn("确定", new Vector2(Cx, 596), new Vector2(290, 64), async () =>
+        var win = WindowPanelTitled(new Vector2(700, 470), "设 置 昵 称");
+        WinLabel(win, "给自己起个显示名(之后可在“账号”里随时修改)", WinContentTop, 20, BattleTheme.InkDim);
+        var field = Field("", "1-20 个字符", new Vector2(90, 172), 520);
+        win.AddChild(field);
+        var status = WinLabel(win, "", 244, 22, BattleTheme.DangerColor);
+        win.AddChild(Btn("确定", new Vector2(90, 288), new Vector2(250, 60), async () =>
         {
             string n = field.Text.Trim();
             if (n.Length is < 1 or > 20) { if (GodotObject.IsInstanceValid(status)) status.Text = "昵称需 1-20 个字符"; return; }
@@ -358,7 +362,7 @@ public partial class MenuScene : Control
             if (err is null) CloseOverlay(); // Prefs.Nickname is synced by the resulting Profile push
             else status.Text = AuthErrorText(err);
         }));
-        p.AddChild(Btn("跳过", new Vector2(Cx + 310, 596), new Vector2(290, 64), CloseOverlay));
+        win.AddChild(Btn("跳过", new Vector2(360, 288), new Vector2(250, 60), CloseOverlay));
     }
 
     /// <summary>Logout (docs/16): drop the connection, wipe local credentials, and return to the login page.
@@ -366,12 +370,11 @@ public partial class MenuScene : Control
     private void ShowLogoutConfirm()
     {
         bool guest = Session.BoundUsername is null;
-        var p = NewPanel();
-        PanelLabel(p, "登 出", 320, 52, BattleTheme.DangerColor);
-        PanelLabel(p, guest
+        var win = WindowPanelTitled(new Vector2(700, 400), "登 出");
+        WinLabel(win, guest
             ? "游客身份登出后无法找回,建议先绑定账号(注册)。确定登出?"
-            : "登出后回到登录页,可用账号重新登录。确定登出?", 400, 22, BattleTheme.TextDim);
-        p.AddChild(Btn("登出", new Vector2(Cx, 512), new Vector2(290, 64), async () =>
+            : "登出后回到登录页,可用账号重新登录。确定登出?", WinContentTop + 6, 20, BattleTheme.InkMain);
+        var logout = Btn("登出", new Vector2(90, 208), new Vector2(250, 60), async () =>
         {
             await Session.DisconnectAsync();
             Identity.Clear();
@@ -380,8 +383,10 @@ public partial class MenuScene : Control
             Prefs.LastUsername = "";
             GameConfig.Nickname = "玩家";
             ShowLoginPage();
-        }));
-        p.AddChild(Btn("取消", new Vector2(Cx + 310, 512), new Vector2(290, 64), ShowAccountPanel));
+        });
+        BattleTheme.SetButtonBg(logout, BattleTheme.DangerColor);
+        win.AddChild(logout);
+        win.AddChild(Btn("取消", new Vector2(360, 208), new Vector2(250, 60), ShowAccountPanel));
     }
 
     // ---------- online lobby (M3 C1): connect → profile → ranked queue / friend rooms ----------
@@ -409,7 +414,8 @@ public partial class MenuScene : Control
     private ColorRect NewPanel()
     {
         CloseOverlay(); // free the previous overlay so panels don't stack / bleed through
-        var dim = new ColorRect { Color = new Color(0.02f, 0.02f, 0.02f, 0.98f) };
+        // docs/18 §4.2: a dimmed backdrop (key art shows through), not a near-opaque black void.
+        var dim = new ColorRect { Color = new Color(0.04f, 0.035f, 0.03f, 0.92f) };
         dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         AddChild(dim);
         _panel = dim;
@@ -425,7 +431,11 @@ public partial class MenuScene : Control
 
     private static Label PanelLabel(Control parent, string text, float y, int size, Color color)
     {
-        var l = BattleTheme.MakeOutlinedLabel(text, size, color, HorizontalAlignment.Center);
+        // docs/18 §3.3: panel titles (the big first label of each panel, size ≥ 38) get the display serif;
+        // body/description lines stay in the sans for small-size legibility.
+        var l = size >= 38
+            ? BattleTheme.MakeTitle(text, size, color, HorizontalAlignment.Center)
+            : BattleTheme.MakeOutlinedLabel(text, size, color, HorizontalAlignment.Center);
         Positioned(l, new Vector2(0, y), new Vector2(BattleTheme.ScreenW, 46));
         parent.AddChild(l);
         return l;
@@ -459,12 +469,7 @@ public partial class MenuScene : Control
 
     private void ShowLobby()
     {
-        var p = NewPanel();
         var pf = Session.Profile;
-        PanelLabel(p, pf != null ? pf.Name : "已连接", 150, 56, BattleTheme.TextMain);
-        PanelLabel(p, pf != null ? $"评分 {pf.Rating}   ·   胜 {pf.Wins} / 负 {pf.Losses}" : "", 224, 26, BattleTheme.Accent);
-
-        PanelLabel(p, "当前卡组", 300, 22, BattleTheme.TextDim);
         // The player's saved decks first (from the last profile push), then the built-in starters.
         var options = new List<(string Id, string Label, Color Color, string Tip)>();
         if (pf != null)
@@ -472,39 +477,30 @@ public partial class MenuScene : Control
         foreach (var d in DeckOptions) options.Add((d.Id, d.Label, d.Color, BuiltinDeckTip(d.Id)));
         if (options.All(o => o.Id != _lobbyDeck)) // first open / deleted deck → last used, else newest edited
             _lobbyDeck = DefaultLobbyDeck(options);
-
         int ownCount = pf?.Decks.Count ?? 0;
-        var deckBtns = new Button[options.Count];
-        void Repaint() { for (int i = 0; i < options.Count; i++) BattleTheme.SetButtonBg(deckBtns[i], _lobbyDeck == options[i].Id ? options[i].Color : BattleTheme.PanelDark); }
-        for (int i = 0; i < options.Count; i++)
-        {
-            var opt = options[i];
-            var pos = new Vector2(Cx + (i % 2) * 310, 334 + (i / 2) * 66);
-            deckBtns[i] = Btn(opt.Label, pos, new Vector2(290, 58), () => { _lobbyDeck = opt.Id; Repaint(); });
-            deckBtns[i].TooltipText = opt.Tip;
-            p.AddChild(deckBtns[i]);
-            // Saved decks (before the builtins) get an edit chip — Profile.Decks carries the full card
-            // list (protocol v3), so the editor can open it directly, no extra round-trip.
-            if (i < ownCount && pf != null)
-            {
-                var ds = pf.Decks[i];
-                var edit = Btn("改", new Vector2(pos.X + 240, pos.Y + 5), new Vector2(46, 48), () => EditServerDeck(ds));
-                edit.AddThemeFontSizeOverride("font_size", 18);
-                p.AddChild(edit);
-            }
-        }
-        Repaint();
 
-        float y = 334 + ((options.Count + 1) / 2) * 66 + 16;
-        p.AddChild(Btn("排位匹配", new Vector2(Cx, y), new Vector2(600, 76), StartQueue));
-        p.AddChild(Btn("好友房间", new Vector2(Cx, y + 88), new Vector2(600, 68), ShowFriendRoom));
-        p.AddChild(Btn("卡组编辑", new Vector2(Cx, y + 164), new Vector2(290, 60), OpenDeckEditor));
-        p.AddChild(Btn("天梯排行", new Vector2(Cx + 310, y + 164), new Vector2(290, 60), ShowLadder));
-        // Bottom row: 账号 / 断开连接 / 返回 (docs/12 B1: account panel entry sits beside disconnect).
-        p.AddChild(Btn("账号", new Vector2(Cx, y + 236), new Vector2(190, 60), ShowAccountPanel));
-        p.AddChild(Btn("断开连接", new Vector2(Cx + 200, y + 236), new Vector2(190, 60), async () => { await Session.DisconnectAsync(); CloseOverlay(); }));
-        p.AddChild(Btn("返回", new Vector2(Cx + 400, y + 236), new Vector2(200, 60), CloseOverlay));
+        // docs/18 rev3: one parchment sheet, everything visible — deck grid (3 columns, edit chips beside
+        // own decks), then the action stack with the gold ranked-queue CTA.
+        float winH = WinContentTop + 40 + 34 + GridHeight(options.Count) + 28 + 76 + 16 + 60 + 16 + 56 + 16 + 56 + 16 + 52 + WinContentBottom;
+        var win = WindowPanelTitled(new Vector2(1160, winH), pf != null ? pf.Name : "已 连 接");
+
+        float y = WinContentTop;
+        WinLabel(win, pf != null ? $"评分 {pf.Rating}   ·   胜 {pf.Wins} / 负 {pf.Losses}" : "", y, 24, BattleTheme.InkDim); y += 40;
+        WinLabel(win, "当 前 卡 组", y, 22, BattleTheme.InkMain); y += 34;
+        y += GridSelect(win, y, options, () => _lobbyDeck, id => _lobbyDeck = id, btnW: 270,
+            editFor: i => i < ownCount && pf != null ? EditActionFor(pf.Decks[i]) : null) + 28;
+
+        win.AddChild(BtnPrimary("排 位 匹 配", new Vector2((1160 - 520) / 2f, y), new Vector2(520, 76), StartQueue)); y += 92;
+        win.AddChild(Btn("好友房间", new Vector2((1160 - 520) / 2f, y), new Vector2(520, 60), ShowFriendRoom)); y += 76;
+        win.AddChild(Btn("卡组编辑", new Vector2(232, y), new Vector2(340, 56), OpenDeckEditor));
+        win.AddChild(Btn("天梯排行", new Vector2(588, y), new Vector2(340, 56), ShowLadder)); y += 72;
+        // docs/12 B1: account panel entry sits beside disconnect.
+        win.AddChild(Btn("账号", new Vector2(232, y), new Vector2(340, 56), ShowAccountPanel));
+        win.AddChild(Btn("断开连接", new Vector2(588, y), new Vector2(340, 56), async () => { await Session.DisconnectAsync(); CloseOverlay(); })); y += 72;
+        win.AddChild(Btn("返回", new Vector2((1160 - 520) / 2f, y), new Vector2(520, 52), CloseOverlay));
     }
+
+    private System.Action EditActionFor(DeckSummary ds) => () => EditServerDeck(ds);
 
     private async void StartQueue()
     {
@@ -631,7 +627,7 @@ public partial class MenuScene : Control
         Prefs.LastLobbyDeck = _lobbyDeck; // a match actually started with it → preselect it next time
         GameConfig.SetOnlineAttached();
         GameConfig.LocalDeckCards = ResolveDeckCards(_lobbyDeck); // so the in-match 查看牌组 can show it
-        GetTree().ChangeSceneToFile(BattlePath);
+        SceneFx.ChangeScene(this, BattlePath);
     }
 
     /// <summary>Default lobby deck when nothing is selected yet: the deck last taken into an online match,
@@ -691,7 +687,7 @@ public partial class MenuScene : Control
     private void OpenDeckEditor()
     {
         DeckEditContext.Editing = null; // new deck; editing an existing one goes through the per-deck 改 chip
-        GetTree().ChangeSceneToFile("res://scenes/menu/Deck.tscn");
+        SceneFx.ChangeScene(this, "res://scenes/menu/Deck.tscn");
     }
 
     /// <summary>Edit a server deck: link it to its local copy (by server id) so a save updates both, adopting
@@ -700,7 +696,7 @@ public partial class MenuScene : Control
     {
         var local = DeckStorage.LoadAll().FirstOrDefault(d => d.ServerId == ds.Id);
         DeckEditContext.Editing = new DeckEditContext.Deck(local?.Id ?? DeckStorage.NewId(), ds.Name, ds.Faction, ds.CardIds, ds.Id);
-        GetTree().ChangeSceneToFile("res://scenes/menu/Deck.tscn");
+        SceneFx.ChangeScene(this, "res://scenes/menu/Deck.tscn");
     }
 
     // ---------- account (docs/12 B1): register/login on top of the persistent guest identity ----------
@@ -739,63 +735,61 @@ public partial class MenuScene : Control
     /// (register keeps its "把当前进度绑定" semantics) or switch accounts (login), and log out.</summary>
     private void ShowAccountPanel()
     {
-        var p = NewPanel();
-        PanelLabel(p, "账 号", 90, 52, BattleTheme.TextMain);
-        PanelLabel(p, Session.BoundUsername is { } bound ? $"已绑定账号:{bound}" : "当前为游客身份(本机密钥)", 168, 24, BattleTheme.Accent);
+        var win = WindowPanelTitled(new Vector2(900, 800), "账 号");
+        WinLabel(win, Session.BoundUsername is { } bound ? $"已绑定账号:{bound}" : "当前为游客身份(本机密钥)", WinContentTop, 22, BattleTheme.InkMain);
 
         // --- display name (docs/16 §3): change it in place, applies immediately ---
-        PanelLabel(p, "显示名", 232, 22, BattleTheme.TextDim);
-        // Field + button share the same centered 660–1260 column the rest of the panel uses. Show the actual
-        // name (never blank on the '玩家' default) so a player named 玩家 sees and can confirm it.
-        var nameField = Field(GameConfig.Nickname, "1-20 个字符", new Vector2(Cx, 268), 420);
-        p.AddChild(nameField);
-        var nameStatus = PanelLabel(p, "", 344, 20, BattleTheme.Accent);
-        var renameBtn = Btn("改名", new Vector2(1100, 268), new Vector2(160, 60), null!);
+        WinLabel(win, "显 示 名", 172, 20, BattleTheme.InkDim);
+        // Show the actual name (never blank on the '玩家' default) so a player named 玩家 sees and can confirm it.
+        var nameField = Field(GameConfig.Nickname, "1-20 个字符", new Vector2(190, 202), 380);
+        win.AddChild(nameField);
+        var nameStatus = WinLabel(win, "", 268, 20, BattleTheme.Accent);
+        var renameBtn = Btn("改名", new Vector2(586, 202), new Vector2(124, 56), null!);
         void SetName(string t, Color c) { if (GodotObject.IsInstanceValid(nameStatus)) { nameStatus.Text = t; nameStatus.AddThemeColorOverride("font_color", c); } }
         renameBtn.Pressed += async () =>
         {
             string n = nameField.Text.Trim();
             if (n.Length is < 1 or > 20) { SetName("昵称需 1-20 个字符", BattleTheme.DangerColor); return; }
             var err = await Session.SetNameAsync(n);
-            SetName(err is null ? "已更新" : AuthErrorText(err), err is null ? BattleTheme.Accent : BattleTheme.DangerColor);
+            SetName(err is null ? "已更新" : AuthErrorText(err), err is null ? BattleTheme.AccentSoft : BattleTheme.DangerColor);
         };
-        p.AddChild(renameBtn);
+        win.AddChild(renameBtn);
 
         // --- bind (guest) / switch account ---
-        PanelLabel(p, Session.BoundUsername is null
+        WinLabel(win, Session.BoundUsername is null
             ? "绑定账号:注册用户名+密码,把当前游客进度存到账号"
-            : "切换账号:登录另一个已有账号(会挤下旧设备)", 396, 20, BattleTheme.TextDim);
-        PanelLabel(p, "用户名", 436, 22, BattleTheme.Accent);
-        var user = Field("", "2-20 个字符", new Vector2(Cx, 472), 600);
-        p.AddChild(user);
-        PanelLabel(p, "密码", 552, 22, BattleTheme.Accent);
-        var pass = Field("", "至少 8 位", new Vector2(Cx, 588), 600);
+            : "切换账号:登录另一个已有账号(会挤下旧设备)", 306, 20, BattleTheme.InkDim);
+        WinLabel(win, "用 户 名", 342, 20, BattleTheme.InkMain);
+        var user = Field("", "2-20 个字符", new Vector2(190, 372), 520);
+        win.AddChild(user);
+        WinLabel(win, "密 码", 440, 20, BattleTheme.InkMain);
+        var pass = Field("", "至少 8 位", new Vector2(190, 470), 520);
         pass.Secret = true;
-        p.AddChild(pass);
+        win.AddChild(pass);
 
-        var status = PanelLabel(p, "", 668, 22, BattleTheme.DangerColor);
+        var status = WinLabel(win, "", 540, 22, BattleTheme.DangerColor);
         void SetStatus(string text, Color color) { if (GodotObject.IsInstanceValid(status)) { status.Text = text; status.AddThemeColorOverride("font_color", color); } }
 
-        var register = Btn("注册(绑定当前进度)", new Vector2(Cx, 716), new Vector2(290, 60), null!);
-        var login = Btn("登录(切换账号)", new Vector2(Cx + 310, 716), new Vector2(290, 60), null!);
+        var register = Btn("注册(绑定当前进度)", new Vector2(190, 582), new Vector2(250, 56), null!);
+        var login = Btn("登录(切换账号)", new Vector2(460, 582), new Vector2(250, 56), null!);
         register.Pressed += async () =>
         {
             string u = user.Text.Trim(); // capture before the await — the panel may be freed by then
-            SetStatus("注册中…", BattleTheme.TextDim);
+            SetStatus("注册中…", BattleTheme.InkDim);
             var err = await Session.RegisterAsync(u, pass.Text);
-            if (err is null) SetStatus($"注册成功,已绑定「{u}」", BattleTheme.Accent);
+            if (err is null) SetStatus($"注册成功,已绑定「{u}」", BattleTheme.AccentSoft);
             else SetStatus(AuthErrorText(err), BattleTheme.DangerColor);
         };
         login.Pressed += async () =>
         {
             string u = user.Text.Trim();
-            SetStatus("登录中…", BattleTheme.TextDim);
+            SetStatus("登录中…", BattleTheme.InkDim);
             var err = await Session.LoginAsync(u, pass.Text);
             if (err is null) { if (GodotObject.IsInstanceValid(this)) ShowLobby(); } // profile re-pushed → lobby shows the account's decks/rating
             else SetStatus(AuthErrorText(err), BattleTheme.DangerColor);
         };
-        p.AddChild(register);
-        p.AddChild(login);
+        win.AddChild(register);
+        win.AddChild(login);
 
         // Plaintext gate: no passwords over an untrusted ws:// hop (rename is fine — it carries no secret).
         if (!SecureChannelOk())
@@ -805,8 +799,8 @@ public partial class MenuScene : Control
             SetStatus("密码功能需要加密连接(wss)", BattleTheme.DangerColor);
         }
 
-        p.AddChild(Btn("登出", new Vector2(Cx, 792), new Vector2(290, 60), ShowLogoutConfirm));
-        p.AddChild(Btn("返回", new Vector2(Cx + 310, 792), new Vector2(290, 60), ShowLobby));
+        win.AddChild(Btn("登出", new Vector2(190, 654), new Vector2(250, 52), ShowLogoutConfirm));
+        win.AddChild(Btn("返回", new Vector2(460, 654), new Vector2(250, 52), ShowLobby));
     }
 
     // ---------- vs-AI setup (docs/12 C1+C3): my deck × difficulty × opponent, one panel ----------
@@ -840,63 +834,47 @@ public partial class MenuScene : Control
     {
         if (preselect != null) _vsAiMyDeck = $"local:{preselect.Id}";
 
-        var p = NewPanel();
-        PanelLabel(p, "人 机 对 战", 48, 48, BattleTheme.TextMain);
-
-        // 1) my deck
-        PanelLabel(p, "我的卡组", 112, 22, BattleTheme.Accent);
+        // docs/18 rev3: one parchment sheet holds everything — 3-column grids, zero scrollbars in the common
+        // case, sections flow down a cursor so the window height always matches its content.
         var myOpts = DeckGridOptions(withRandom: false);
         if (myOpts.All(o => o.Key != _vsAiMyDeck)) _vsAiMyDeck = DefaultVsAiDeck(myOpts); // first open / deleted → fall back
-        DeckGrid(p, new Vector2(Cx, 146), new Vector2(620, 150), myOpts, () => _vsAiMyDeck, k => _vsAiMyDeck = k);
+        var oppOpts = DeckGridOptions(withRandom: true);
+        if (oppOpts.All(o => o.Key != _vsAiOppDeck)) _vsAiOppDeck = "random";
 
-        // 2) difficulty
-        PanelLabel(p, "难度", 306, 22, BattleTheme.Accent);
+        float winH = WinContentTop + 34 + GridHeight(myOpts.Count) + 26 + 34 + 52 + 26 + 34 + GridHeight(oppOpts.Count) + 36 + 76 + 16 + 52 + WinContentBottom;
+        var win = WindowPanelTitled(new Vector2(1160, winH), "人 机 对 战");
+
+        float y = WinContentTop;
+        WinLabel(win, "我 的 卡 组", y, 22, BattleTheme.InkMain); y += 34;
+        y += GridSelect(win, y, myOpts, () => _vsAiMyDeck, k => _vsAiMyDeck = k) + 26;
+
+        WinLabel(win, "难 度", y, 22, BattleTheme.InkMain); y += 34;
         var levels = new (AiLevel L, string Label)[] { (AiLevel.Easy, "简单"), (AiLevel.Normal, "普通"), (AiLevel.Hard, "困难") };
         var lvlBtns = new Button[levels.Length];
-        void RepaintLevel() { for (int i = 0; i < levels.Length; i++) BattleTheme.SetButtonBg(lvlBtns[i], _vsAiLevel == levels[i].L ? BattleTheme.AccentSoft : BattleTheme.PanelDark); }
+        void RepaintLevel()
+        {
+            for (int i = 0; i < levels.Length; i++)
+            {
+                bool sel = _vsAiLevel == levels[i].L;
+                BattleTheme.SetButtonBg(lvlBtns[i], sel ? BattleTheme.AccentSoft : BattleTheme.PanelDark);
+                BattleTheme.SetSelected(lvlBtns[i], sel);
+            }
+        }
         for (int i = 0; i < levels.Length; i++)
         {
             var lv = levels[i];
-            var b = Btn(lv.Label, new Vector2(Cx + i * 205, 340), new Vector2(190, 58), () => { _vsAiLevel = lv.L; RepaintLevel(); });
+            var b = Btn(lv.Label, new Vector2(260 + i * 220, y), new Vector2(200, 52), () => { _vsAiLevel = lv.L; RepaintLevel(); });
             lvlBtns[i] = b;
-            p.AddChild(b);
+            win.AddChild(b);
         }
         RepaintLevel();
+        y += 52 + 26;
 
-        // 3) opponent (random + built-ins + local, one grid)
-        PanelLabel(p, "对手", 414, 22, BattleTheme.Accent);
-        var oppOpts = DeckGridOptions(withRandom: true);
-        if (oppOpts.All(o => o.Key != _vsAiOppDeck)) _vsAiOppDeck = "random";
-        DeckGrid(p, new Vector2(Cx, 448), new Vector2(620, 150), oppOpts, () => _vsAiOppDeck, k => _vsAiOppDeck = k);
+        WinLabel(win, "对 手", y, 22, BattleTheme.InkMain); y += 34;
+        y += GridSelect(win, y, oppOpts, () => _vsAiOppDeck, k => _vsAiOppDeck = k) + 36;
 
-        p.AddChild(Btn("开  战", new Vector2(Cx, 616), new Vector2(600, 76), StartVsAiMatch));
-        p.AddChild(Btn("返回", new Vector2(Cx, 704), new Vector2(600, 56), CloseOverlay));
-    }
-
-    /// <summary>A scrollable two-column grid of selectable deck buttons; the selected key highlights.</summary>
-    private void DeckGrid(Control parent, Vector2 pos, Vector2 size,
-        List<(string Key, string Label, Color Color, string Tip)> opts, System.Func<string> get, System.Action<string> set)
-    {
-        var scroll = new ScrollContainer { Position = pos, Size = size };
-        scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
-        parent.AddChild(scroll);
-        var inner = new Control { CustomMinimumSize = new Vector2(size.X - 24, ((opts.Count + 1) / 2) * 66) };
-        scroll.AddChild(inner);
-
-        var btns = new Button[opts.Count];
-        System.Action repaint = null!;
-        repaint = () => { for (int i = 0; i < opts.Count; i++) BattleTheme.SetButtonBg(btns[i], get() == opts[i].Key ? opts[i].Color : BattleTheme.PanelDark); };
-        for (int i = 0; i < opts.Count; i++)
-        {
-            var o = opts[i];
-            var b = BattleTheme.MakeButton(new Vector2((i % 2) * 300, (i / 2) * 66), new Vector2(288, 58), BattleTheme.PanelDark, BattleTheme.Accent, 1, 8);
-            b.Text = o.Label; b.AddThemeFontSizeOverride("font_size", 20); b.ClipText = true;
-            b.TooltipText = o.Tip;
-            b.Pressed += () => { set(o.Key); repaint(); };
-            inner.AddChild(b);
-            btns[i] = b;
-        }
-        repaint();
+        win.AddChild(BtnPrimary("开  战", new Vector2((1160 - 520) / 2f, y), new Vector2(520, 76), StartVsAiMatch)); y += 92;
+        win.AddChild(Btn("返回", new Vector2((1160 - 520) / 2f, y), new Vector2(520, 52), CloseOverlay));
     }
 
     /// <summary>The faction of the deck grid key the player picked, used to steer the random opponent away
@@ -928,7 +906,7 @@ public partial class MenuScene : Control
         string oppKey = _vsAiOppDeck == "random" ? AiDeckPool.PickRandom(_vsAiLevel, SelectedDeckFaction(_vsAiMyDeck)) : _vsAiOppDeck;
         var (ab, ac, al) = ResolveVsAiDeck(oppKey);
         GameConfig.SetVsAiMatch(hb, hc, hl, ab, ac, al, _vsAiLevel);
-        GetTree().ChangeSceneToFile(BattlePath);
+        SceneFx.ChangeScene(this, BattlePath);
     }
 
     // ---------- deck manager (local storage: multiple decks, edit / rename / copy / delete / vs-AI) ----------
@@ -946,7 +924,7 @@ public partial class MenuScene : Control
         scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         p.AddChild(scroll);
         var list = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        list.AddThemeConstantOverride("separation", 10);
+        list.AddThemeConstantOverride("separation", 16);
         scroll.AddChild(list);
 
         if (decks.Count == 0)
@@ -959,7 +937,7 @@ public partial class MenuScene : Control
             foreach (var d in decks)
                 list.AddChild(DeckManagerRow(d, status));
 
-        p.AddChild(Btn("新建卡组", new Vector2(Cx, 912), new Vector2(290, 60), () => { DeckEditContext.Editing = null; GetTree().ChangeSceneToFile("res://scenes/menu/Deck.tscn"); }));
+        p.AddChild(Btn("新建卡组", new Vector2(Cx, 912), new Vector2(290, 60), () => { DeckEditContext.Editing = null; SceneFx.ChangeScene(this, "res://scenes/menu/Deck.tscn"); }));
         p.AddChild(Btn("导入口令", new Vector2(970, 912), new Vector2(290, 60), ShowImportDeckCode));
         p.AddChild(Btn("返回", new Vector2(Cx, 982), new Vector2(600, 56), CloseOverlay));
     }
@@ -979,7 +957,7 @@ public partial class MenuScene : Control
         float bx = 336;
         void Act(string t, float w, Color c, System.Action a)
         {
-            var b = BattleTheme.MakeButton(new Vector2(bx, 8), new Vector2(w, 56), c, BattleTheme.Accent, 1, 8);
+            var b = BattleTheme.MakeButton(new Vector2(bx, 8), new Vector2(w, 56), c, BattleTheme.Accent, 1, 8, textured: true);
             b.Text = t; b.AddThemeFontSizeOverride("font_size", 20);
             b.Pressed += a; row.AddChild(b); bx += w + 10;
         }
@@ -987,7 +965,7 @@ public partial class MenuScene : Control
         Act("编辑", 110, BattleTheme.PanelDark, () =>
         {
             DeckEditContext.Editing = new DeckEditContext.Deck(d.Id, d.Name, d.Faction, d.CardIds, d.ServerId);
-            GetTree().ChangeSceneToFile("res://scenes/menu/Deck.tscn");
+            SceneFx.ChangeScene(this, "res://scenes/menu/Deck.tscn");
         });
         Act("改名", 110, BattleTheme.PanelDark, () => PromptRename(d));
         Act("复制", 110, BattleTheme.PanelDark, () =>
@@ -1123,23 +1101,23 @@ public partial class MenuScene : Control
 
     private void ShowLadder()
     {
-        var p = NewPanel();
-        PanelLabel(p, "天 梯 排 行", 90, 52, BattleTheme.TextMain);
-        var status = PanelLabel(p, "加载中…", 168, 24, BattleTheme.Accent);
+        var win = WindowPanelTitled(new Vector2(900, 930), "天 梯 排 行");
+        var status = WinLabel(win, "加载中…", WinContentTop, 24, BattleTheme.InkMain);
 
-        // Column header, aligned to the same x-grid the rows use.
+        // Column header, aligned to the same x-grid the rows use (window-relative, list left edge x=110).
+        const float listX = 110f;
         string[] heads = ["排名", "玩家", "评分", "战绩"];
-        Color[] headCol = [BattleTheme.TextDim, BattleTheme.TextDim, BattleTheme.TextDim, BattleTheme.TextDim];
         for (int i = 0; i < heads.Length; i++)
         {
-            var h = BattleTheme.MakeLabel(heads[i], 22, headCol[i], LadderCols[i].Align);
-            Positioned(h, new Vector2(LadderX + LadderCols[i].X, 224), new Vector2(LadderCols[i].W, 30));
-            p.AddChild(h);
+            var h = BattleTheme.MakeLabel(heads[i], 20, BattleTheme.InkDim, LadderCols[i].Align);
+            h.AddThemeFontOverride("font", BattleTheme.UiFontBold);
+            Positioned(h, new Vector2(listX + LadderCols[i].X, 176), new Vector2(LadderCols[i].W, 28));
+            win.AddChild(h);
         }
 
-        var scroll = new ScrollContainer { Position = new Vector2(LadderX, 268), Size = new Vector2(680, 640) };
+        var scroll = new ScrollContainer { Position = new Vector2(listX, 210), Size = new Vector2(680, 536) };
         scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
-        p.AddChild(scroll);
+        win.AddChild(scroll);
         var list = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         list.AddThemeConstantOverride("separation", 4);
         scroll.AddChild(list);
@@ -1159,7 +1137,7 @@ public partial class MenuScene : Control
         }).CallDeferred();
         Session.LadderReceived += OnLadder;
 
-        p.AddChild(Btn("返回", new Vector2(Cx, 936), new Vector2(600, 64), () => { Session.LadderReceived -= OnLadder; ShowLobby(); }));
+        win.AddChild(Btn("返回", new Vector2(190, 766), new Vector2(520, 56), () => { Session.LadderReceived -= OnLadder; ShowLobby(); }));
         _ = Session.SendAsync(new GetLadder());
     }
 
@@ -1197,11 +1175,150 @@ public partial class MenuScene : Control
 
     private Button Btn(string text, Vector2 pos, Vector2 size, System.Action onPressed)
     {
-        var b = BattleTheme.MakeButton(pos, size, BattleTheme.PanelDark, BattleTheme.Accent, 2, 10);
+        var b = BattleTheme.MakeButton(pos, size, BattleTheme.PanelDark, BattleTheme.Accent, 2, 10, textured: true);
         b.Text = text;
         b.AddThemeFontSizeOverride("font_size", 24);
         b.Pressed += onPressed;
         return b;
+    }
+
+    /// <summary>The one call-to-action per screen: gold-tinted plate (誓火金 = emphasis, docs/18 §3.2),
+    /// Hearthstone-style. Selection stays teal — the two accents never compete.</summary>
+    private Button BtnPrimary(string text, Vector2 pos, Vector2 size, System.Action onPressed)
+    {
+        var b = Btn(text, pos, size, onPressed);
+        BattleTheme.SetButtonBg(b, BattleTheme.AtkColor);
+        b.AddThemeFontSizeOverride("font_size", 28);
+        return b;
+    }
+
+    // ---------- parchment window (docs/18 rev3): panels are a contained "sheet", not floating buttons ----------
+
+    /// <summary>A centered parchment window over the dim backdrop; content is added window-relative and uses
+    /// dark ink text. Falls back to leather/flat if the parchment art is missing.</summary>
+    private Panel WindowPanel(Vector2 size)
+    {
+        var dim = NewPanel();
+        var win = new Panel
+        {
+            Position = new Vector2((BattleTheme.ScreenW - size.X) / 2f, (BattleTheme.ScreenH - size.Y) / 2f),
+            Size = size,
+        };
+        win.AddThemeStyleboxOverride("panel",
+            (StyleBox?)BattleTheme.ParchmentPanel() ?? (StyleBox?)BattleTheme.LeatherPanel() ?? BattleTheme.Box(BattleTheme.PanelDark, BattleTheme.Accent, 2, 14));
+        dim.AddChild(win);
+        return win;
+    }
+
+    private static Label WinLabel(Control win, string text, float y, int size, Color color, bool serif = false)
+    {
+        Label l;
+        if (serif)
+            l = BattleTheme.MakeTitle(text, size, color); // keeps its dark outline — reads on rail AND parchment
+        else
+        {
+            l = BattleTheme.MakeLabel(text, size, color, HorizontalAlignment.Center);
+            l.AddThemeFontOverride("font", BattleTheme.UiFontBold); // regular weight washed out on parchment (rev5)
+        }
+        l.Position = new Vector2(0, y);
+        l.Size = new Vector2(win.Size.X, size + 18);
+        win.AddChild(l);
+        return l;
+    }
+
+    // Parchment window content insets. The batch-2 landscape sheet's frame measures ≈76px; the top inset
+    // also reserves room for the title plaque hung across the frame's top edge, and the bottom inset keeps
+    // the last button clear of the frame art (rev5 — 返回 used to ride the border).
+    private const float WinContentTop = 128f;
+    private const float WinContentBottom = 108f;
+
+    /// <summary>A parchment window with the bronze title plaque + gold serif title hung at its top edge.</summary>
+    private Panel WindowPanelTitled(Vector2 size, string title)
+    {
+        var win = WindowPanel(size);
+        if (BattleTheme.TitlePlaque(new Vector2((size.X - 420) / 2f, 8), new Vector2(420, 100)) is { } plaque)
+            win.AddChild(plaque);
+        var l = BattleTheme.MakeTitle(title, 32, BattleTheme.AtkColor);
+        l.Position = new Vector2(0, 34);
+        l.Size = new Vector2(size.X, 48);
+        win.AddChild(l);
+        return win;
+    }
+
+    // 3-column selection grid inside a window — every option visible at once (scroll only past 4 rows).
+    private const float SelCellW = 332f, SelRowH = 64f, SelBtnH = 52f;
+    private const int SelMaxRows = 4;
+
+    private static int SelRows(int count) => System.Math.Min(SelMaxRows, (count + 2) / 3);
+
+    /// <summary>Height the grid will occupy — used to pre-compute the window height before building.</summary>
+    private static float GridHeight(int count) => SelRows(count) * SelRowH - 12f;
+
+    /// <summary>Build the grid at window-relative <paramref name="y"/>; returns the height consumed.
+    /// <paramref name="editFor"/> (optional) yields a per-option edit action → a flat teal "改" chip.</summary>
+    private float GridSelect(Control win, float y, List<(string Key, string Label, Color Color, string Tip)> opts,
+        System.Func<string> get, System.Action<string> set, float btnW = 310f, System.Func<int, System.Action?>? editFor = null)
+    {
+        float gridW = 2 * SelCellW + btnW + (editFor != null ? 50f : 0f); // edit chips widen each cell's tail
+        float x0 = (win.Size.X - gridW) / 2f;
+        int fullRows = (opts.Count + 2) / 3;
+        float shownH = GridHeight(opts.Count);
+
+        Control host;
+        if (fullRows > SelMaxRows)
+        {
+            var scroll = new ScrollContainer { Position = new Vector2(x0, y), Size = new Vector2(gridW + 16, shownH) };
+            scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+            win.AddChild(scroll);
+            var inner = new Control { CustomMinimumSize = new Vector2(gridW, fullRows * SelRowH - 12f) };
+            scroll.AddChild(inner);
+            host = inner;
+            x0 = 0; y = 0;
+        }
+        else
+            host = win;
+
+        var btns = new Button[opts.Count];
+        System.Action repaint = () =>
+        {
+            for (int i = 0; i < opts.Count; i++)
+            {
+                bool sel = get() == opts[i].Key;
+                BattleTheme.SetButtonBg(btns[i], sel ? BattleTheme.AccentSoft : BattleTheme.PanelDark);
+                BattleTheme.SetSelected(btns[i], sel);
+            }
+        };
+        for (int i = 0; i < opts.Count; i++)
+        {
+            var o = opts[i];
+            var pos = new Vector2(x0 + i % 3 * SelCellW, y + i / 3 * SelRowH);
+            var b = BattleTheme.MakeButton(pos, new Vector2(btnW, SelBtnH), BattleTheme.PanelDark, BattleTheme.Accent, 1, 8, textured: true);
+            b.Text = o.Label; b.AddThemeFontSizeOverride("font_size", 20); b.ClipText = true;
+            b.TooltipText = o.Tip;
+            b.Pressed += () => { set(o.Key); repaint(); };
+            host.AddChild(b);
+            btns[i] = b;
+
+            if (editFor?.Invoke(i) is { } editAct)
+            {
+                // Tuck the chip into the name plate's transparent right gutter; visually this leaves a compact
+                // gap without covering the painted surface, and the edit chip remains fully clickable.
+                var edit = BattleTheme.MakeButton(new Vector2(pos.X + btnW - 6, pos.Y + 2), new Vector2(44, 48), BattleTheme.PanelDark, BattleTheme.Accent, 1, 8);
+                if (BattleTheme.Icon("icon_edit", 30, null, new Vector2(7, 9)) is { } ic)
+                    edit.AddChild(ic); // quill-on-card glyph (batch 2)
+                else
+                {
+                    edit.Text = "改";
+                    edit.AddThemeFontSizeOverride("font_size", 18);
+                    edit.AddThemeColorOverride("font_color", BattleTheme.Accent);
+                }
+                edit.TooltipText = "编辑这套卡组";
+                edit.Pressed += editAct;
+                host.AddChild(edit);
+            }
+        }
+        repaint();
+        return shownH;
     }
 
     private static Control Positioned(Control c, Vector2 pos, Vector2 size)
@@ -1211,21 +1328,20 @@ public partial class MenuScene : Control
         return c;
     }
 
-    private void AddButton(string text, Vector2 pos, Color color, System.Action onPressed) =>
-        AddButtonSized(text, pos, new Vector2(600, 72), color, onPressed);
-
-    private void AddButtonSized(string text, Vector2 pos, Vector2 size, Color color, System.Action onPressed)
+    private void AddButton(string text, string? icon, Vector2 pos, System.Action onPressed)
     {
-        var btn = BattleTheme.MakeButton(pos, size, color, BattleTheme.Accent, 2, 12);
+        var btn = BattleTheme.MakeButton(pos, new Vector2(600, 74), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12, textured: true);
         btn.Text = text;
-        btn.AddThemeFontSizeOverride("font_size", 26);
+        btn.AddThemeFontSizeOverride("font_size", 27);
         btn.Pressed += onPressed;
+        if (icon != null && BattleTheme.Icon(icon, 46, new Color(0.97f, 0.92f, 0.8f), new Vector2(30, 14)) is { } ic)
+            btn.AddChild(ic);
         AddChild(btn);
     }
 
     private void StartHotseat()
     {
         GameConfig.SetHotseat();
-        GetTree().ChangeSceneToFile(BattlePath);
+        SceneFx.ChangeScene(this, BattlePath);
     }
 }

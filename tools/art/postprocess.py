@@ -1,8 +1,8 @@
 """美术后处理:tools/art/generated/v1 → game/assets/art。
 
 按资产类型分流(类型查 out/prompts.json):
-  unit    rembg 去背 → 立牌(主体+统一底座合成)  + 按主体位置裁 4:3 卡面
-  order   中心裁 4:3 卡面(结算图 result_* 除外,整图拷到 screens/)
+  unit    rembg 去背 → 立牌(主体+统一底座合成)  + 完整竖版卡面(不裁切)
+  order   完整横版卡面(不裁切;结算图 result_* 除外,整图拷到 screens/)
   leader  512 圆形裁切
   ui_*    卡框/按钮板泛洪抠透明;宝石/纹章/底座 rembg 抠出;纹理/卡背直拷
   board / key_art  直拷
@@ -10,6 +10,7 @@
 用法:
   python postprocess.py            # 全量
   python postprocess.py --ids wp_pup gem_cost
+  python postprocess.py --cards-only  # 只更新卡面,不跑 rembg/立牌/UI
 """
 
 from __future__ import annotations
@@ -27,7 +28,8 @@ SRC = TOOLS_DIR / "generated" / "v1"
 OUT = TOOLS_DIR.parent.parent / "game" / "assets" / "art"
 PROMPTS = TOOLS_DIR / "out" / "prompts.json"
 
-CARD_FACE = (512, 384)  # 4:3
+UNIT_FACE = (512, 768)   # 原图 2:3,保留完整构图
+ORDER_FACE = (768, 512)  # 原图 3:2,保留完整构图
 LEADER_SIZE = 512
 STANDEE_CANVAS = (512, 672)
 
@@ -75,20 +77,14 @@ def save(img: Image.Image, rel: str) -> None:
     print(f"  -> {rel}  {img.size}")
 
 
-def unit_face(img: Image.Image, subject_top: int) -> Image.Image:
-    """竖版单位图按主体位置裁 4:3(头部之上留 30px)。"""
-    w, h = img.size
-    crop_h = w * 3 // 4
-    top = max(0, min(subject_top - 30, h - crop_h))
-    return img.crop((0, top, w, top + crop_h)).resize(CARD_FACE, Image.LANCZOS)
+def unit_face(img: Image.Image) -> Image.Image:
+    """竖版单位图完整缩放,最终取景交给游戏内逐卡取景台。"""
+    return img.resize(UNIT_FACE, Image.LANCZOS)
 
 
-def center_face(img: Image.Image) -> Image.Image:
-    """横版图中心裁 4:3。"""
-    w, h = img.size
-    crop_w = h * 4 // 3
-    left = (w - crop_w) // 2
-    return img.crop((left, 0, left + crop_w, h)).resize(CARD_FACE, Image.LANCZOS)
+def order_face(img: Image.Image) -> Image.Image:
+    """横版指令图完整缩放,不再预裁切为固定窗口比例。"""
+    return img.resize(ORDER_FACE, Image.LANCZOS)
 
 
 def make_standee(fig: Image.Image, base: Image.Image) -> Image.Image:
@@ -119,33 +115,40 @@ def circle_crop(img: Image.Image, size: int) -> Image.Image:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ids", nargs="*")
+    parser.add_argument("--cards-only", action="store_true",
+                        help="只重建 unit/order 卡面,跳过 rembg、立牌和其他资产")
     args = parser.parse_args()
 
     prompts = json.loads(PROMPTS.read_text(encoding="utf-8"))
-    base = cutout(Image.open(SRC / "standee_base.png"))
-    save(base.resize((256, int(256 * base.height / base.width)), Image.LANCZOS), "ui/standee_base.png")
+    base = None
+    if not args.cards_only:
+        base = cutout(Image.open(SRC / "standee_base.png"))
+        save(base.resize((256, int(256 * base.height / base.width)), Image.LANCZOS), "ui/standee_base.png")
 
     for pid, meta in prompts.items():
         if args.ids and pid not in args.ids:
+            continue
+        kind = meta["type"]
+        if args.cards_only and (kind not in ("unit", "order") or pid.startswith("result_")):
             continue
         src = SRC / f"{pid}.png"
         if not src.exists():
             print(f"!! missing {pid}")
             continue
         img = Image.open(src).convert("RGB")
-        kind = meta["type"]
         print(pid, kind)
 
         if kind == "unit":
-            full = rembg_full(img)
-            bbox = full.getbbox() or (0, 0, img.width, img.height)
-            save(unit_face(img, bbox[1]), f"cards/{pid}.png")
-            save(make_standee(full.crop(bbox), base), f"standees/{pid}.png")
+            save(unit_face(img), f"cards/{pid}.png")
+            if not args.cards_only:
+                full = rembg_full(img)
+                bbox = full.getbbox() or (0, 0, img.width, img.height)
+                save(make_standee(full.crop(bbox), base), f"standees/{pid}.png")
         elif kind == "order":
             if pid.startswith("result_"):
                 save(img, f"screens/{pid}.png")
             else:
-                save(center_face(img), f"cards/{pid}.png")
+                save(order_face(img), f"cards/{pid}.png")
         elif kind == "leader":
             save(circle_crop(img, LEADER_SIZE), f"leaders/{pid}.png")
         elif kind == "board":

@@ -791,10 +791,10 @@
     "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
   },
   "uv_calibrate": {
-    "name": "校准指令",
+    "name": "重新部署",
     "type": "order",
     "faction": "undervault",
-    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. wide landscape 3:2 composition, dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a dwarf hand adjusting a brass targeting dial, etched range markings glowing",
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. wide landscape 3:2 composition, dynamic action vignette with one strong focal point, painterly battlefield moment, edges of the scene softly blurred and darkened, no full landscape, composition reads clearly at small size. Undervault faction: gunmetal grey and polished brass palette with furnace-orange glow accents, rivets and gears and steam pipes, heavy industrial dwarven craftsmanship. Subject: a dwarf crew unbolting a turret from its mount and rolling it to a new firing position, sparks and chains",
     "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
   },
   "uv_emergency_repair": {
@@ -1397,6 +1397,146 @@
     "type": "ui_icon",
     "faction": null,
     "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: neutral grey heraldic emblem combining a crossed banner and coin motif, bold silhouette",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "panel_parchment": {
+    "name": "panel_parchment",
+    "type": "ui_frame",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI asset: flat front view, perfectly symmetrical ornamental design, isolated on plain neutral dark background, crisp clean edges suitable for nine-slice scaling, no text, the inner window area left plain and empty. Subject: aged field-journal parchment sheet panel with darkened worn edges, faint creases and stains, thin restrained old-gold corner mounts, plain uninterrupted center surface, warm pale umber",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "header_banner": {
+    "name": "header_banner",
+    "type": "ui_button",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI asset: wide landscape button plate, flat front view, perfectly symmetrical, isolated on plain neutral dark background, crisp clean edges suitable for nine-slice scaling, plain uninterrupted center surface for programmatic text, simple uniform side rails and corners, restrained decoration only at the four corners, no crest, no wings, no protruding side ornaments, no text. Subject: a very wide horizontal engraved steel and dark wood title banner plate, subtle ember-gold trim lines along the rails, restrained rivets at both ends",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "button_plate_round": {
+    "name": "button_plate_round",
+    "type": "ui_icon",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: a round riveted weathered-steel button boss with a subtle ember-gold rim ring and a plain empty center disc",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "cell_slot": {
+    "name": "cell_slot",
+    "type": "ui_frame",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI asset: flat front view, perfectly symmetrical ornamental design, isolated on plain neutral dark background, crisp clean edges suitable for nine-slice scaling, no text, the inner window area left plain and empty. Subject: a square deployment slot frame stenciled into a weathered war-table surface, thin worn painted border with small corner tick marks, very low contrast, faded and scuffed, center completely empty",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "icon_hand": {
+    "name": "icon_hand",
+    "type": "ui_icon",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: a fanned trio of playing cards emblem stamped in worn steel",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "icon_deck": {
+    "name": "icon_deck",
+    "type": "ui_icon",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: a neat squared stack of cards emblem stamped in worn steel",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "icon_dust": {
+    "name": "icon_dust",
+    "type": "ui_icon",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: a rising swirl of luminous faded-teal dust sparks emblem, bold silhouette",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "icon_vs_ai": {
+    "name": "icon_vs_ai",
+    "type": "ui_icon",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: a clockwork automaton knight helmet emblem stamped in worn steel",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "icon_hotseat": {
+    "name": "icon_hotseat",
+    "type": "ui_icon",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: two crossed war banners above a round table emblem stamped in worn steel",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "icon_online": {
+    "name": "icon_online",
+    "type": "ui_icon",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: a signal beacon tower radiating three arcs emblem stamped in worn steel",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "icon_decks": {
+    "name": "icon_decks",
+    "type": "ui_icon",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: a leather-bound card ledger with a buckled strap emblem stamped in worn steel",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "icon_exit": {
+    "name": "icon_exit",
+    "type": "ui_icon",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: a weathered wooden signpost arrow emblem stamped in worn steel",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "icon_swap": {
+    "name": "icon_swap",
+    "type": "ui_icon",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: two curved arrows chasing each other in a circle emblem stamped in worn steel",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "icon_tide": {
+    "name": "icon_tide",
+    "type": "ui_icon",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: a cresting wave over an hourglass emblem stamped in worn steel",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "icon_settings": {
+    "name": "icon_settings",
+    "type": "ui_icon",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: a heavy iron cogwheel emblem stamped in worn steel",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "button_plate_gold": {
+    "name": "button_plate_gold",
+    "type": "ui_button",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI asset: wide landscape button plate, flat front view, perfectly symmetrical, isolated on plain neutral dark background, crisp clean edges suitable for nine-slice scaling, plain uninterrupted center surface for programmatic text, simple uniform side rails and corners, restrained decoration only at the four corners, no crest, no wings, no protruding side ornaments, no text. Subject: a wide rectangular polished brass and warm gold button plate with riveted edges and a subtle raised bevel, bright gold face catching soft light",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "icon_edit": {
+    "name": "icon_edit",
+    "type": "ui_icon",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI icon: single centered emblem, flat front view, isolated on plain neutral dark background, bold silhouette that stays readable at 64 pixels, no text. Subject: a quill pen crossing a playing card emblem stamped in worn steel",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "button_plate_small": {
+    "name": "button_plate_small",
+    "type": "ui_button",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI asset: wide landscape button plate, flat front view, perfectly symmetrical, isolated on plain neutral dark background, crisp clean edges suitable for nine-slice scaling, plain uninterrupted center surface for programmatic text, simple uniform side rails and corners, restrained decoration only at the four corners, no crest, no wings, no protruding side ornaments, no text. Subject: a compact plain weathered steel button plate with one thin border line and four small corner rivets, minimal decoration",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "panel_parchment_wide": {
+    "name": "panel_parchment_wide",
+    "type": "ui_frame",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI asset: flat front view, perfectly symmetrical ornamental design, isolated on plain neutral dark background, crisp clean edges suitable for nine-slice scaling, no text, the inner window area left plain and empty. Subject: a wide landscape aged parchment sheet window panel framed by ornate weathered gold-bronze corner brackets and thin metal rails, darkened worn edges, faint creases, plain uninterrupted parchment center, warm pale umber",
+    "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
+  },
+  "window_title_plaque": {
+    "name": "window_title_plaque",
+    "type": "ui_button",
+    "faction": null,
+    "prompt": "tabletop wargame illustration, painterly oil brushwork with visible strokes, weathered battlefield field-journal aesthetic, muted cool grey and warm umber palette with luminous dust accents of faded teal and old gold, matte texture, grounded military-fantasy tone, high detail. game UI asset: wide landscape button plate, flat front view, perfectly symmetrical, isolated on plain neutral dark background, crisp clean edges suitable for nine-slice scaling, plain uninterrupted center surface for programmatic text, simple uniform side rails and corners, restrained decoration only at the four corners, no crest, no wings, no protruding side ornaments, no text. Subject: an engraved dark bronze title plaque with rounded ends, a thin old-gold border line and two mounting rivets",
     "negative": "text, letters, numbers, watermark, signature, logo, card frame, border, user interface, photorealistic photo, 3d render, anime, cel shading, glossy plastic, oversaturated neon colors, cropped limbs, extra characters not described"
   }
 }

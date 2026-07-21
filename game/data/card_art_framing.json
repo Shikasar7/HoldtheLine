@@ -1,0 +1,655 @@
+{
+  "wp_rift_leaper": {
+    "zoom": 1.3,
+    "offset_x": -0.03,
+    "offset_y": 0.62
+  },
+  "dw_ash_acolyte": {
+    "zoom": 1.05,
+    "offset_x": 0.02,
+    "offset_y": 0.42
+  },
+  "dw_rekindle": {
+    "zoom": 1,
+    "offset_x": 0.37
+  },
+  "dw_pyre_channeler": {
+    "zoom": 1,
+    "offset_y": 0.24
+  },
+  "dw_searing_brand": {
+    "zoom": 1.05,
+    "offset_x": -0.06
+  },
+  "dw_scorch_zealot": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.36
+  },
+  "dw_choir_acolyte": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.29
+  },
+  "dw_phoenix_chick": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": -0.06
+  },
+  "dw_flame_adept": {
+    "zoom": 1,
+    "offset_x": -0.04,
+    "offset_y": 0.26
+  },
+  "dw_flame_lash": {
+    "zoom": 1.05,
+    "offset_x": -0.53,
+    "offset_y": 0.02
+  },
+  "dw_immolate": {
+    "zoom": 1,
+    "offset_x": 0.03
+  },
+  "dw_ashen_courier": {
+    "zoom": 1,
+    "offset_y": 0.31
+  },
+  "dw_ember_seer": {
+    "zoom": 1,
+    "offset_y": 0.17
+  },
+  "dw_dusk_warden": {
+    "zoom": 1,
+    "offset_x": -0.02,
+    "offset_y": 0.11
+  },
+  "dw_conflagrate": {
+    "zoom": 1,
+    "offset_x": 0.06,
+    "offset_y": 0.01
+  },
+  "dw_vesper_cantor": {
+    "zoom": 1,
+    "offset_x": -0.04,
+    "offset_y": 0.19
+  },
+  "dw_flame_caster": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.19
+  },
+  "dw_pyre_guard": {
+    "zoom": 1,
+    "offset_x": -0.02,
+    "offset_y": 0.21
+  },
+  "dw_flare_dancer": {
+    "zoom": 1,
+    "offset_x": -0.02,
+    "offset_y": 0.22
+  },
+  "dw_flare_summoner": {
+    "zoom": 1,
+    "offset_x": -0.01,
+    "offset_y": 0.35
+  },
+  "dw_cinder_storm": {
+    "zoom": 1.05,
+    "offset_x": 0.34
+  },
+  "dw_fire_curtain": {
+    "zoom": 1,
+    "offset_x": -0.22
+  },
+  "dw_pyroclast": {
+    "zoom": 1,
+    "offset_y": 0.33
+  },
+  "dw_ash_phoenix": {
+    "zoom": 1,
+    "offset_x": -0.02,
+    "offset_y": 0.07
+  },
+  "dw_inferno_behemoth": {
+    "zoom": 1,
+    "offset_x": -0.04,
+    "offset_y": 0.3
+  },
+  "dw_first_ritualist": {
+    "zoom": 1,
+    "offset_x": -0.02,
+    "offset_y": 0.34
+  },
+  "dw_dusk_matriarch": {
+    "zoom": 1,
+    "offset_x": -0.04,
+    "offset_y": 0.36
+  },
+  "iv_fortify": {
+    "zoom": 0.9,
+    "offset_x": -0.22,
+    "offset_y": 0.09
+  },
+  "iv_oath_squire": {
+    "zoom": 1,
+    "offset_x": 0.02,
+    "offset_y": 0.18
+  },
+  "iv_oath_prayer": {
+    "zoom": 0.95,
+    "offset_x": 0.11,
+    "offset_y": 0.12
+  },
+  "iv_gate_ward": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.3
+  },
+  "iv_shieldbearer": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.18
+  },
+  "iv_shield_wall": {
+    "zoom": 0.95,
+    "offset_x": -0.04,
+    "offset_y": 0.11
+  },
+  "iv_shield_brother": {
+    "zoom": 1,
+    "offset_y": 0.25
+  },
+  "iv_oath_banner": {
+    "zoom": 0.95,
+    "offset_x": 0.11,
+    "offset_y": 0.03
+  },
+  "iv_garrison_guard": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.25
+  },
+  "iv_bulwark_smith": {
+    "zoom": 1,
+    "offset_x": -0.01,
+    "offset_y": 0.28
+  },
+  "iv_bastion_archer": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.21
+  },
+  "iv_line_sergeant": {
+    "zoom": 1,
+    "offset_x": 0.04,
+    "offset_y": 0.36
+  },
+  "iv_hold_the_line": {
+    "zoom": 0.95,
+    "offset_x": 0.11,
+    "offset_y": 0.07
+  },
+  "iv_oathguard": {
+    "zoom": 1,
+    "offset_x": -0.01,
+    "offset_y": 0.33
+  },
+  "iv_overline_execution": {
+    "zoom": 0.9,
+    "offset_x": 0.04,
+    "offset_y": 0.08
+  },
+  "iv_garrison_captain": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.2
+  },
+  "iv_rampart_hammer": {
+    "zoom": 1,
+    "offset_x": 0.05,
+    "offset_y": 0.24
+  },
+  "iv_wall_crossbow": {
+    "zoom": 1,
+    "offset_x": 0.03,
+    "offset_y": 0.24
+  },
+  "iv_siege_anchor": {
+    "zoom": 1,
+    "offset_x": -0.02,
+    "offset_y": 0.19
+  },
+  "iv_last_bastion": {
+    "zoom": 0.95,
+    "offset_x": -0.14,
+    "offset_y": 0.03
+  },
+  "iv_oath_avenger": {
+    "zoom": 1,
+    "offset_x": 0.04,
+    "offset_y": 0.24
+  },
+  "iv_aegis_sergeant": {
+    "zoom": 1,
+    "offset_x": 0.04,
+    "offset_y": 0.22
+  },
+  "iv_stone_sentinel": {
+    "zoom": 1,
+    "offset_x": 0.03,
+    "offset_y": 0.26
+  },
+  "iv_overline_judge": {
+    "zoom": 1,
+    "offset_x": -0.05,
+    "offset_y": 0.16
+  },
+  "iv_gate_titan": {
+    "zoom": 0.95,
+    "offset_y": 0.27
+  },
+  "iv_bulwark": {
+    "zoom": 0.95,
+    "offset_y": 0.19
+  },
+  "iv_aegis_paragon": {
+    "zoom": 1,
+    "offset_x": -0.01,
+    "offset_y": 0.22
+  },
+  "iv_adamant_colossus": {
+    "zoom": 1,
+    "offset_x": -0.01,
+    "offset_y": 0.28
+  },
+  "iv_saint_warden": {
+    "zoom": 1,
+    "offset_x": 0.02,
+    "offset_y": 0.4
+  },
+  "iv_fortress_lord": {
+    "zoom": 1,
+    "offset_x": -0.04,
+    "offset_y": -0.06
+  },
+  "nl_field_dressing": {
+    "zoom": 1,
+    "offset_x": -0.12
+  },
+  "nl_recruit": {
+    "zoom": 1,
+    "offset_x": -0.02,
+    "offset_y": 0.31
+  },
+  "nl_militia": {
+    "zoom": 1,
+    "offset_x": -0.02,
+    "offset_y": 0.22
+  },
+  "nl_torchbearer": {
+    "zoom": 1,
+    "offset_x": 0.02,
+    "offset_y": 0.17
+  },
+  "nl_volley": {
+    "zoom": 1,
+    "offset_x": -0.2,
+    "offset_y": -0.04
+  },
+  "nl_quartermaster": {
+    "zoom": 1,
+    "offset_y": 0.37
+  },
+  "nl_crossbowman": {
+    "zoom": 1,
+    "offset_x": -0.03,
+    "offset_y": 0.2
+  },
+  "nl_shield_porter": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.17
+  },
+  "nl_requisition": {
+    "zoom": 1,
+    "offset_x": -0.16
+  },
+  "nl_scout": {
+    "zoom": 1,
+    "offset_x": -0.01,
+    "offset_y": 0.13
+  },
+  "nl_barrier_squad": {
+    "zoom": 1,
+    "offset_x": 0.02,
+    "offset_y": 0.01
+  },
+  "nl_tactician": {
+    "zoom": 1,
+    "offset_y": 0.22
+  },
+  "nl_watchtower_archer": {
+    "zoom": 1,
+    "offset_x": -0.02,
+    "offset_y": 0.14
+  },
+  "nl_field_medic": {
+    "zoom": 1,
+    "offset_x": -0.06,
+    "offset_y": 0.38
+  },
+  "nl_outrider": {
+    "zoom": 1,
+    "offset_x": 0.02,
+    "offset_y": 0.23
+  },
+  "nl_sapper": {
+    "zoom": 1,
+    "offset_y": 0.23
+  },
+  "nl_focused_barrage": {
+    "zoom": 1,
+    "offset_x": -0.21,
+    "offset_y": 0.08
+  },
+  "nl_supply_officer": {
+    "zoom": 1,
+    "offset_x": -0.02,
+    "offset_y": 0.31
+  },
+  "nl_pikeman": {
+    "zoom": 1,
+    "offset_x": -0.04,
+    "offset_y": 0.14
+  },
+  "nl_mercenary_captain": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.15
+  },
+  "nl_standard_bearer": {
+    "zoom": 1,
+    "offset_x": -0.01,
+    "offset_y": 0.29
+  },
+  "nl_shadow_agent": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.27
+  },
+  "nl_halberdier": {
+    "zoom": 1,
+    "offset_y": 0.12
+  },
+  "nl_line_breaker": {
+    "zoom": 1,
+    "offset_x": -0.01,
+    "offset_y": 0.17
+  },
+  "nl_sharpshooter": {
+    "zoom": 1,
+    "offset_x": -0.02,
+    "offset_y": 0.22
+  },
+  "nl_shield_veteran": {
+    "zoom": 1,
+    "offset_x": 0.03,
+    "offset_y": 0.08
+  },
+  "nl_strategist": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.25
+  },
+  "nl_battering_ram": {
+    "zoom": 1,
+    "offset_x": -0.01,
+    "offset_y": 0.17
+  },
+  "nl_watch_commander": {
+    "zoom": 1,
+    "offset_x": 0.02,
+    "offset_y": 0.09
+  },
+  "nl_caravan_guard": {
+    "zoom": 1,
+    "offset_x": -0.02,
+    "offset_y": 0.21
+  },
+  "nl_longbow_line": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.24
+  },
+  "nl_mercenary_king": {
+    "zoom": 1,
+    "offset_x": -0.02,
+    "offset_y": 0.15
+  },
+  "nl_royal_lancer": {
+    "zoom": 1,
+    "offset_x": -0.02
+  },
+  "nl_drillmaster": {
+    "zoom": 1,
+    "offset_y": 0.31
+  },
+  "nl_grand_banner": {
+    "zoom": 1,
+    "offset_x": 0.07,
+    "offset_y": -0.02
+  },
+  "nl_juggernaut": {
+    "zoom": 1,
+    "offset_y": 0.03
+  },
+  "uv_spike_barrier": {
+    "zoom": 1,
+    "offset_y": -0.04
+  },
+  "uv_cog_apprentice": {
+    "zoom": 1,
+    "offset_y": 0.39
+  },
+  "uv_repair_apprentice": {
+    "zoom": 1,
+    "offset_y": 0.07
+  },
+  "uv_scattergunner": {
+    "zoom": 1,
+    "offset_y": 0.13
+  },
+  "uv_barricade_frame": {
+    "zoom": 1,
+    "offset_y": 0.11
+  },
+  "uv_bolt_turret": {
+    "zoom": 1,
+    "offset_y": 0.12
+  },
+  "uv_line_engineer": {
+    "zoom": 1,
+    "offset_y": -0.16
+  },
+  "uv_repair_sapper": {
+    "zoom": 1,
+    "offset_y": 0.01
+  },
+  "uv_steam_gunner": {
+    "zoom": 1,
+    "offset_y": 0.16
+  },
+  "uv_gear_foreman": {
+    "zoom": 1,
+    "offset_y": 0.21
+  },
+  "uv_salvage_crew": {
+    "zoom": 1,
+    "offset_y": 0.24
+  },
+  "uv_twin_bolt_tower": {
+    "zoom": 1,
+    "offset_y": 0.28
+  },
+  "uv_siege_platform": {
+    "zoom": 1,
+    "offset_y": 0.22
+  },
+  "uv_armored_hauler": {
+    "zoom": 1,
+    "offset_y": 0.27
+  },
+  "uv_ironclad": {
+    "zoom": 1,
+    "offset_y": 0.25
+  },
+  "uv_longshot_engine": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.37
+  },
+  "uv_master_artificer": {
+    "zoom": 1,
+    "offset_y": 0.23
+  },
+  "uv_grand_cannon": {
+    "zoom": 1,
+    "offset_x": 0.03,
+    "offset_y": 0.32
+  },
+  "uv_thunder_battery": {
+    "zoom": 1,
+    "offset_y": 0.01
+  },
+  "uv_fortress_crawler": {
+    "zoom": 1,
+    "offset_y": -0.01
+  },
+  "wp_hunt_signal": {
+    "zoom": 0.95,
+    "offset_x": -0.03,
+    "offset_y": 0.02
+  },
+  "wp_wild_instinct": {
+    "zoom": 0.95,
+    "offset_x": -0.15,
+    "offset_y": 0.02
+  },
+  "wp_flanker": {
+    "zoom": 1,
+    "offset_y": 0.15
+  },
+  "wp_encircle": {
+    "zoom": 1,
+    "offset_x": -0.01,
+    "offset_y": 0.1
+  },
+  "wp_night_prowler": {
+    "zoom": 1,
+    "offset_x": -0.03,
+    "offset_y": 0.05
+  },
+  "wp_pounce": {
+    "zoom": 0.9,
+    "offset_x": 0.21,
+    "offset_y": 0.1
+  },
+  "wp_fang_rider": {
+    "zoom": 1,
+    "offset_y": 0.24
+  },
+  "wp_wild_heart": {
+    "zoom": 1,
+    "offset_x": 0.06,
+    "offset_y": 0.2
+  },
+  "wp_pack_call": {
+    "zoom": 0.95,
+    "offset_x": 0.21,
+    "offset_y": 0.09
+  },
+  "wp_howler": {
+    "zoom": 1,
+    "offset_x": 0.05,
+    "offset_y": 0.3
+  },
+  "wp_bone_gnawer": {
+    "zoom": 1,
+    "offset_x": -0.01,
+    "offset_y": 0.1
+  },
+  "wp_raider": {
+    "zoom": 1.05,
+    "offset_y": 0.46
+  },
+  "wp_stalker": {
+    "zoom": 1.05,
+    "offset_x": 0.03,
+    "offset_y": 0.41
+  },
+  "wp_blood_scent": {
+    "zoom": 1,
+    "offset_x": 0.05,
+    "offset_y": 0.13
+  },
+  "wp_blood_tracker": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.05
+  },
+  "wp_den_mother": {
+    "zoom": 1,
+    "offset_y": 0.14
+  },
+  "wp_shadow_pouncer": {
+    "zoom": 1,
+    "offset_x": 0.05,
+    "offset_y": 0.02
+  },
+  "wp_dire_wolf": {
+    "zoom": 1,
+    "offset_x": 0.02
+  },
+  "wp_ambusher": {
+    "zoom": 1,
+    "offset_x": 0.03,
+    "offset_y": 0.28
+  },
+  "wp_hunt_matron": {
+    "zoom": 1,
+    "offset_x": -0.01
+  },
+  "wp_pack_alpha": {
+    "zoom": 1,
+    "offset_y": 0.3
+  },
+  "wp_throat_ripper": {
+    "zoom": 1,
+    "offset_x": -0.01,
+    "offset_y": 0.03
+  },
+  "wp_ghost_of_wilds": {
+    "zoom": 1,
+    "offset_x": -0.01
+  },
+  "wp_moon_huntress": {
+    "zoom": 1.1,
+    "offset_x": -0.01,
+    "offset_y": 0.37
+  },
+  "wp_alpha_matriarch": {
+    "zoom": 1.05,
+    "offset_x": 0.05,
+    "offset_y": 0.35
+  },
+  "wp_windrunner": {
+    "zoom": 1,
+    "offset_x": 0.01,
+    "offset_y": 0.28
+  },
+  "wp_packlord": {
+    "zoom": 1,
+    "offset_x": -0.01,
+    "offset_y": 0.25
+  }
+}

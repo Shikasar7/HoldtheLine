@@ -243,6 +243,126 @@
       "type": "ui_icon",
       "faction": null,
       "art_prompt": "neutral grey heraldic emblem combining a crossed banner and coin motif, bold silhouette"
+    },
+    {
+      "id": "panel_parchment",
+      "type": "ui_frame",
+      "faction": null,
+      "art_prompt": "aged field-journal parchment sheet panel with darkened worn edges, faint creases and stains, thin restrained old-gold corner mounts, plain uninterrupted center surface, warm pale umber"
+    },
+    {
+      "id": "header_banner",
+      "type": "ui_button",
+      "faction": null,
+      "art_prompt": "a very wide horizontal engraved steel and dark wood title banner plate, subtle ember-gold trim lines along the rails, restrained rivets at both ends"
+    },
+    {
+      "id": "button_plate_round",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "a round riveted weathered-steel button boss with a subtle ember-gold rim ring and a plain empty center disc"
+    },
+    {
+      "id": "cell_slot",
+      "type": "ui_frame",
+      "faction": null,
+      "art_prompt": "a square deployment slot frame stenciled into a weathered war-table surface, thin worn painted border with small corner tick marks, very low contrast, faded and scuffed, center completely empty"
+    },
+    {
+      "id": "icon_hand",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "a fanned trio of playing cards emblem stamped in worn steel"
+    },
+    {
+      "id": "icon_deck",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "a neat squared stack of cards emblem stamped in worn steel"
+    },
+    {
+      "id": "icon_dust",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "a rising swirl of luminous faded-teal dust sparks emblem, bold silhouette"
+    },
+    {
+      "id": "icon_vs_ai",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "a clockwork automaton knight helmet emblem stamped in worn steel"
+    },
+    {
+      "id": "icon_hotseat",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "two crossed war banners above a round table emblem stamped in worn steel"
+    },
+    {
+      "id": "icon_online",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "a signal beacon tower radiating three arcs emblem stamped in worn steel"
+    },
+    {
+      "id": "icon_decks",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "a leather-bound card ledger with a buckled strap emblem stamped in worn steel"
+    },
+    {
+      "id": "icon_exit",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "a weathered wooden signpost arrow emblem stamped in worn steel"
+    },
+    {
+      "id": "icon_swap",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "two curved arrows chasing each other in a circle emblem stamped in worn steel"
+    },
+    {
+      "id": "icon_tide",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "a cresting wave over an hourglass emblem stamped in worn steel"
+    },
+    {
+      "id": "icon_settings",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "a heavy iron cogwheel emblem stamped in worn steel"
+    },
+    {
+      "id": "button_plate_gold",
+      "type": "ui_button",
+      "faction": null,
+      "art_prompt": "a wide rectangular polished brass and warm gold button plate with riveted edges and a subtle raised bevel, bright gold face catching soft light"
+    },
+    {
+      "id": "icon_edit",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "a quill pen crossing a playing card emblem stamped in worn steel"
+    },
+    {
+      "id": "button_plate_small",
+      "type": "ui_button",
+      "faction": null,
+      "art_prompt": "a compact plain weathered steel button plate with one thin border line and four small corner rivets, minimal decoration"
+    },
+    {
+      "id": "panel_parchment_wide",
+      "type": "ui_frame",
+      "faction": null,
+      "art_prompt": "a wide landscape aged parchment sheet window panel framed by ornate weathered gold-bronze corner brackets and thin metal rails, darkened worn edges, faint creases, plain uninterrupted parchment center, warm pale umber"
+    },
+    {
+      "id": "window_title_plaque",
+      "type": "ui_button",
+      "faction": null,
+      "art_prompt": "an engraved dark bronze title plaque with rounded ends, a thin old-gold border line and two mounting rivets"
     }
   ],
 
