@@ -96,8 +96,6 @@ public sealed class CardDatabase
             {
                 if (spec.GrantKeyword is null)
                     throw new InvalidDataException($"Card '{card.Id}': grant_keyword needs a 'keyword'.");
-                if (spec.GrantKeyword == Keyword.Hidden)
-                    throw new InvalidDataException($"Card '{card.Id}': granting Hidden (伏兵) is deferred.");
                 if (spec.GrantKeyword is Keyword.Swift or Keyword.Range && spec.GrantKeywordValue < 1)
                     throw new InvalidDataException($"Card '{card.Id}': granting {spec.GrantKeyword} needs keyword_value >= 1.");
             }
@@ -168,8 +166,6 @@ public sealed class CardDatabase
         {
             if (kw.Keyword is Keyword.Swift or Keyword.Range && kw.Value < 1)
                 throw new InvalidDataException($"Card '{card.Id}': keyword {kw.Keyword} requires a value >= 1.");
-            if (kw.Keyword == Keyword.Hidden)
-                throw new InvalidDataException($"Card '{card.Id}': Hidden (伏兵) is deferred and not implemented in P1.");
         }
     }
 }

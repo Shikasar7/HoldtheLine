@@ -127,6 +127,9 @@ internal static class EffectEngine
         };
         if (!ownerOk)
             return false;
+        // 潜行 (docs/21 §2): a Hidden unit cannot be SELECTED by an enemy single-target 指令/战吼 (AoE still hits).
+        if (u.HasKeyword(Keyword.Hidden) && u.OwnerSeat != ownerSeat)
+            return false;
         // 锚/引导 range gate: a self/channel unit-target effect requires the target within reach of the
         // anchor centre (deploy cell for 锚, channeler cell for 引导). No centre → gate not evaluated here.
         if (spec.HasAnchorRange && anchorCenter is { } c
@@ -146,6 +149,14 @@ internal static class EffectEngine
             bool ally = targets[0].OwnerSeat == ownerSeat;
             if ((spec.TargetSide == "enemy" && ally) || (spec.TargetSide == "ally" && !ally))
                 return;
+        }
+
+        // 法术护体 (docs/21 §2): an enemy single-target 指令/战吼 effect on a warded unit is voided (the whole
+        // effect fizzles) and consumes the ward. AoE is unaffected (targets.Count > 1 or a spatial selector).
+        if (spec.NeedsUnitTarget && targets.Count == 1 && targets[0].OwnerSeat != ownerSeat && targets[0].HasKeyword(Keyword.SpellWard))
+        {
+            ctx.ConsumeSpellWard(targets[0]);
+            return;
         }
 
         // amount_max: a random magnitude in [Amount, AmountMax], rolled ONCE per effect (not per target)

@@ -45,7 +45,9 @@ public enum Keyword
     /// <summary>围猎 — its melee attacks deal +2 damage when another friendly unit is adjacent to the target.</summary>
     PackTactics,
 
-    /// <summary>伏兵 — untargetable until it deals damage; revealed by adjacent enemies. (Deferred; not implemented in P1.)</summary>
+    /// <summary>潜行/伏兵 — cannot be SELECTED by an enemy single-target 指令/战吼 (AoE still hits); revealed
+    /// (keyword stripped) after it attacks. docs/21 §2 ships the "指向豁免" half only — the adjacent-enemy reveal
+    /// is deferred.</summary>
     Hidden,
 
     /// <summary>架设 — cannot move (movement is rejected outright; Leap/move_bonus are silent no-ops); takes +1
@@ -85,6 +87,10 @@ public enum Keyword
     /// <summary>免疫薪炎 — takes 0 from spell.* (薪炎) damage (docs/21 §1.1): the hit is zeroed at the top of the
     /// damage pipeline, BUT a 薪炎 hit on a 成长 unit still accelerates its growth. Drives the 雏凤/凤凰 loop.</summary>
     KindleImmune,
+
+    /// <summary>法术护体 — absorbs the NEXT enemy single-target 指令/战吼 effect (docs/21 §2): that effect is
+    /// voided on this unit (damage → 0 / targeting fails) and the ward is consumed. AoE is unaffected.</summary>
+    SpellWard,
 }
 
 /// <summary>A keyword plus its numeric parameter (used by Swift/Range; 0 for the rest).</summary>

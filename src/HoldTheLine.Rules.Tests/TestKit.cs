@@ -381,6 +381,20 @@ public static class TestKit
         Effects = [new EffectSpec { Trigger = "play", Action = "add_secret", SecretKind = "counter_order", Amount = 3, School = "spell.kindle" }],
     };
 
+    /// <summary>匿踪 pattern: grants 潜行 (Hidden) to a friendly unit (docs/21 §2).</summary>
+    public static readonly CardDefinition StealthOrder = new()
+    {
+        Id = "t_stealth", Name = "Conceal", Type = CardType.Order, Rarity = Rarity.Rare, Cost = 2,
+        Effects = [new EffectSpec { Trigger = "play", Action = "grant_keyword", Target = "target_unit_ally", GrantKeyword = Keyword.Hidden, Duration = "permanent" }],
+    };
+
+    /// <summary>法术护体 pattern: grants 法术护体 (SpellWard) to a friendly unit (docs/21 §2).</summary>
+    public static readonly CardDefinition WardOrder = new()
+    {
+        Id = "t_ward", Name = "Spell Ward", Type = CardType.Order, Rarity = Rarity.Rare, Cost = 2,
+        Effects = [new EffectSpec { Trigger = "play", Action = "grant_keyword", Target = "target_unit_ally", GrantKeyword = Keyword.SpellWard, Duration = "permanent" }],
+    };
+
     /// <summary>凤凰 pattern: 5/6, 免疫薪炎 — the 成长 target (docs/21 §3.1).</summary>
     public static readonly CardDefinition PhoenixForm = new()
     {
@@ -448,7 +462,7 @@ public static class TestKit
         AnchorBomber, ChannelZap, ChannelColumn, ChannelMana,
         ChargeUnit, DeepenChanneler, DiscountChanneler, SoulReturnUnit, UncappedGrower, RootOrder,
         ScatterOrder, AllEnemiesSear, SmokeOrder, TrapOrder, SummonOneOrder, CounterSecret, FlameLash, MoltenPriest,
-        EchoUnit, BehemothUnit, BigDrawOrder, PhoenixForm, ImmuneGrower,
+        EchoUnit, BehemothUnit, BigDrawOrder, PhoenixForm, ImmuneGrower, StealthOrder, WardOrder,
     ]);
 
     // 筑垒: grant Guard until your next turn. 狩猎号角: +1 movement this turn.

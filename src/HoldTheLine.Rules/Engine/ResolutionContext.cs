@@ -457,6 +457,26 @@ internal sealed class ResolutionContext
         Emit(new UnitMoveBonusEvent { UnitEntityId = target.EntityId, Amount = amount, NewBonusMovement = target.BonusMovement });
     }
 
+    /// <summary>潜行 (docs/21 §2): strip Hidden after the unit attacks — it becomes targetable again.</summary>
+    public void RevealUnit(UnitInstance unit)
+    {
+        StripKeyword(unit, Keyword.Hidden);
+        Emit(new UnitRevealedEvent { UnitEntityId = unit.EntityId });
+    }
+
+    /// <summary>法术护体 (docs/21 §2): consume the ward that just absorbed an enemy single-target effect.</summary>
+    public void ConsumeSpellWard(UnitInstance unit)
+    {
+        StripKeyword(unit, Keyword.SpellWard);
+        Emit(new SpellWardConsumedEvent { UnitEntityId = unit.EntityId });
+    }
+
+    private static void StripKeyword(UnitInstance unit, Keyword keyword)
+    {
+        unit.Keywords.RemoveAll(s => s.Keyword == keyword);
+        unit.TempGrants.RemoveAll(g => g.Spec.Keyword == keyword);
+    }
+
     /// <summary>Grants a keyword permanently or for a limited duration. Shield grants (re)arm the shield charge.</summary>
     public void GrantKeyword(UnitInstance target, Keyword keyword, int value, string duration, int grantedBySeat)
     {

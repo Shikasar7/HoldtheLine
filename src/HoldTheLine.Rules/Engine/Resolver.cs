@@ -388,9 +388,14 @@ public sealed class Resolver
         if (ctx.State.IsSmoked(attacker.Cell))
             return new RuleError(RuleErrorCode.Smoked, "烟幕中的随从无法攻击。");
 
-        return cmd.TargetLeader
+        var error = cmd.TargetLeader
             ? ResolveLeaderAttack(ctx, cmd, attacker)
             : ResolveUnitAttack(ctx, cmd, attacker);
+
+        // 潜行 (docs/21 §2): attacking reveals a Hidden attacker (if it survived retaliation).
+        if (error is null && ctx.State.FindUnit(attacker.EntityId) is { } alive && alive.HasKeyword(Keyword.Hidden))
+            ctx.RevealUnit(alive);
+        return error;
     }
 
     private static RuleError? ResolveLeaderAttack(ResolutionContext ctx, AttackCommand cmd, UnitInstance attacker)

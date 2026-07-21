@@ -44,6 +44,8 @@ namespace HoldTheLine.Rules.Events;
 [JsonDerivedType(typeof(OrderEchoedEvent), "order_echoed")]
 [JsonDerivedType(typeof(UnitGrowthEvent), "unit_growth")]
 [JsonDerivedType(typeof(UnitTransformedEvent), "unit_transformed")]
+[JsonDerivedType(typeof(UnitRevealedEvent), "unit_revealed")]
+[JsonDerivedType(typeof(SpellWardConsumedEvent), "spell_ward_consumed")]
 [JsonDerivedType(typeof(MulliganResolvedEvent), "mulligan_resolved")]
 [JsonDerivedType(typeof(MulliganCompletedEvent), "mulligan_completed")]
 [JsonDerivedType(typeof(GameEndedEvent), "game_ended")]
@@ -339,6 +341,18 @@ public sealed record UnitTransformedEvent : GameEvent
     public required string IntoCardId { get; init; }
     public required int Atk { get; init; }
     public required int Hp { get; init; }
+}
+
+/// <summary>潜行 dropped (docs/21 §2): a Hidden unit attacked and is now revealed (targetable again).</summary>
+public sealed record UnitRevealedEvent : GameEvent
+{
+    public required int UnitEntityId { get; init; }
+}
+
+/// <summary>法术护体 absorbed an enemy single-target effect (docs/21 §2) and was consumed.</summary>
+public sealed record SpellWardConsumedEvent : GameEvent
+{
+    public required int UnitEntityId { get; init; }
 }
 
 /// <summary>

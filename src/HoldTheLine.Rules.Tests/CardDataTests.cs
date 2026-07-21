@@ -54,10 +54,11 @@ public class CardDataTests
     }
 
     [Fact]
-    public void Hidden_keyword_is_rejected_until_P2()
+    public void Hidden_keyword_is_now_accepted()
     {
-        var bad = TestKit.Vanilla with { Id = "t_hidden", Keywords = [new KeywordSpec(Keyword.Hidden)] };
-        Assert.Throws<InvalidDataException>(() => new CardDatabase([bad]));
+        // 潜行 shipped in docs/21 §2 — granting/holding Hidden is no longer a data error.
+        var ok = TestKit.Vanilla with { Id = "t_hidden", Keywords = [new KeywordSpec(Keyword.Hidden)] };
+        _ = new CardDatabase([ok]); // does not throw
     }
 
     [Fact]
