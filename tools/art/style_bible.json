@@ -363,6 +363,156 @@
       "type": "ui_button",
       "faction": null,
       "art_prompt": "an engraved dark bronze title plaque with rounded ends, a thin old-gold border line and two mounting rivets"
+    },
+    {
+      "id": "dw_molten_sword_priest",
+      "type": "unit",
+      "faction": "duskweaver",
+      "art_prompt": "a disciplined cult warrior-priest drawing a colossal molten greatsword from a black iron reliquary, lava dripping from the blade, the warrior fully visible and clearly separated from the glow"
+    },
+    {
+      "id": "nl_stealth",
+      "type": "order",
+      "faction": "neutral",
+      "art_prompt": "a lone frontier soldier disappearing beneath a weathered cloak into deep battlefield shadow, the outer silhouette becoming faint and translucent while one boot remains in dusty light"
+    },
+    {
+      "id": "nl_spell_ward",
+      "type": "order",
+      "faction": "neutral",
+      "art_prompt": "several plain talisman plaques hovering into a protective hemispherical light barrier around one mercenary, stopping a single incoming arcane bolt at the shield surface"
+    },
+    {
+      "id": "dw_smoke_bomb",
+      "type": "order",
+      "faction": "duskweaver",
+      "art_prompt": "a black iron smoke canister bursting in a trench intersection, dense layered grey smoke swallowing a cross-shaped cluster of fighting positions, one ember-orange fuse visible"
+    },
+    {
+      "id": "dw_ash_bind",
+      "type": "order",
+      "faction": "duskweaver",
+      "art_prompt": "charcoal ash chains erupting from the ground and wrapping tightly around a soldier's boots and lower legs, pinning the fighter in place while the upper body remains free"
+    },
+    {
+      "id": "dw_oath_counter",
+      "type": "order",
+      "faction": "duskweaver",
+      "art_prompt": "an incoming spell beam striking a suspended circular ash sigil and bending sharply backward toward its source, compact ember sparks at the point of reversal"
+    },
+    {
+      "id": "dw_ember_trap",
+      "type": "order",
+      "faction": "duskweaver",
+      "art_prompt": "a concealed dark-red ritual rune buried flush in scorched battlefield earth, almost invisible except for one tiny ember spark and a hairline ring of molten cracks"
+    },
+    {
+      "id": "dw_wildfire",
+      "type": "order",
+      "faction": "duskweaver",
+      "art_prompt": "a horizon-wide advancing wall of ember-orange wildfire sweeping across an entire battlefield line, enemy silhouettes overwhelmed beneath the low sea of flame, one monumental focal wave"
+    },
+    {
+      "id": "icon_trap_hidden",
+      "type": "ui_icon",
+      "faction": "duskweaver",
+      "art_prompt": "a concealed dark-red ground rune under a closed obsidian eye, one tiny ember spark, bold simple silhouette"
+    },
+    {
+      "id": "fx_trap_revealed_fire",
+      "type": "fx",
+      "faction": "duskweaver",
+      "art_prompt": "top-down circular ring of ember-orange ground fire erupting from a dark-red rune, compact center, isolated on a perfectly flat pure black background"
+    },
+    {
+      "id": "fx_smoke_zone",
+      "type": "fx",
+      "faction": null,
+      "art_prompt": "top-down grayscale smoke-density mask forming exactly five connected round clouds in a plus-sign cross, soft turbulent edges, isolated on a perfectly flat pure black background, no grid lines"
+    },
+    {
+      "id": "status_rooted",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "status emblem of one armored boot bound by a charcoal chain and ash weight, bold silhouette"
+    },
+    {
+      "id": "status_hidden",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "status emblem of a hooded head dissolving into a dark half-shadow, bold silhouette"
+    },
+    {
+      "id": "status_spell_ward",
+      "type": "ui_icon",
+      "faction": null,
+      "art_prompt": "status emblem of a small rune plaque beneath a single protective glass-like dome, cool faded-teal glow, bold silhouette"
+    },
+    {
+      "id": "status_charge",
+      "type": "ui_icon",
+      "faction": "duskweaver",
+      "art_prompt": "status emblem of a tightly coiled ember spiral storing power around one bright central spark, bold silhouette"
+    },
+    {
+      "id": "status_molten_sword",
+      "type": "ui_icon",
+      "faction": "duskweaver",
+      "art_prompt": "status emblem of a broad black greatsword split by glowing lava cracks with one molten drop at the tip, bold silhouette"
+    },
+    {
+      "id": "status_growth",
+      "type": "ui_icon",
+      "faction": "duskweaver",
+      "art_prompt": "status emblem of a small ember egg transforming into a rising phoenix wing around an empty circular center reserved for a programmatic countdown number, bold silhouette"
+    },
+    {
+      "id": "counter_kindle_power",
+      "type": "ui_icon",
+      "faction": "duskweaver",
+      "art_prompt": "compact paired meter badge for a leader portrait, one steady ember flame for spell deepening beside one coiled spark for stored charge, two plain empty circular wells for programmatic numbers, no numerals"
+    },
+    {
+      "id": "marker_secret",
+      "type": "ui_icon",
+      "faction": "duskweaver",
+      "art_prompt": "a face-down obsidian card sealed with dark wax beneath a crossed-out eye motif, mysterious but unreadable, empty lower edge reserved for a programmatic count, no letters or numerals"
+    },
+    {
+      "id": "icon_kindle_damage",
+      "type": "ui_icon",
+      "faction": "duskweaver",
+      "art_prompt": "a compact ember-orange flame striking through a small impact star,薪炎 damage type emblem, bold silhouette, no letters"
+    },
+    {
+      "id": "uv_mod_siphon_shell",
+      "type": "prop",
+      "faction": "undervault",
+      "art_prompt": "a single brass artillery shell with faint glowing siphon runes etched along the casing, thin luminous conduits feeding backward into a small reservoir vial at its base"
+    },
+    {
+      "id": "uv_mod_siphon_core",
+      "type": "prop",
+      "faction": "undervault",
+      "art_prompt": "a single heavy artillery shell core wrapped in coiled energy-siphon tubing, deep red-gold vital glow pulsing through glass gauges, drops of light visibly flowing backward along the coils"
+    },
+    {
+      "id": "uv_mod_concussion",
+      "type": "prop",
+      "faction": "undervault",
+      "art_prompt": "a single stubby concussion artillery shell with a blunt hammer-shaped head, shockwave rings engraved on the brass casing, faint concentric tremor lines radiating in the air around it"
+    },
+    {
+      "id": "uv_mod_tracked_chassis",
+      "type": "prop",
+      "faction": "undervault",
+      "art_prompt": "a single compact reinforced undercarriage module with a matched pair of heavy iron caterpillar tracks and drive wheels, mud-caked treads, tow chains neatly coiled at one side"
+    },
+    {
+      "id": "uv_mirror_works",
+      "type": "order",
+      "faction": "undervault",
+      "art_prompt": "twin mechanical workshop arms holding two perfectly identical glowing cannon components face to face over a workbench, mirrored highlights, blueprint scrolls and calipers arranged below"
     }
   ],
 

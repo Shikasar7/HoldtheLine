@@ -1,6 +1,6 @@
 # 原型版 AI 美术资产清单与验收标准(gpt-image-2 全量生成)
 
-风格圣经:`style_bible.json` **v1**(已锁定)。全部 200 条提示词已在 `out/prompts.json` 就绪,按下表 id 取用。
+风格圣经:`style_bible.json` **v1**(已锁定)。全部 245 条提示词已在 `out/prompts.json` 就绪,按下表 id 取用。
 
 ## 通用规则(适用所有条目)
 
@@ -170,3 +170,76 @@ id:`leader_iv_valen`、`leader_wp_saen`。1024×1024(维持正方形——最终
 
 接触表位于 `tools/art/out/exp2_contact_*.jpg`;立牌全量总览为
 `tools/art/out/exp2_standee_all.jpg`,关键复杂单位抽检为 `exp2_standee_qa.jpg`。
+
+---
+
+## I. Rules 0.9.0 教团法术改版与秘密体系(2026-07-21,依据 docs/21 §8)
+
+**状态:已生成、后处理并导入 Godot。** 新卡数据尚未入库时先在风格圣经 `extra_assets`
+中固定 ID;后续卡牌 JSON 入库须沿用下表 ID,避免资源重命名。
+
+### I.1 新绘卡面
+
+| id | 名称 | 类型 | 游戏规格 |
+|---|---|---|---|
+| `dw_molten_sword_priest` | 熔剑祭士 | 单位 | 512×768 卡面 + 512×672 RGBA 立牌 |
+| `nl_stealth` | 匿踪 | 指令 | 768×512 |
+| `nl_spell_ward` | 法术护体 | 指令 | 768×512 |
+| `dw_smoke_bomb` | 烟幕弹 | 指令 | 768×512 |
+| `dw_ash_bind` | 灰缚 | 指令 | 768×512 |
+| `dw_oath_counter` | 焰誓反制 | 指令/秘密 | 768×512 |
+| `dw_ember_trap` | 烬火陷阱 | 指令/秘密 | 768×512 |
+| `dw_wildfire` | 燎原 | 指令 | 768×512 |
+
+`薪火回响`按 docs/21 决策复用 `dw_first_ritualist.png`,仅改卡名,不重复生成。
+
+### I.2 UI、状态与格子特效
+
+| id | 用途 | 输出 |
+|---|---|---|
+| `icon_trap_hidden` | 己方未现形陷阱格标识 | `ui/`,最长边 256 RGBA |
+| `fx_trap_revealed_fire` | 现形后持续火焰 | `fx/`,512×512 RGBA |
+| `fx_smoke_zone` | 5 格十字烟幕覆盖 | `fx/`,512×512 RGBA |
+| `status_rooted` | 定身 | `ui/`,最长边 256 RGBA |
+| `status_hidden` | 潜行 | 同上 |
+| `status_spell_ward` | 法术护体 | 同上 |
+| `status_charge` | 蓄能 | 同上 |
+| `status_molten_sword` | 熔岩巨剑 | 同上 |
+| `status_growth` | 成长倒数底框 | 同上;数字由程序叠加 |
+| `counter_kindle_power` | 加深·蓄能双计数器 | 同上;两格数字由程序叠加 |
+| `marker_secret` | 对手暗牌存在标识 | 同上;`?×N`由程序叠加 |
+| `icon_kindle_damage` | 薪炎伤害飘字小图标 | 同上 |
+
+### I.3 验收记录
+
+- 原始生成图:8 张卡面为 1024×1536 / 1536×1024;12 张 UI/特效为方形高清源图。
+- 游戏资产:8/8 卡面、1/1 立牌、10/10 UI 图标、2/2 RGBA 特效均存在且尺寸正确。
+- 烟幕严格为 5 团十字形;烟幕/陷阱火焰由纯黑源图转换为透明 alpha,四角透明。
+- 图标内无文字、问号或数字;计数与秘密数量全部预留给程序叠加。
+- QA:`tools/art/out/docs21_cards_contact.jpg`、`docs21_ui_raw_contact.jpg`、
+  `docs21_ui_final_contact.jpg`。
+
+---
+
+## J. 掘世匠会单核炮台与模块升级(2026-07-21,依据 docs/20 §7)
+
+**状态:需新绘的 5 张已生成、后处理并导入 Godot。** §7.1 指定复用的 19 项旧图均未
+重新生成或覆盖;被砍卡原图继续保留。模块卡使用 `prop` 方形构图,不上场且不生成 standee。
+
+### J.1 新绘清单
+
+| id | 名称 | 构图 | 游戏资产 |
+|---|---|---|---|
+| `uv_mod_siphon_shell` | 汲能弹头 | prop | `cards/uv_mod_siphon_shell.png`,512×512 |
+| `uv_mod_siphon_core` | 汲能核心 | prop | `cards/uv_mod_siphon_core.png`,512×512 |
+| `uv_mod_concussion` | 震撼弹 | prop | `cards/uv_mod_concussion.png`,512×512 |
+| `uv_mod_tracked_chassis` | 履带底盘 | prop | `cards/uv_mod_tracked_chassis.png`,512×512 |
+| `uv_mirror_works` | 镜像工坊 | order | `cards/uv_mirror_works.png`,768×512 |
+
+### J.2 验收记录
+
+- 4 张模块均为单一完整零件、微俯视、四边留白;无人物、完整炮台或多余散件。
+- 汲能Ⅰ/Ⅱ通过管线复杂度与红金能量强度区分;震撼弹有钝击弹头和冲击环;履带底盘不是完整载具。
+- 镜像工坊的双机械臂、相同炮件与镜面高光在手牌缩略图尺寸仍可读。
+- 5/5 卡面尺寸正确,无 standee;Godot `.import` 与缓存完整。
+- QA 总览:`tools/art/out/docs20_new_art_contact.jpg`。

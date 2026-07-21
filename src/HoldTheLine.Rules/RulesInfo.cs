@@ -25,8 +25,17 @@ public static class RulesInfo
     /// 薇兰蒂 亡语→福泽, 尖桩拒马/装甲路桩 lose 架设.
     /// 0.8.1 (2026-07-20): balance patch #3 — second player's opening draw cut +2→+1 (6→5 cards); the coin
     /// stays. With the coin, going-second win rate had climbed too high, so the extra card is rolled back.
-    /// Old command logs keep their serialized OpeningHandSecond, so replays are unchanged.</remarks>
-    public const string Version = "0.8.1";
+    /// Old command logs keep their serialized OpeningHandSecond, so replays are unchanged.
+    /// 0.9.0 (2026-07-21): balance patch #4 — 教团法术改版 + 秘密体系 (docs/21). Large engine expansion:
+    /// EffectSpec gains school (physical | spell.kindle) + 锚/引导 positioning (anchor/anchor_range) +
+    /// target_side/min_order_cost/secret_kind; new actions damage_scatter/amplify_next/place_smoke/place_trap/
+    /// stat_transfer/sacrifice_equip/add_secret + channel-marker deepen/discount + echo_order; new keywords
+    /// Rooted/MoltenSword/KindleImmune/SpellWard + Hidden enabled (潜行). GameState gains 蓄能/秘密区/格子状态
+    /// (烟幕/陷阱)/成长/薪火回响 tracking; PlayerCommand gains ChannelerUnitId/SecondaryTargetUnitId/
+    /// SacrificeEntityIds (additive — old logs replay unchanged). PlayerView adds SpellCharge/SecretCount/
+    /// CellStates with server-authority redaction of hidden traps + secret contents. 7 new cards, pool 163→170.
+    /// DataHash changes — client and server must ship this same data.</remarks>
+    public const string Version = "0.9.0";
 
     /// <summary>压力潮汐 start round, forwarded from the (internal) <see cref="Engine.TurnFlow"/> so the client
     /// HUD can show the tide countdown (docs/17) without hardcoding 8 and drifting from the rule. Read-only

@@ -51,6 +51,25 @@ def cutout(img: Image.Image) -> Image.Image:
     return result.crop(bbox) if bbox else result
 
 
+def black_to_alpha(img: Image.Image, size: tuple[int, int] = (512, 512)) -> Image.Image:
+    """把纯黑底特效转成直通 alpha，并等比放入固定透明画布。"""
+    rgb = np.array(img.convert("RGB"), dtype=np.float32)
+    peak = rgb.max(axis=2)
+    alpha = np.clip((peak - 8.0) * (255.0 / 247.0), 0, 255).astype(np.uint8)
+    scale = np.maximum(peak[..., None], 1.0)
+    color = np.clip(rgb * (255.0 / scale), 0, 255).astype(np.uint8)
+    rgba = np.dstack((color, alpha))
+    effect = Image.fromarray(rgba, "RGBA")
+    bbox = effect.getbbox()
+    if bbox:
+        effect = effect.crop(bbox)
+    effect.thumbnail((round(size[0] * 0.9), round(size[1] * 0.9)), Image.LANCZOS)
+    canvas = Image.new("RGBA", size, (0, 0, 0, 0))
+    canvas.alpha_composite(effect, ((size[0] - effect.width) // 2,
+                                    (size[1] - effect.height) // 2))
+    return canvas
+
+
 def flood_transparent(img: Image.Image, seeds: list[tuple[int, int]], tol: int = 14) -> Image.Image:
     """把与种子点同色的连通平坦区域(外围背景/卡框内窗)变为透明。"""
     import cv2
@@ -170,10 +189,13 @@ def main() -> None:
             save(icon, f"ui/{pid}.png")
         elif kind == "ui_texture":
             save(img, f"ui/{pid}.png")
+        elif kind == "fx":
+            save(black_to_alpha(img), f"fx/{pid}.png")
         elif kind == "card_back":
             save(img.resize((512, 768), Image.LANCZOS), f"ui/{pid}.png")
         elif kind == "prop":
-            pass  # standee_base 已在开头处理
+            if pid != "standee_base":
+                save(img.resize((512, 512), Image.LANCZOS), f"cards/{pid}.png")
         else:
             print(f"!! unhandled type {kind} for {pid}")
 
