@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Microsoft.Extensions.Logging;
 using HoldTheLine.Net.Protocol;
 using HoldTheLine.Rules.Commands;
 using HoldTheLine.Rules.Engine;
@@ -47,6 +48,7 @@ public sealed class MatchSession
 
     private readonly Channel<Envelope> _inbox;
     private readonly Task _pump;
+    private readonly ILogger _log;
     private bool _over;
     private string? _endReasonOverride;
     private readonly string? _logPath;   // per-match JSONL command log (null = disabled)
@@ -63,6 +65,7 @@ public sealed class MatchSession
     {
         Host = host;
         _conns = conns;
+        _log = conns[0].Logger;
         _resumeTokens = resumeTokens;
         _graceSeconds = graceSeconds;
         _turnSeconds = turnSeconds;
@@ -213,27 +216,48 @@ public sealed class MatchSession
 
     private async Task PumpAsync()
     {
-        await foreach (var env in _inbox.Reader.ReadAllAsync())
+        try
         {
-            try
+            await foreach (var env in _inbox.Reader.ReadAllAsync())
             {
-                switch (env.Kind)
+                try
                 {
-                    case Signal.Client when env.Message is SubmitCommand sc: await HandleSubmitAsync(env.Seat, sc); break;
-                    case Signal.Client when env.Message is Resync: await HandleResyncAsync(env.Seat); break;
-                    case Signal.Dropped: await HandleDroppedAsync(env.Conn!); break;
-                    case Signal.Reattach: await HandleReattachAsync(env.Seat, env.Conn!); break;
-                    case Signal.Forfeit: await HandleForfeitAsync(env.Seat, env.Reason!); break;
-                    case Signal.TurnBegin: await BeginAsync(); break;
-                    case Signal.TurnTimeout: await HandleTimeoutAsync(env.Seat, env.Gen); break;
-                    case Signal.MulliganTimeout: await HandleMulliganTimeoutAsync(); break;
+                    switch (env.Kind)
+                    {
+                        case Signal.Client when env.Message is SubmitCommand sc: await HandleSubmitAsync(env.Seat, sc); break;
+                        case Signal.Client when env.Message is Resync: await HandleResyncAsync(env.Seat); break;
+                        case Signal.Dropped: await HandleDroppedAsync(env.Conn!); break;
+                        case Signal.Reattach: await HandleReattachAsync(env.Seat, env.Conn!); break;
+                        case Signal.Forfeit: await HandleForfeitAsync(env.Seat, env.Reason!); break;
+                        case Signal.TurnBegin: await BeginAsync(); break;
+                        case Signal.TurnTimeout: await HandleTimeoutAsync(env.Seat, env.Gen); break;
+                        case Signal.MulliganTimeout: await HandleMulliganTimeoutAsync(); break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Always leave a trace: seat-less signals (drop grace, mulligan timeout, turn begin)
+                    // used to fail in TOTAL silence here — e.g. an abandon forfeit that never fired.
+                    _log.LogError(ex, "match pump: {Kind} handler failed (seat {Seat})", env.Kind, env.Seat);
+                    if (env.Seat is >= 0 and < 2)
+                    {
+                        // The notify itself can throw (socket aborted between SendAsync's Open check and the
+                        // write); it must not escape, or the pump dies with the inbox undrained and the room
+                        // turns into a zombie. Generic copy only — ex.Message is server-internal.
+                        try { await _conns[env.Seat].SendAsync(new ErrorMsg { Code = "internal", Message = "Internal error; the action was not applied." }); }
+                        catch { /* connection is going down; its Dropped signal follows */ }
+                    }
                 }
             }
-            catch (Exception ex)
-            {
-                if (env.Seat is >= 0 and < 2)
-                    await _conns[env.Seat].SendAsync(new ErrorMsg { Code = "internal", Message = ex.Message });
-            }
+        }
+        catch (Exception ex)
+        {
+            // Catastrophic: the pump itself died (channel fault / an escape above). Never leave the room
+            // as a zombie whose inbox nobody drains — mark the match over and tear the timers down so
+            // both clients fail fast instead of hanging on 10s command timeouts forever.
+            _log.LogCritical(ex, "match pump crashed — force-ending the match");
+            _over = true;
+            try { Stop(); } catch { /* best-effort teardown */ }
         }
     }
 

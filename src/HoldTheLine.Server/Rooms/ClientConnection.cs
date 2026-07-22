@@ -30,6 +30,9 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
     private QueueManager _queue = null!;
     private AuthThrottle _throttle = null!;
 
+    /// <summary>Shared with <see cref="MatchSession"/>, which has no DI scope of its own to resolve one.</summary>
+    public ILogger Logger => logger;
+
     public string GuestId { get; private set; } = "";
     public string Name { get; private set; } = "";
     public Room? Room { get; set; }

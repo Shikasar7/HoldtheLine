@@ -28,6 +28,7 @@ public sealed class RemoteGameHost : IGameHost
     private readonly List<(int Seat, Action<GameEvent> Handler)> _subscribers = [];
     private readonly List<GameEvent> _eventLog = [];
     private readonly Dictionary<int, TaskCompletionSource<CommandResult>> _pending = [];
+    private readonly HashSet<int> _matchRequestSeqs = [];
     private readonly TaskCompletionSource<int> _matchStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private int _seat = -1;
@@ -72,11 +73,34 @@ public sealed class RemoteGameHost : IGameHost
     {
         _client = client;
         _client.MessageReceived += OnMessage;
+        _client.StateChanged += OnClientState;
     }
 
     /// <summary>Stop consuming the client's message stream. Call when retiring a finished match's host so a
     /// long-lived client (M3 lobby: one socket across many matches) doesn't accumulate dead subscribers.</summary>
-    public void Detach() => _client.MessageReceived -= OnMessage;
+    public void Detach()
+    {
+        _client.MessageReceived -= OnMessage;
+        _client.StateChanged -= OnClientState;
+    }
+
+    /// <summary>Register the Seq of an outgoing match-establishing request (join_queue / create_room /
+    /// join_room) BEFORE it is sent, so an ErrorMsg reply to that request — and only that request —
+    /// faults <see cref="WaitForMatchAsync"/>. Unrelated errors on the shared lobby socket (a concurrent
+    /// set_name rejection, a ladder failure) must NOT abort matchmaking: pre-fix they did, leaving the
+    /// player queued server-side while the UI showed "匹配失败" — the eventual match then timed them out.</summary>
+    public void TagMatchRequest(int seq)
+    {
+        lock (_gate) _matchRequestSeqs.Add(seq);
+    }
+
+    // A connection that is finally given up can never deliver match_started — fault the wait so the
+    // menu's `await WaitForMatchAsync()` surfaces an error instead of hanging on a dead socket forever.
+    private void OnClientState(ConnectionState state)
+    {
+        if (state is ConnectionState.Failed or ConnectionState.Disconnected)
+            _matchStarted.TrySetException(new InvalidOperationException("连接已断开"));
+    }
 
     /// <summary>Completes with the local seat once the server's match_started snapshot has been applied.</summary>
     public Task<int> WaitForMatchAsync() => _matchStarted.Task;
@@ -174,10 +198,15 @@ public sealed class RemoteGameHost : IGameHost
             case CommandResultMsg cr: CompletePending(cr); break;
             case OpponentStatus os when started: OpponentStatusChanged?.Invoke(os.Connected, os.GraceSeconds); break;
             case TurnTimer tt when started: TurnTimerReceived?.Invoke(tt.Seat, tt.SecondsLeft); break;
-            case ErrorMsg err when !_matchStarted.Task.IsCompleted:
+            case ErrorMsg err when !_matchStarted.Task.IsCompleted && IsMatchRequestReply(err.Seq):
                 _matchStarted.TrySetException(new InvalidOperationException($"server error: {err.Code}: {err.Message}"));
                 break;
         }
+    }
+
+    private bool IsMatchRequestReply(int seq)
+    {
+        lock (_gate) return _matchRequestSeqs.Contains(seq);
     }
 
     private void ApplyMatchStarted(MatchStarted ms)

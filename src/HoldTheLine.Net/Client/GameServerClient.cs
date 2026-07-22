@@ -42,6 +42,8 @@ public sealed class GameServerClient : IAsyncDisposable
     private Task? _heartbeatLoop;
     private TaskCompletionSource<HelloOk>? _helloTcs;
     private Exception? _lastFault;
+    private volatile bool _awaitingReconnectHello;
+    private volatile bool _handshakeRejected;
     private bool _disposed;
 
     public GameServerClient(Func<IClientTransport> transportFactory) => _transportFactory = transportFactory;
@@ -70,6 +72,7 @@ public sealed class GameServerClient : IAsyncDisposable
     public async Task<HelloOk> ConnectAsync(Uri uri, Hello hello, CancellationToken ct = default)
     {
         _uri = uri;
+        _handshakeRejected = false;
         SetState(ConnectionState.Connecting);
         _helloTcs = new TaskCompletionSource<HelloOk>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -125,6 +128,17 @@ public sealed class GameServerClient : IAsyncDisposable
             if (_cts.IsCancellationRequested)
                 return;
 
+            // A rejected reconnect handshake (bad_resume / bad_identity / version_mismatch) is terminal:
+            // the server tears the socket down right after sending it, and every further dial would replay
+            // the same rejection — pre-fix that meant a 0.5s dial storm with the battle UI stuck on
+            // "reconnecting" forever (server redeploys drop all resume tokens, so this is a routine path).
+            if (_handshakeRejected)
+            {
+                SetState(ConnectionState.Failed);
+                Closed?.Invoke(_lastFault);
+                return;
+            }
+
             if (!AutoReconnect || ReconnectHelloProvider is null)
             {
                 // Reflect the drop in the state BEFORE giving up: without this the socket dies but State stays
@@ -161,13 +175,24 @@ public sealed class GameServerClient : IAsyncDisposable
                     continue;
 
                 if (message is HelloOk ok)
+                {
+                    _awaitingReconnectHello = false;
                     _helloTcs?.TrySetResult(ok);
+                }
                 // A handshake-phase ErrorMsg (server rejects before hello_ok) faults the pending connect so
                 // the caller sees the real reason immediately instead of the 10s hello timeout. Gated to the
-                // initial connect (State == Connecting): mid-session ErrorMsgs (auth, etc.) and reconnect-time
-                // rejections don't touch the TCS — the latter avoids an unobserved faulted task nobody awaits.
+                // initial connect (State == Connecting): mid-session ErrorMsgs (auth, etc.) don't touch the TCS.
                 else if (message is ErrorMsg err && State == ConnectionState.Connecting)
                     _helloTcs?.TrySetException(new HandshakeRejectedException(err.Code, err.Message));
+                // An ErrorMsg while a reconnect hello is still unanswered is that handshake's rejection.
+                // Record it and bail out of the loop without raising MessageReceived (higher layers must not
+                // mistake it for a request reply); the supervisor turns it into a terminal Failed.
+                else if (message is ErrorMsg rej && _awaitingReconnectHello)
+                {
+                    _lastFault = new HandshakeRejectedException(rej.Code, rej.Message);
+                    _handshakeRejected = true;
+                    return;
+                }
 
                 MessageReceived?.Invoke(message);
             }
@@ -191,6 +216,7 @@ public sealed class GameServerClient : IAsyncDisposable
                 await transport.ConnectAsync(_uri!, _cts.Token).ConfigureAwait(false);
                 _transport = transport;
                 _helloTcs = new TaskCompletionSource<HelloOk>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _awaitingReconnectHello = true;
                 await SendAsync(ReconnectHelloProvider!()).ConfigureAwait(false);
                 return true; // supervisor re-enters ReceiveLoop to read hello_ok + resync_ok
             }
