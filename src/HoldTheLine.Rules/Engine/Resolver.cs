@@ -52,7 +52,7 @@ public sealed class Resolver
                 return ExecutionResult.Fail(RuleErrorCode.NotYourTurn, "It is not your turn.");
         }
 
-        var working = RulesJson.Clone(state);
+        var working = state.Clone(); // hand-written deep copy — see GameState.Clone for the parity guard
         var ctx = new ResolutionContext(working, _db);
 
         var error = command switch
@@ -155,6 +155,8 @@ public sealed class Resolver
         });
         ctx.RecomputeGarrison(unit); // deploys on the home row → gains 驻防 immediately
 
+        // marker action `sacrifice_equip` (Actions/SacrificeEquipAction): executed HERE, not in EffectEngine —
+        // it needs the command's SacrificeEntityIds + hand access, which the effect pipeline never sees.
         if (def.Effects.Any(e => e.Trigger == "battlecry" && e.Action == "sacrifice_equip"))
             ctx.TrySacrificeEquip(unit, cmd.SacrificeEntityIds); // 熔剑祭士: discard 2 orders → 熔岩巨剑 (docs/21 §3.2)
         EffectEngine.RunTrigger(ctx, unit, cmd.Seat, def.Effects, "battlecry", cmd.TargetUnitId, cmd.TargetCell);
@@ -217,12 +219,14 @@ public sealed class Resolver
             return targetError;
 
         // 烬火陷阱 placement rule (docs/21 §1.7): an empty cell that is not the enemy's backline.
+        // (execution: Actions/PlaceTrapAction — this pre-check needs board legality the handler doesn't re-derive)
         if (def.Effects.Any(e => e.Trigger == "play" && e.Action == "place_trap")
             && PlaceTrapLegality(ctx.State, cmd) is { } trapError)
             return trapError;
 
         // 焰鞭 friendly mode (docs/21 §1.8): when the primary target is a friendly minion, a distinct friendly
         // 二段目标 is required to receive its stats. (Enemy-target mode just deals damage — no secondary needed.)
+        // (execution: Actions/StatTransferAction — this command-shape check stays in the order pipeline)
         if (def.Effects.Any(e => e.Trigger == "play" && e.Action == "stat_transfer")
             && cmd.TargetUnitId is { } primId && ctx.State.FindUnit(primId) is { OwnerSeat: var primSeat } && primSeat == cmd.Seat
             && (cmd.SecondaryTargetUnitId is not { } secId
@@ -231,6 +235,8 @@ public sealed class Resolver
 
         int cost = EffectiveCost(ctx.State, cmd, def);
 
+        // marker action `add_secret` (Actions/AddSecretAction): the set/fire timing is order-pipeline logic,
+        // so it lives here, not in a per-action Execute.
         // 秘密 (docs/21 §1.7): a secret order is set face-down in your 秘密区 instead of resolving now; it does
         // not hit the graveyard (it lives in the zone) and does not fire 教团 ally_order_played.
         if (def.Effects.FirstOrDefault(e => e.Action == "add_secret") is { } secretSpec)
@@ -243,6 +249,7 @@ public sealed class Resolver
 
         // 焰誓反制 (docs/21 §3.2): an order that selected an ENEMY minion may be voided by that minion's owner's
         // counter secret — the caster still pays and discards, but the order's effects never happen.
+        // (the reactive half of Actions/AddSecretAction — interception is order-pipeline timing, kept here)
         if (cmd.TargetUnitId is { } tid && ctx.State.FindUnit(tid) is { OwnerSeat: var defenderSeat } && defenderSeat != cmd.Seat
             && ctx.TryTriggerCounterSecret(defenderSeat, cmd.Seat))
         {
@@ -267,6 +274,8 @@ public sealed class Resolver
         // 加深/蓄能/引导 (docs/21 §1.3): amplify this cast's 薪炎 damage. deepen = 常驻 aura (no source card
         // this patch) + the channeler's own 'deepen' marker (焰术学徒 +1 / 熔岩巨灵 +2). 蓄能 rides on top of a
         // 薪炎 order and is spent afterwards (whether or not the damage found a target — you committed the order).
+        // (markers: Actions/DeepenAction + Actions/DiscountAction; the bank: Actions/AmplifyNextAction —
+        // reading/consuming them is amplify-pipeline timing, kept here)
         int deepen = channeler is null ? 0 : EffectEngine.ChannelEffectAmount(_db, channeler, "deepen");
         bool kindleOrder = EffectEngine.IsKindleDamageOrder(def);
         int charge = kindleOrder ? player.SpellCharge : 0;
@@ -276,6 +285,7 @@ public sealed class Resolver
         if (charge > 0)
             ctx.ConsumeSpellCharge(cmd.Seat);
 
+        // marker action `echo_order` (Actions/EchoOrderAction): the recast below is order-pipeline timing, kept here.
         // 薪火回响·门德 (docs/21 §3.1, reworked Rules 0.9.1): the FIRST 薪炎 damage order each turn may be RECAST
         // once when 门德 is on board — but now YOU re-aim it (EchoTarget*) instead of copying the primary target,
         // and declining is a legal choice (空放/取消, EchoRecast=false). A recast whose target has since died just

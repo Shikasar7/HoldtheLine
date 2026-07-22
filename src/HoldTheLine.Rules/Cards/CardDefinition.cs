@@ -38,6 +38,14 @@ public sealed record CardDefinition
     public bool HasKeyword(Keyword k) => Keywords.Any(s => s.Keyword == k);
 
     public int KeywordValue(Keyword k) => Keywords.FirstOrDefault(s => s.Keyword == k)?.Value ?? 0;
+
+    /// <summary>熔剑祭士 (docs/21 §3.2): this unit's battlecry offers the 2-order sacrifice, so the client must
+    /// route the deploy through its sacrifice picker. Replaces the client's magic-string effect matching.</summary>
+    public bool NeedsSacrificePicker => Effects.Any(e => e.Trigger == "battlecry" && e.Action == "sacrifice_equip");
+
+    /// <summary>Whether playing this card deals effect damage on cast (a play/battlecry effect of the damage
+    /// family) — drives the client's red "作用目标" targeting prompt. See <see cref="EffectSpec.DealsDamage"/>.</summary>
+    public bool DealsDamageOnPlay => Effects.Any(e => e.Trigger is "play" or "battlecry" && e.DealsDamage);
 }
 
 /// <summary>成长规格 (docs/21 §1.8): after <see cref="Turns"/> growth steps the unit transforms into

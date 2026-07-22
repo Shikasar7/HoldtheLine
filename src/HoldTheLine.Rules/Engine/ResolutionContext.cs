@@ -47,12 +47,22 @@ internal sealed class ResolutionContext
     // ---- damage ----
 
     /// <summary>Applies damage with 守护/坚守/福泽/持盾 semantics. Does NOT sweep deaths — callers batch that via
-    /// ProcessDeaths so simultaneous strikes resolve simultaneously. <paramref name="ignoreHoldFast"/> is set
-    /// by 灼蚀 (sear): the 坚守 reduction is skipped, but 福泽/持盾 are unchanged (docs/10 §6#2).</summary>
+    /// ProcessDeaths so simultaneous strikes resolve simultaneously. The arithmetic lives in the shared pure
+    /// <see cref="DamageMath"/> (also used by the AI); this method runs the mutations around it: 架设 +1,
+    /// 成长加速 (may transform in place), the 守护 recursion, and event emission.
+    /// <paramref name="ignoreHoldFast"/> is set by 灼蚀 (sear): the 坚守 reduction is skipped, but 福泽/持盾
+    /// are unchanged (docs/10 §6#2).</summary>
     /// <param name="guardRedirected">True only for the recursive call that lands redirected damage on a 守护
     /// guardian: it does NOT redirect again (no loop) and every event it emits is tagged 守护 for the client.</param>
-    public void DamageUnit(UnitInstance target, int amount, bool ignoreHoldFast = false, bool guardRedirected = false, string school = "physical")
+    /// <param name="effectDamage">EFFECT damage (orders, leader skills, battlecries, traps, secrets — never
+    /// attacks): a 架设 victim takes +1 (docs/06 §4). Applied up front, exactly where callers used to pre-add
+    /// it. The 守护 recursion passes false — the +1 is already in the amount and the guardian's own 架设
+    /// never re-adds (it was keyed on the ORIGINAL victim).</param>
+    public void DamageUnit(UnitInstance target, int amount, bool ignoreHoldFast = false, bool guardRedirected = false, string school = "physical", bool effectDamage = false)
     {
+        if (effectDamage)
+            amount = DamageMath.EffectAmountAgainst(target, amount);
+
         bool kindle = amount > 0 && school.StartsWith("spell", StringComparison.Ordinal);
 
         // 成长加速 (docs/21 §1.8): a 薪炎 hit on a 成长 unit adds +1 (may transform it in place) — this runs even
@@ -60,61 +70,32 @@ internal sealed class ResolutionContext
         if (kindle && Db.Get(target.CardId).Growth is not null)
             AccelerateGrowth(target);
 
-        // 免疫薪炎 (docs/21 §1.1/§4.7): the (possibly just-transformed) unit zeroes spell.* damage entirely.
-        if (kindle && target.HasKeyword(Keyword.KindleImmune))
-        {
-            Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = 0, NewHp = target.CurrentHp, GuardRedirect = guardRedirected });
-            return;
-        }
-
-        // 守护 (Guardian): a real hit (amount > 0) on a unit with an adjacent friendly guardian is soaked by
-        // that guardian instead — through ITS own reductions. The spared target shows 守护-0; the guardian's
-        // own DamageUnit shows 守护-<actual>. Only the original target redirects (guardRedirected guards the loop).
-        if (!guardRedirected && amount > 0 && GuardianFor(target) is { } guardian)
+        // The (possibly just-transformed) unit runs the shared pure pipeline. A 守护 redirect recurses so the
+        // guardian gets its own 成长加速 mutation BEFORE its reductions — byte-identical to the old inline flow.
+        // The spared target shows 守护-0; the guardian's own DamageUnit shows 守护-<actual>.
+        var step = DamageMath.PredictStep(State, target, amount, ignoreHoldFast, school, guardRedirected);
+        if (step.RedirectTo is { } guardian)
         {
             Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = 0, NewHp = target.CurrentHp, GuardRedirect = true });
             DamageUnit(guardian, amount, ignoreHoldFast, guardRedirected: true, school);
             return;
         }
 
-        if (!ignoreHoldFast && target.HasKeyword(Keyword.HoldFast) && !target.MovedThisRound)
-            amount = Math.Max(0, amount - 1);
-
-        // 福泽 (Blessing): an adjacent friendly aura shaves 1 more off (stacks with 坚守; sear does not skip it).
-        if (HasBlessingAura(target))
-            amount = Math.Max(0, amount - 1);
-
-        if (amount <= 0)
+        switch (step.Kind)
         {
-            Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = 0, NewHp = target.CurrentHp, GuardRedirect = guardRedirected });
-            return;
+            case DamageOutcomeKind.NoDamage:
+                Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = 0, NewHp = target.CurrentHp, GuardRedirect = guardRedirected });
+                break;
+            case DamageOutcomeKind.ShieldAbsorbed:
+                target.ShieldActive = false;
+                Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = 0, NewHp = target.CurrentHp, ShieldAbsorbed = true, GuardRedirect = guardRedirected });
+                break;
+            case DamageOutcomeKind.HpLoss:
+                target.CurrentHp -= step.Amount;
+                Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = step.Amount, NewHp = target.CurrentHp, GuardRedirect = guardRedirected });
+                break;
         }
-
-        if (target.ShieldActive)
-        {
-            target.ShieldActive = false;
-            Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = 0, NewHp = target.CurrentHp, ShieldAbsorbed = true, GuardRedirect = guardRedirected });
-            return;
-        }
-
-        target.CurrentHp -= amount;
-        Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = amount, NewHp = target.CurrentHp, GuardRedirect = guardRedirected });
     }
-
-    /// <summary>The friendly 守护 guardian that soaks damage aimed at <paramref name="target"/>: an orthogonally
-    /// adjacent ally (never the target itself) with 守护. Deterministic (first in Units order). Null if none.</summary>
-    private UnitInstance? GuardianFor(UnitInstance target) =>
-        BoardGeometry.AdjacentCells(target.Cell)
-            .Select(State.UnitAt)
-            .FirstOrDefault(u => u != null && u.OwnerSeat == target.OwnerSeat
-                && u.EntityId != target.EntityId && u.HasKeyword(Keyword.Guardian));
-
-    /// <summary>Whether an orthogonally adjacent friendly unit carries 福泽 (so <paramref name="target"/> takes
-    /// 1 less damage). The unit's own 福泽 never counts — the aura helps neighbours, not the source.</summary>
-    private bool HasBlessingAura(UnitInstance target) =>
-        BoardGeometry.AdjacentCells(target.Cell)
-            .Select(State.UnitAt)
-            .Any(u => u != null && u.OwnerSeat == target.OwnerSeat && u.HasKeyword(Keyword.Blessing));
 
     /// <summary>
     /// 消灭 (destroy): drops the unit straight into the death sweep, bypassing DamageUnit — so 持盾
@@ -401,10 +382,12 @@ internal sealed class ResolutionContext
 
     private void ApplyTrapSear(CellState trap, UnitInstance victim, bool revealed)
     {
-        int amount = TrapSearDamage + (victim.HasKeyword(Keyword.Emplacement) ? 1 : 0);
+        // The event's Damage field shows the 架设-adjusted number (same helper DamageUnit applies internally).
+        int amount = DamageMath.EffectAmountAgainst(victim, TrapSearDamage);
         Emit(new TrapTriggeredEvent
         { OwnerSeat = trap.OwnerSeat, Cell = trap.Cell, VictimUnitId = victim.EntityId, Damage = amount, Revealed = revealed });
-        DamageUnit(victim, amount, ignoreHoldFast: true, school: "spell.kindle"); // 薪炎灼蚀 ignores 坚守 (福泽/守护/持盾 still apply)
+        // 薪炎灼蚀 ignores 坚守 (福泽/守护/持盾 still apply); effectDamage re-derives the same 架设 +1.
+        DamageUnit(victim, TrapSearDamage, ignoreHoldFast: true, school: "spell.kindle", effectDamage: true);
     }
 
     // ---- 秘密区: 焰誓反制 (docs/21 §1.7 / §3.2) ----
@@ -439,7 +422,7 @@ internal sealed class ResolutionContext
         if (victims.Count > 0 && spec.Amount > 0)
         {
             var victim = victims[State.Rng.NextInt(victims.Count)];
-            DamageUnit(victim, spec.Amount + (victim.HasKeyword(Keyword.Emplacement) ? 1 : 0), school: spec.School);
+            DamageUnit(victim, spec.Amount, school: spec.School, effectDamage: true); // 架设 +1 applied inside
             ProcessDeaths();
         }
         return true;

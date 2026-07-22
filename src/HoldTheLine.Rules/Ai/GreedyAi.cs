@@ -1,6 +1,7 @@
 using HoldTheLine.Rules.Cards;
 using HoldTheLine.Rules.Commands;
 using HoldTheLine.Rules.Engine;
+using HoldTheLine.Rules.Engine.Actions;
 using HoldTheLine.Rules.Geometry;
 using HoldTheLine.Rules.State;
 
@@ -148,11 +149,12 @@ public static class GreedyAi
             - (iDie ? UnitValue(attacker) * 3 : 0);
 
         // 贯穿: a straight-line ranged shot also strikes the cell directly behind the target (friend or foe).
+        // Attack damage — no 架设 +1 (effectDamage false), physical school.
         if (attacker.HasKeyword(Keyword.Pierce) && !melee
             && BoardGeometry.StepBeyond(attacker.Cell, target.Cell) is { } behind
             && BoardGeometry.IsInside(behind) && s.UnitAt(behind) is { } bu)
         {
-            score += DamageValue(s, a.Seat, bu, attacker.Atk);
+            score += OutcomeValue(a.Seat, DamageMath.Predict(s, bu, attacker.Atk));
         }
         return score;
     }
@@ -208,7 +210,10 @@ public static class GreedyAi
         return score;
     }
 
-    /// <summary>Value of one effect resolved with the given targets, from the acting seat's perspective.</summary>
+    /// <summary>Value of one effect resolved with the given targets, from the acting seat's perspective.
+    /// Per-action pricing lives on the action handlers (Engine/Actions, docs/22 D1); this computes the
+    /// shared inputs and dispatches. An unregistered action throws (was a silent default-1): load-time
+    /// validation guarantees every data-borne action is registered, so reaching one here is a bug.</summary>
     private static double ScoreEffect(GameState s, CardDatabase db, int seat, EffectSpec e, int? targetUnitId, Cell? targetCell,
         int cost, int spellDamageBonus = 0)
     {
@@ -222,120 +227,8 @@ public static class GreedyAi
         if ((e.TargetSide == "enemy" && targetIsAlly) || (e.TargetSide == "ally" && targetIsEnemy))
             return 0;
 
-        switch (e.Action)
-        {
-            case "damage":
-            case "sear": // 灼蚀: same shape as damage, but ignores 坚守 — so it scores full value vs HoldFast prey.
-            {
-                bool sear = e.Action == "sear";
-                switch (e.Target)
-                {
-                    case "target_unit":
-                    case "target_unit_own_half":
-                        if (target == null) return 0;
-                        return targetIsEnemy ? DamageValue(s, seat, target, effectAmount, sear) : -100;
-                    case "column_enemies":
-                        return SumDamage(s, seat, s.Units.Where(u => u.OwnerSeat != seat && InCol(u, targetCell)), effectAmount, sear);
-                    case "row_enemies":
-                        return SumDamage(s, seat, s.Units.Where(u => u.OwnerSeat != seat && InRow(u, targetCell)), effectAmount, sear);
-                    case "cell_cross_all":
-                        return targetCell is { } cc ? SumDamage(s, seat, CrossUnits(s, cc), effectAmount, sear) : 0;
-                    case "unit_cross_all":
-                        return target == null ? 0 : SumDamage(s, seat, CrossUnits(s, target.Cell), effectAmount, sear);
-                    case "adjacent_enemies":
-                        return 1.5; // source-relative on-cast/deathrattle — small flat credit
-                    default:
-                        return 1;
-                }
-            }
-
-            case "destroy":
-                if (target == null || !targetIsAlly) return -100;
-                return SacrificeValue(db, target); // 献祭: only cheap/dying/deathrattle bodies score positive
-
-            case "buff":
-                switch (e.Target)
-                {
-                    case "target_unit":
-                    case "target_unit_ally":
-                        if (target == null) return 0;
-                        return targetIsAlly ? 2 + cost : -100;
-                    case "adjacent_allies":
-                        return 2;
-                    case "allies_home_row":
-                    case "all_allies":
-                    {
-                        int n = e.Target == "all_allies"
-                            ? s.Units.Count(u => u.OwnerSeat == seat)
-                            : s.Units.Count(u => u.OwnerSeat == seat && u.Cell.Row == BoardGeometry.HomeRow(seat));
-                        return n * (e.Atk + e.Hp) * 1.5;
-                    }
-                    case "column_allies":
-                        return s.Units.Count(u => u.OwnerSeat == seat && InCol(u, targetCell)) * (e.Atk + e.Hp) * 1.5;
-                    case "all_ally_emplacements": // 匠会 阵地 payoff: value scales with turrets already bolted down.
-                        return s.Units.Count(u => u.OwnerSeat == seat && u.HasKeyword(Keyword.Emplacement)) * (e.Atk + e.Hp) * 1.5;
-                    default:
-                        return 1;
-                }
-
-            case "heal":
-                if (e.Target is "target_unit" or "target_unit_ally")
-                {
-                    if (target == null) return 0;
-                    if (!targetIsAlly) return -50;
-                    return Math.Min(target.MaxHp - target.CurrentHp, e.Amount) * 1.2;
-                }
-                return 1;
-
-            case "grant_keyword":
-            case "move_bonus":
-            case "boost_range": // 加农校准: +range on an ally — reach from safety, worth a small buff
-                if (e.Target is "target_unit" or "target_unit_ally")
-                {
-                    if (target == null) return 0;
-                    if (!targetIsAlly) return -100;
-                    // 重新部署 (Mobilized) only matters on an 架设 unit — repositioning a bolted-down turret;
-                    // granting it to a mobile unit is inert, so don't waste the card there.
-                    if (e.GrantKeyword == Keyword.Mobilized)
-                        return target.HasKeyword(Keyword.Emplacement) ? 2 + cost : 0.2;
-                    return 2 + cost;
-                }
-                return 1;
-
-            case "summon":
-                return 3 + cost;
-            case "draw":
-                return e.Amount * 2;
-            case "recall_order":
-            {
-                // Worth a draw per order actually available in our graveyard; nothing to recall = dead text.
-                int available = s.Player(seat).Graveyard.Count(id => db.Get(id).Type == CardType.Order);
-                return Math.Min(e.Amount, available) * 2;
-            }
-            case "gain_mana":
-                return 0.5;
-
-            // ---- docs/21 §5 new-mechanic scoring (simple heuristics) ----
-            case "damage_scatter": // 燔火: `amount` missiles of 1 at random enemies — worth ~ per-missile enemy value.
-            {
-                int enemies = s.Units.Count(u => u.OwnerSeat != seat);
-                return enemies == 0 ? 0 : Math.Min(effectAmount, enemies * 3) * 1.5;
-            }
-            case "stat_transfer": // 焰鞭 friendly mode: only worth it on a cheap/dying/deathrattle body (SacrificeValue guards it).
-                return target == null || !targetIsAlly ? 0 : SacrificeValue(db, target) + 1.5;
-            case "place_smoke":
-                return 2;   // tempo denial (区内不能攻击/反击)
-            case "place_trap":
-                return 2;   // board-control setup
-            case "add_secret":
-                return 2;   // deterrent, constant EV (docs/21 §5 — no game-theory this patch)
-            case "amplify_next":
-                return 1.5; // banks a bigger 薪炎 order next turn
-            case "sacrifice_equip":
-                return 2;   // the 熔岩巨剑 payoff (the discard cost is not enumerated this patch)
-            default:
-                return 1;
-        }
+        return EffectActionRegistry.Get(e.Action)
+            .Score(new EffectScoreArgs(s, db, seat, e, target, targetIsEnemy, targetIsAlly, targetCell, cost, effectAmount));
     }
 
     private static double OnCastEngineBonus(GameState s, CardDatabase db, int seat)
@@ -357,7 +250,8 @@ public static class GreedyAi
 
     // ---- helpers ----
 
-    private static double SacrificeValue(CardDatabase db, UnitInstance ally)
+    // internal (not private): shared with the per-action score handlers in Engine/Actions (docs/22 D1).
+    internal static double SacrificeValue(CardDatabase db, UnitInstance ally)
     {
         // Losing the body is a cost; a deathrattle payoff (cinder moth ping, avenger buff, phoenix) offsets it.
         double v = -UnitValue(ally);
@@ -366,34 +260,38 @@ public static class GreedyAi
         return v;
     }
 
-    private static double SumDamage(GameState s, int seat, IEnumerable<UnitInstance> victims, int amount, bool sear = false) =>
-        victims.Sum(u => DamageValue(s, seat, u, amount, sear));
+    internal static double SumDamage(GameState s, int seat, IEnumerable<UnitInstance> victims, int amount, bool sear = false, string school = "physical") =>
+        victims.Sum(u => DamageValue(s, seat, u, amount, sear, school));
 
-    /// <summary>Signed value of dealing <paramref name="amount"/> to <paramref name="victim"/>: enemies good, friendly fire bad.</summary>
-    private static double DamageValue(GameState s, int seat, UnitInstance victim, int amount, bool sear = false)
+    /// <summary>Signed value of dealing <paramref name="amount"/> of EFFECT damage to <paramref name="victim"/>,
+    /// scored on where it actually lands via the engine's own <see cref="DamageMath.Predict"/> (架设 +1, 免疫薪炎,
+    /// 守护 redirect, 坚守, 福泽, 持盾): enemies good, friendly fire bad. Replaces the old hand-mirrored
+    /// EffectDamage, which ignored 福泽 and 守护 and so systematically overvalued hitting blessed/guarded units.</summary>
+    internal static double DamageValue(GameState s, int seat, UnitInstance victim, int amount, bool sear = false, string school = "physical") =>
+        OutcomeValue(seat, DamageMath.Predict(s, victim, amount, ignoreHoldFast: sear, school: school, effectDamage: true));
+
+    /// <summary>Score a predicted landing chain from <paramref name="seat"/>'s perspective: damage dealt plus a
+    /// kill bonus, signed per ACTUAL recipient (a 守护 redirect onto an ally's guardian is still friendly fire).</summary>
+    private static double OutcomeValue(int seat, List<DamageOutcome> outcomes)
     {
-        int dmg = EffectDamage(victim, amount, sear);
-        double v = dmg * 2 + (dmg >= victim.CurrentHp ? UnitValue(victim) * 3 : 0);
-        return victim.OwnerSeat == seat ? -v : v;
+        double v = 0;
+        foreach (var o in outcomes)
+        {
+            double worth = o.Amount * 2
+                + (o.Kind == DamageOutcomeKind.HpLoss && o.Amount >= o.Victim.CurrentHp ? UnitValue(o.Victim) * 3 : 0);
+            v += o.Victim.OwnerSeat == seat ? -worth : worth;
+        }
+        return v;
     }
 
-    private static int EffectDamage(UnitInstance victim, int amount, bool ignoreHoldFast = false)
-    {
-        if (victim.ShieldActive) return 0;
-        int dmg = amount;
-        if (victim.HasKeyword(Keyword.Emplacement)) dmg += 1; // bolted down — effect damage +1
-        if (!ignoreHoldFast && victim.HasKeyword(Keyword.HoldFast) && !victim.MovedThisRound) dmg -= 1; // 灼蚀 skips this
-        return Math.Max(0, dmg);
-    }
-
-    private static IEnumerable<UnitInstance> CrossUnits(GameState s, Cell center)
+    internal static IEnumerable<UnitInstance> CrossUnits(GameState s, Cell center)
     {
         var cells = new HashSet<Cell>(BoardGeometry.AdjacentCells(center)) { center };
         return s.Units.Where(u => cells.Contains(u.Cell));
     }
 
-    private static bool InCol(UnitInstance u, Cell? cell) => cell is { } c && u.Cell.Col == c.Col;
-    private static bool InRow(UnitInstance u, Cell? cell) => cell is { } c && u.Cell.Row == c.Row;
+    internal static bool InCol(UnitInstance u, Cell? cell) => cell is { } c && u.Cell.Col == c.Col;
+    internal static bool InRow(UnitInstance u, Cell? cell) => cell is { } c && u.Cell.Row == c.Row;
 
     private static bool Reaches(UnitInstance u, Cell cell)
     {
@@ -401,20 +299,19 @@ public static class GreedyAi
         return r == 0 ? BoardGeometry.AreAdjacent(u.Cell, cell) : BoardGeometry.StepDistance(u.Cell, cell) <= r;
     }
 
-    // Mirrors the resolver's damage pipeline closely enough for one-ply scoring:
-    // shield eats the whole instance, hold-fast -1 while stationary, pack-tactics +1 on flanked prey.
+    // Attack-damage estimate: pack-tactics +2 on flanked prey, then the engine's own reduction chain via
+    // DamageMath.Predict (守护 redirect spares the target, 坚守/福泽 shave, 持盾 absorbs). Returns the damage
+    // the TARGET itself takes — a redirected hit counts 0 here. No 架设 +1: attacks are not effect damage.
     private static int EstimateDamage(GameState s, UnitInstance attacker, UnitInstance target, bool melee)
     {
-        if (target.ShieldActive)
-            return 0;
         int dmg = attacker.Atk;
         if (melee && attacker.HasKeyword(Keyword.PackTactics)
             && BoardGeometry.AdjacentCells(target.Cell).Select(s.UnitAt)
                 .Any(u => u != null && u.OwnerSeat == attacker.OwnerSeat && u.EntityId != attacker.EntityId))
             dmg += 2;
-        if (target.HasKeyword(Keyword.HoldFast) && !target.MovedThisRound)
-            dmg -= 1;
-        return Math.Max(0, dmg);
+        return DamageMath.Predict(s, target, dmg)
+            .Where(o => o.Victim.EntityId == target.EntityId)
+            .Sum(o => o.Amount);
     }
 
     private static double UnitValue(UnitInstance u) => u.Atk * 1.5 + u.CurrentHp;

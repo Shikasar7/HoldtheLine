@@ -1,4 +1,5 @@
 using HoldTheLine.Rules.Cards;
+using HoldTheLine.Rules.Engine.Actions;
 using HoldTheLine.Rules.Geometry;
 using HoldTheLine.Rules.State;
 
@@ -169,147 +170,11 @@ internal static class EffectEngine
         if (spec.IsSpellDamage)
             amount += spellDamageBonus;
 
-        switch (spec.Action)
-        {
-            case "amplify_next":
-                // 蓄能 N: bank a bonus for the seat's next 薪炎 order (焰跃术士).
-                ctx.AddSpellCharge(ownerSeat, spec.Amount);
-                break;
-
-            case "place_smoke":
-                // 烟幕弹 (docs/21 §1.6): smoke the 落点格 and its cross (5 cells).
-                if (targetCell is { } smokeCell)
-                    ctx.PlaceSmoke(ownerSeat, smokeCell);
-                break;
-
-            case "place_trap":
-                // 烬火陷阱 (docs/21 §1.7): bury a hidden trap; placement legality is pre-checked in the resolver.
-                if (targetCell is { } trapCell)
-                    ctx.PlaceTrap(ownerSeat, trapCell);
-                break;
-
-            case "sacrifice_equip":
-                // 熔剑祭士 (docs/21 §3.2): a marker — the resolver performs it (it needs the command's
-                // SacrificeEntityIds + hand access), so RunTrigger sees nothing to do here.
-                break;
-
-            case "stat_transfer":
-                // 焰鞭 friendly mode (docs/21 §1.8): consume the primary ally (A) and add its CURRENT atk/hp to
-                // the 二段目标 (B). Secondary validity is pre-checked in the resolver; guard again defensively.
-                if (targets.Count > 0 && secondaryTargetUnitId is { } bId
-                    && ctx.State.FindUnit(bId) is { } b && b.OwnerSeat == ownerSeat && b.EntityId != targets[0].EntityId)
-                {
-                    var a = targets[0];
-                    int atk = a.Atk, hp = a.CurrentHp;
-                    ctx.Emit(new Events.StatTransferredEvent { FromUnitId = a.EntityId, ToUnitId = b.EntityId, Atk = atk, Hp = hp });
-                    ctx.DestroyUnit(a); // 消灭 A — deathrattle fires via ProcessDeaths
-                    b.Atk += atk;
-                    b.MaxHp += hp;
-                    b.CurrentHp += hp;
-                    ctx.Emit(new Events.UnitBuffedEvent { UnitEntityId = b.EntityId, AtkDelta = atk, HpDelta = hp, NewAtk = b.Atk, NewHp = b.CurrentHp });
-                }
-                break;
-
-            // deepen / discount are passive 引导者 markers (trigger == channel) — the amplify pipeline reads
-            // them via ChannelEffectAmount; RunTrigger never dispatches a channel effect, so they never land here.
-
-            case "damage":
-                // 架设 second clause: bolted-down units cannot dodge incoming barrages — they take
-                // +1 from EFFECT damage (orders, skills, battlecries; never from attacks). This is
-                // the 焰克械 counter interface (docs/06 §4): spell factions crack static formations.
-                foreach (var t in targets)
-                    ctx.DamageUnit(t, amount + (t.HasKeyword(Keyword.Emplacement) ? 1 : 0), school: spec.School);
-                break;
-
-            case "damage_scatter":
-                // 燔火 (docs/21 §3.1): fire `amount` missiles of 1 薪炎 damage, each at a RANDOM live enemy minion
-                // (re-rolled per missile among survivors, 炉石奥术飞弹 semantics). The roll is on the match Rng so
-                // replays are deterministic. 加深/蓄能 already folded into `amount` above (+1 missile per point).
-                for (int i = 0; i < amount; i++)
-                {
-                    var live = ctx.State.Units.Where(u => u.OwnerSeat != ownerSeat && u.CurrentHp > 0).ToList();
-                    if (live.Count == 0)
-                        break;
-                    var victim = live[ctx.State.Rng.NextInt(live.Count)];
-                    ctx.DamageUnit(victim, 1 + (victim.HasKeyword(Keyword.Emplacement) ? 1 : 0), school: spec.School);
-                }
-                break;
-
-            case "sear":
-                // 灼蚀 (docs/10 §6#2): effect damage that ignores 坚守 reduction — the 教团→铁壁 answer
-                // (v2.1 遗留#1: HoldFast otherwise eats the 教团's 1-2pt chip damage whole). 持盾 still
-                // absorbs; 架设's +1 effect-damage clause still stacks (灼蚀 is effect damage too).
-                foreach (var t in targets)
-                    ctx.DamageUnit(t, amount + (t.HasKeyword(Keyword.Emplacement) ? 1 : 0), ignoreHoldFast: true, school: spec.School);
-                break;
-
-            case "destroy":
-                // 献祭/消灭: straight to the death sweep — bypasses DamageUnit, so 持盾/坚守 don't save it;
-                // 亡语 still fires (via ProcessDeaths). No new event — the sweep emits UnitDiedEvent.
-                foreach (var t in targets)
-                    ctx.DestroyUnit(t);
-                break;
-
-            case "heal":
-                foreach (var t in targets)
-                    ctx.HealUnit(t, spec.Amount);
-                break;
-
-            case "buff":
-                foreach (var t in targets)
-                {
-                    t.Atk += spec.Atk;
-                    t.MaxHp += spec.Hp;
-                    t.CurrentHp += spec.Hp;
-                    ctx.Emit(new Events.UnitBuffedEvent
-                    {
-                        UnitEntityId = t.EntityId,
-                        AtkDelta = spec.Atk,
-                        HpDelta = spec.Hp,
-                        NewAtk = t.Atk,
-                        NewHp = t.CurrentHp,
-                    });
-                }
-                break;
-
-            case "grant_keyword":
-                foreach (var t in targets)
-                    ctx.GrantKeyword(t, spec.GrantKeyword!.Value, spec.GrantKeywordValue, spec.Duration, ownerSeat);
-                break;
-
-            case "boost_range":
-                // 加农校准: +Amount range, ADDITIVE onto whatever range the unit already has (docs/00 §3 —
-                // restores the GDD "射程加法叠加" original). KeywordValue is a max across grants, so raising
-                // it means granting (current range + Amount): a melee unit → range Amount, a range-2 unit → 2+Amount.
-                foreach (var t in targets)
-                    ctx.GrantKeyword(t, Keyword.Range, t.KeywordValue(Keyword.Range) + spec.Amount, spec.Duration, ownerSeat);
-                break;
-
-            case "move_bonus":
-                foreach (var t in targets)
-                    ctx.AddMoveBonus(t, spec.Amount);
-                break;
-
-            case "summon":
-                ctx.SummonUnits(ownerSeat, spec.SummonCardId!, spec.Amount);
-                break;
-
-            case "draw":
-                ctx.DrawCards(ownerSeat, spec.Amount);
-                break;
-
-            case "recall_order":
-                ctx.RecallOrders(ownerSeat, spec.Amount);
-                break;
-
-            case "gain_mana":
-                ctx.GainMana(ownerSeat, spec.Amount);
-                break;
-
-            default:
-                // CardDatabase / LeaderDatabase validation guarantees this is unreachable; stay loud.
-                throw new InvalidOperationException($"Unknown effect action '{spec.Action}'.");
-        }
+        // Per-action resolution lives on the action handlers (Engine/Actions, docs/22 D1) — one sealed
+        // class per action, looked up by name. CardDatabase / LeaderDatabase validation guarantees every
+        // data-borne action is registered; Get stays loud otherwise (the old switch's default throw).
+        EffectActionRegistry.Get(spec.Action)
+            .Execute(ctx, source, ownerSeat, spec, targets, targetCell, amount, secondaryTargetUnitId);
     }
 
     private static List<UnitInstance> ResolveTargets(

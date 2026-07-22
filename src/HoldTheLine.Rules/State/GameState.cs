@@ -8,6 +8,8 @@ public sealed class CardInstance
 {
     public int EntityId { get; set; }
     public string CardId { get; set; } = "";
+
+    public CardInstance Clone() => new() { EntityId = EntityId, CardId = CardId };
 }
 
 /// <summary>A keyword granted for a limited time (grant_keyword with a non-permanent duration).</summary>
@@ -18,6 +20,9 @@ public sealed class TempKeywordGrant
     public string Expiry { get; set; } = "end_of_turn";
     /// <summary>Seat that granted it — needed to resolve "your next turn".</summary>
     public int GrantedBySeat { get; set; }
+
+    // Spec is an immutable record — sharing the reference is safe.
+    public TempKeywordGrant Clone() => new() { Spec = Spec, Expiry = Expiry, GrantedBySeat = GrantedBySeat };
 }
 
 public sealed class UnitInstance
@@ -87,6 +92,32 @@ public sealed class UnitInstance
     }
 
     public int MovementPerTurn => (HasKeyword(Keyword.Swift) ? KeywordValue(Keyword.Swift) : 1) + BonusMovement;
+
+    /// <summary>Field-by-field copy. Adding a field to this class? Add it here too — a miss is caught by
+    /// CloneParityTests, which diff this against the JSON round-trip over full random playouts.</summary>
+    public UnitInstance Clone() => new()
+    {
+        EntityId = EntityId,
+        CardId = CardId,
+        OwnerSeat = OwnerSeat,
+        Cell = Cell,
+        Atk = Atk,
+        MaxHp = MaxHp,
+        CurrentHp = CurrentHp,
+        DeployedOnTurn = DeployedOnTurn,
+        MovementUsed = MovementUsed,
+        AttacksUsed = AttacksUsed,
+        MovedThisRound = MovedThisRound,
+        ShieldActive = ShieldActive,
+        SelfMovedAtkGainsThisTurn = SelfMovedAtkGainsThisTurn,
+        SoulReturnGainsThisTurn = SoulReturnGainsThisTurn,
+        OrderGrowthThisTurn = OrderGrowthThisTurn,
+        BonusMovement = BonusMovement,
+        GarrisonApplied = GarrisonApplied,
+        GrowthProgress = GrowthProgress,
+        Keywords = new List<KeywordSpec>(Keywords),      // specs are immutable records
+        TempGrants = TempGrants.Select(g => g.Clone()).ToList(),
+    };
 }
 
 /// <summary>
@@ -109,6 +140,17 @@ public sealed class CellState
     public bool Revealed { get; set; }
     /// <summary>Trap: turns of burning left after reveal; counted down at turn boundaries. Unused by smoke.</summary>
     public int TurnsLeft { get; set; }
+
+    public CellState Clone() => new()
+    {
+        Cell = Cell,
+        Kind = Kind,
+        OwnerSeat = OwnerSeat,
+        Expiry = Expiry,
+        Hidden = Hidden,
+        Revealed = Revealed,
+        TurnsLeft = TurnsLeft,
+    };
 }
 
 /// <summary>A face-down reactive secret (docs/21 §1.7) waiting in a seat's secret zone — 焰誓反制. The opponent
@@ -118,6 +160,8 @@ public sealed class Secret
     public string CardId { get; set; } = "";
     /// <summary>counter_order (焰誓反制). The trigger + payload are looked up from the card definition.</summary>
     public string Kind { get; set; } = "";
+
+    public Secret Clone() => new() { CardId = CardId, Kind = Kind };
 }
 
 public sealed class PlayerState
@@ -146,6 +190,24 @@ public sealed class PlayerState
     /// <summary>薪火回响 (docs/21 §3.1): whether this seat has already played a 薪炎 damage order this turn (so
     /// 门德 only echoes the FIRST). Reset at the seat's turn start.</summary>
     public bool FirstKindleOrderDone { get; set; }
+
+    /// <summary>Field-by-field copy — keep in lockstep with the fields above (CloneParityTests guards).</summary>
+    public PlayerState Clone() => new()
+    {
+        Seat = Seat,
+        LeaderId = LeaderId,
+        LeaderHp = LeaderHp,
+        Mana = Mana,
+        ManaMax = ManaMax,
+        Hand = Hand.Select(c => c.Clone()).ToList(),
+        Deck = Deck.Select(c => c.Clone()).ToList(),
+        Graveyard = new List<string>(Graveyard),
+        Fatigue = Fatigue,
+        LeaderSkillUsedThisTurn = LeaderSkillUsedThisTurn,
+        SpellCharge = SpellCharge,
+        Secrets = Secrets.Select(s => s.Clone()).ToList(),
+        FirstKindleOrderDone = FirstKindleOrderDone,
+    };
 }
 
 public sealed record GameResult
@@ -171,6 +233,14 @@ public sealed class MulliganState
     public ulong[] RngState { get; set; } = new ulong[2];
     public int FirstSeat { get; set; }
     public string CoinCardId { get; set; } = "";
+
+    public MulliganState Clone() => new()
+    {
+        Done = (bool[])Done.Clone(),
+        RngState = (ulong[])RngState.Clone(),
+        FirstSeat = FirstSeat,
+        CoinCardId = CoinCardId,
+    };
 }
 
 /// <summary>
@@ -214,4 +284,27 @@ public sealed class GameState
     public bool IsSmoked(Cell cell) => CellStates.Any(s => s.Kind == "smoke" && s.Cell == cell);
 
     public int TakeEntityId() => NextEntityId++;
+
+    /// <summary>
+    /// Hand-written deep copy — the resolver's per-Execute snapshot. Replaces the JSON round-trip that
+    /// used to amplify every hot path (legality dry-runs, AI rollouts) by ~two orders of magnitude; the
+    /// round-trip itself still runs at the host boundary (LocalGameHost.LoopbackSerialization), so the
+    /// "everything in GameState must survive serialization" hard constraint keeps being exercised.
+    /// Adding a field anywhere in this file? Add it to that class's Clone too — CloneParityTests diffs
+    /// this against RulesJson.Clone over full random playouts and will fail on a missed field.
+    /// </summary>
+    public GameState Clone() => new()
+    {
+        RulesVersion = RulesVersion,
+        TurnNumber = TurnNumber,
+        ActiveSeat = ActiveSeat,
+        NextEntityId = NextEntityId,
+        EventSequence = EventSequence,
+        Units = Units.Select(u => u.Clone()).ToList(),
+        CellStates = CellStates.Select(c => c.Clone()).ToList(),
+        Players = Players.Select(p => p.Clone()).ToArray(),
+        Rng = new DeterministicRng { State = Rng.State },
+        Result = Result, // immutable record
+        Mulligan = Mulligan?.Clone(),
+    };
 }

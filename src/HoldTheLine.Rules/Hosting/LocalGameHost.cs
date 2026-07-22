@@ -27,6 +27,12 @@ public sealed class LocalGameHost : IGameHost
     private readonly List<GameEvent> _eventLog = new();
     private GameState _state;
 
+    // Per-seat legal-command cache. _state is REPLACED (never mutated) on each accepted command, so a
+    // reference compare is a complete freshness check. Kills the "every render/click/AI think re-runs
+    // the full enumerate-and-dry-run pass over an unchanged state" hot spot.
+    private readonly IReadOnlyList<Command>?[] _legalCache = new IReadOnlyList<Command>?[2];
+    private GameState? _legalCacheState;
+
     public MatchConfig Config { get; }
     public bool LoopbackSerialization { get; }
 
@@ -56,14 +62,28 @@ public sealed class LocalGameHost : IGameHost
     {
         lock (_gate)
         {
-            if (_state.Result != null)
+            if (seat is not (0 or 1))
                 return [];
-            if (_state.Mulligan is not null) // 起手重抽: either seat may act, gated per-seat by the enumerator
-                return CommandEnumerator.LegalCommands(_state, _db, _leaders, forSeat: seat);
-            if (seat != _state.ActiveSeat)
-                return [];
-            return CommandEnumerator.LegalCommands(_state, _db, _leaders);
+            if (_legalCacheState != _state)
+            {
+                _legalCache[0] = _legalCache[1] = null;
+                _legalCacheState = _state;
+            }
+            return _legalCache[seat] ??= ComputeLegalCommands(seat);
         }
+    }
+
+    // Callers hold _gate. Legality still has exactly one definition (the enumerator's resolver dry-run) —
+    // the cache above only removes repeat computation over an unchanged state.
+    private IReadOnlyList<Command> ComputeLegalCommands(int seat)
+    {
+        if (_state.Result != null)
+            return [];
+        if (_state.Mulligan is not null) // 起手重抽: either seat may act, gated per-seat by the enumerator
+            return CommandEnumerator.LegalCommands(_state, _db, _leaders, forSeat: seat);
+        if (seat != _state.ActiveSeat)
+            return [];
+        return CommandEnumerator.LegalCommands(_state, _db, _leaders);
     }
 
     /// <summary>The heuristic AI's chosen command for a seat (null unless it's that seat's turn). GameState stays inside the host.</summary>
@@ -84,7 +104,7 @@ public sealed class LocalGameHost : IGameHost
             if (seat != _state.ActiveSeat)
                 return null;
 
-            var legal = CommandEnumerator.LegalCommands(_state, _db, _leaders);
+            var legal = LegalCommands(seat); // Monitor is reentrant — shares the per-state cache with the UI's calls
             // ε-random misplay (Easy tier): pick a real but suboptimal legal move — never Concede/EndTurn, so
             // the AI blunders a play rather than silently forfeiting the turn. Empty pool → fall through to the normal pick.
             if (_profile.Epsilon > 0 && _aiRng.NextInt(1000) < (int)(_profile.Epsilon * 1000))
@@ -136,7 +156,7 @@ public sealed class LocalGameHost : IGameHost
     public PlayerView GetView(int seat)
     {
         lock (_gate)
-            return PlayerView.From(_state, seat);
+            return PlayerView.From(_state, seat, _db);
     }
 
     public IReadOnlyList<GameEvent> GetEventLog(int seat)

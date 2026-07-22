@@ -1,4 +1,5 @@
 using System.Text.Json;
+using HoldTheLine.Rules.Engine.Actions;
 using HoldTheLine.Rules.Serialization;
 
 namespace HoldTheLine.Rules.Cards;
@@ -92,15 +93,12 @@ public sealed class CardDatabase
                 throw new InvalidDataException(
                     $"Card '{card.Id}': {spec.Trigger} target must be self/adjacent_allies/adjacent_enemies, got '{spec.Target}'.");
 
-            if (spec.Action == "grant_keyword")
-            {
-                if (spec.GrantKeyword is null)
-                    throw new InvalidDataException($"Card '{card.Id}': grant_keyword needs a 'keyword'.");
-                if (spec.GrantKeyword is Keyword.Swift or Keyword.Range && spec.GrantKeywordValue < 1)
-                    throw new InvalidDataException($"Card '{card.Id}': granting {spec.GrantKeyword} needs keyword_value >= 1.");
-            }
-            if (spec.Action == "summon" && spec.Amount < 1)
-                throw new InvalidDataException($"Card '{card.Id}': summon needs amount >= 1.");
+            // Per-action load-time validation (docs/22 D1): one handler per action in Engine/Actions —
+            // the old per-action if chain now lives on IEffectAction.ValidateCard. The checks BELOW are
+            // cross-cutting (keyed on shared fields / triggers / targets, not on a single action) and stay here.
+            if (EffectActionRegistry.Get(spec.Action).ValidateCard(spec, card) is { } actionError)
+                throw new InvalidDataException(actionError);
+
             if (spec.AmountMax != 0 && (spec.Action is not ("damage" or "sear") || spec.AmountMax <= spec.Amount))
                 throw new InvalidDataException($"Card '{card.Id}': amount_max is for damage/sear and must exceed amount.");
 
@@ -129,28 +127,12 @@ public sealed class CardDatabase
                 if (spec.Amount < 1)
                     throw new InvalidDataException($"Card '{card.Id}': channel {spec.Action} needs amount >= 1.");
             }
-            if (spec.Action is "deepen" or "discount" && spec.Trigger != "channel")
-                throw new InvalidDataException($"Card '{card.Id}': '{spec.Action}' is only valid on a 'channel' marker.");
-            if (spec.Action == "amplify_next" && spec.Amount < 1)
-                throw new InvalidDataException($"Card '{card.Id}': amplify_next (蓄能) needs amount >= 1.");
-            if (spec.Action == "damage_scatter" && (spec.Amount < 1 || spec.Target != "none"))
-                throw new InvalidDataException($"Card '{card.Id}': 燔火 (damage_scatter) needs amount >= 1 and target 'none'.");
-            if (spec.Action is "place_smoke" or "place_trap" && spec.Target != "cell")
-                throw new InvalidDataException($"Card '{card.Id}': {spec.Action} needs target 'cell'.");
             if (spec.Target == "cell" && spec.Action is not ("place_smoke" or "place_trap"))
                 throw new InvalidDataException($"Card '{card.Id}': target 'cell' is only for cell-placing actions.");
-            if (spec.Action == "add_secret" && (card.Type != CardType.Order || spec.SecretKind is null || !EffectSpec.KnownSecretKinds.Contains(spec.SecretKind)))
-                throw new InvalidDataException($"Card '{card.Id}': add_secret (秘密) needs an order and a known secret_kind.");
             if (!EffectSpec.KnownTargetSides.Contains(spec.TargetSide))
                 throw new InvalidDataException($"Card '{card.Id}': unknown target_side '{spec.TargetSide}'.");
-            if (spec.Action == "stat_transfer" && !spec.NeedsUnitTarget)
-                throw new InvalidDataException($"Card '{card.Id}': stat_transfer (焰鞭) needs a unit target.");
-            if (spec.Action == "sacrifice_equip" && (card.Type != CardType.Unit || spec.Trigger != "battlecry" || spec.Target != "none"))
-                throw new InvalidDataException($"Card '{card.Id}': sacrifice_equip (熔剑祭士) is a targetless unit battlecry.");
             if (spec.Trigger == "first_kindle_order_each_turn" && (card.Type != CardType.Unit || spec.Action != "echo_order"))
                 throw new InvalidDataException($"Card '{card.Id}': 薪火回响 marker must be a unit echo_order.");
-            if (spec.Action == "echo_order" && spec.Trigger != "first_kindle_order_each_turn")
-                throw new InvalidDataException($"Card '{card.Id}': echo_order is only for the 薪火回响 marker.");
 
             // 归魂 (docs/21 §1.4): a targetless 辉尘 (gain_mana) reaction, fired from ProcessDeaths.
             if (spec.Trigger == "ally_died_your_turn")

@@ -91,22 +91,10 @@ public sealed record EffectSpec
           // docs/21 §3.1: 薪火回响 (门德) — a passive marker read when you play your first 薪炎 damage order each turn.
           "first_kindle_order_each_turn" };
 
-    public static readonly IReadOnlySet<string> KnownActions = new HashSet<string>
-        { "damage", "sear", "buff", "draw", "gain_mana", "heal", "grant_keyword", "boost_range", "summon", "move_bonus", "destroy", "recall_order",
-          // docs/21 §1.3: 蓄能 (executable) + the two passive 引导者 markers read by the amplify pipeline.
-          "amplify_next", "deepen", "discount",
-          // docs/21 §3.1: 燔火's scatter missiles (Amount = missile count, each 1 薪炎; 加深/蓄能 add missiles).
-          "damage_scatter",
-          // docs/21 §1.6/§1.7: place a 烟幕区 (烟幕弹) or a hidden 烬火陷阱 on the target cell.
-          "place_smoke", "place_trap",
-          // docs/21 §1.7: set a face-down reactive secret in your 秘密区 (焰誓反制).
-          "add_secret",
-          // docs/21 §1.8: destroy the primary (ally) target and add its current atk/hp to the 二段目标 (焰鞭).
-          "stat_transfer",
-          // docs/21 §3.2: 熔剑祭士 battlecry marker — sacrifice 2 hand orders to equip the 熔岩巨剑 (resolver-driven).
-          "sacrifice_equip",
-          // docs/21 §3.1: 薪火回响 (门德) passive marker — resolver-driven, never executed by RunTrigger.
-          "echo_order" };
+    /// <summary>The action vocabulary, derived from the effect-action registry (docs/22 D1): one sealed
+    /// handler class per action under Engine/Actions, registered in <see cref="Engine.Actions.EffectActionRegistry"/>.
+    /// Adding an action = adding a handler there; this set follows automatically.</summary>
+    public static readonly IReadOnlySet<string> KnownActions = Engine.Actions.EffectActionRegistry.Names;
 
     public static readonly IReadOnlySet<string> KnownTargetSides = new HashSet<string> { "any", "enemy", "ally" };
 
@@ -156,7 +144,15 @@ public sealed record EffectSpec
     /// picks a unit or cell (非指向 effects like a raw AoE/draw ride along without a range check).</summary>
     public bool HasAnchorRange => Anchor is "self" or "channel" && AnchorRange > 0 && (NeedsUnitTarget || NeedsCellTarget);
 
+    /// <summary>The damage-dealing action family (damage / sear / damage_scatter) — the semantic the client's
+    /// red "作用目标" prompt keys on (docs/22 D5: replaces client-side action-string matching).</summary>
+    public bool DealsDamage => Action is "damage" or "sear" or "damage_scatter";
+
+    /// <summary>The friendly-receiver action family (buff / heal / grant_keyword / move_bonus / boost_range) —
+    /// the semantic behind the client's green "接受目标" prompt (docs/22 D5).</summary>
+    public bool IsFriendlyReceiver => Action is "buff" or "heal" or "grant_keyword" or "move_bonus" or "boost_range";
+
     /// <summary>薪炎 (spell.*) damage — the effects 加深/蓄能/引导 amplify and 免疫薪炎 negates (docs/21 §1.1).
     /// Includes 燔火's damage_scatter, whose Amount is a missile count, so the amplification adds missiles.</summary>
-    public bool IsSpellDamage => Action is "damage" or "sear" or "damage_scatter" && School.StartsWith("spell", StringComparison.Ordinal);
+    public bool IsSpellDamage => DealsDamage && School.StartsWith("spell", StringComparison.Ordinal);
 }

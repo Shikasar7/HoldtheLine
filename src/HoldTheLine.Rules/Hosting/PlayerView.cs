@@ -28,7 +28,10 @@ public sealed record PlayerView
     /// <summary>The opponent still owes a mulligan ("waiting for opponent…").</summary>
     public bool OpponentMulliganPending { get; init; }
 
-    public static PlayerView From(GameState state, int viewerSeat)
+    /// <param name="db">Card database used to fill the engine-computed UnitView fields (引导增伤/引导减费/
+    /// 成长剩余回合). Null (legacy callers) leaves them at their old-snapshot defaults (0 / null) — additive
+    /// JSON, so old clients and old servers interoperate without a protocol bump.</param>
+    public static PlayerView From(GameState state, int viewerSeat, CardDatabase? db = null)
     {
         var self = state.Player(viewerSeat);
         var opp = state.Player(1 - viewerSeat);
@@ -64,7 +67,7 @@ public sealed record PlayerView
                 SpellCharge = opp.SpellCharge,
                 SecretCount = opp.Secrets.Count, // 暗牌 N — the威慑, without the contents (docs/21 §1.7)
             },
-            Units = state.Units.Select(UnitView.From).ToList(),
+            Units = state.Units.Select(u => UnitView.From(u, db)).ToList(),
             // 服务端权威 (docs/21 §1.7): a hidden trap is visible only to its own caster; smoke and revealed
             // traps are public. The opponent's PlayerView never carries an unrevealed trap's cell.
             CellStates = state.CellStates
@@ -139,7 +142,21 @@ public sealed record UnitView
     /// (turns-to-transform) is read from the card's GrowthSpec client-side. Old snapshots deserialize to 0.</summary>
     public int GrowthProgress { get; init; }
 
-    public static UnitView From(UnitInstance u) => new()
+    // ---- engine-computed presentation fields (docs/22 D5). Additive JSON: old clients ignore them; an old
+    // server (or a db-less From call) leaves them at 0 / null and the client just shows no badge.
+
+    /// <summary>引导增伤 (docs/21 §1.2): total "deepen" this unit offers as a 引导者 (sum of its channel/deepen
+    /// effects). 0 = not a deepen channeler / old snapshot.</summary>
+    public int ChannelDeepen { get; init; }
+    /// <summary>引导减费: total "discount" this unit offers as a 引导者. 0 = none / old snapshot.</summary>
+    public int ChannelDiscount { get; init; }
+    /// <summary>成长剩余回合: GrowthSpec.Turns - GrowthProgress, clamped at 0. Null = the card has no growth
+    /// (or an old snapshot) — the client shows the countdown badge only when this is non-null.</summary>
+    public int? GrowthTurnsLeft { get; init; }
+
+    public static UnitView From(UnitInstance u) => From(u, null);
+
+    public static UnitView From(UnitInstance u, CardDatabase? db) => new()
     {
         EntityId = u.EntityId,
         CardId = u.CardId,
@@ -154,6 +171,9 @@ public sealed record UnitView
         AttacksUsed = u.AttacksUsed,
         Keywords = EffectiveKeywords(u),
         GrowthProgress = u.GrowthProgress,
+        ChannelDeepen = db is null ? 0 : Engine.EffectEngine.ChannelEffectAmount(db, u, "deepen"),
+        ChannelDiscount = db is null ? 0 : Engine.EffectEngine.ChannelEffectAmount(db, u, "discount"),
+        GrowthTurnsLeft = db?.Get(u.CardId).Growth is { } g ? Math.Max(0, g.Turns - u.GrowthProgress) : null,
     };
 
     /// <summary>The unit's keywords AS SEEN by the client: permanent grants PLUS still-active temporary grants
