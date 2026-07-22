@@ -173,35 +173,35 @@ public class UndervaultTurretTests
     [Fact]
     public void S5b_Siphon_takesHighestTier()
     {
-        // atk 6 = 1 + heavy(2) + grand(3); siphon Ⅰ(1) vs Ⅱ(⌊6/2⌋=3) → heals 3.
-        var (s, ctx, t) = Build(HeavyBore, GrandCannon, SiphonShell, SiphonCore);
+        // atk 6 = 1(base) + heavy(2) + grand(3); 吸血 Ⅰ(+1) vs Ⅱ(+⌊6/2⌋=3) → +0/+3. 用户改版: 直接加生命,可超上限.
+        var (s, _, t) = Build(HeavyBore, GrandCannon, SiphonShell, SiphonCore);
         Assert.Equal(6, t.Atk);
-        t.Turret!.DamageTaken = 5;               // maxHp 6 (grand +3) → currentHp 1
-        ctx.RecomputeTurret(t);
-        Assert.Equal(1, t.CurrentHp);
+        int maxBefore = t.MaxHp;                 // 6 = base 3 + grand 3
+        Assert.Equal(maxBefore, t.CurrentHp);    // 满血起手
 
         var resolver = new Resolver(Db, Leaders);
         PlaceUnit(s, 1, "nl_caravan_guard", new Cell(2, 2)); // in range
         var res = resolver.Execute(s, new AttackCommand { Seat = 0, AttackerEntityId = t.EntityId, TargetUnitId = s.Units.First(u => u.OwnerSeat == 1).EntityId });
         Assert.True(res.Success, res.Error?.Message);
-        Assert.Equal(4, Turret(res.State!, 0).CurrentHp); // healed 3 → 6 − 2
+        var t2 = Turret(res.State!, 0);
+        Assert.Equal(maxBefore + 3, t2.MaxHp);      // 上限 +3 (吸血Ⅱ 取最高)
+        Assert.Equal(maxBefore + 3, t2.CurrentHp);  // 当前 +3 — 超过原上限
     }
 
     [Fact]
     public void S5b_Siphon_lowAtk_fixedTierWins()
     {
-        // atk 2 (platform +1); Ⅰ(1) vs Ⅱ(⌊2/2⌋=1) → ties at 1, heals 1.
-        var (s, ctx, t) = Build(AnchorPlatform, SiphonShell, SiphonCore); // +1/+3 → atk 2, hp 4
-        Assert.Equal(2, t.Atk);
-        t.Turret!.DamageTaken = 2;
-        ctx.RecomputeTurret(t);
-        int before = t.CurrentHp;
+        // atk 1 (bare base); 吸血 Ⅰ(+1) vs Ⅱ(+⌊1/2⌋=0) → Ⅰ wins, +0/+1 (可超上限).
+        var (s, _, t) = Build(SiphonShell, SiphonCore); // atk 1, maxHp 3 (base)
+        Assert.Equal(1, t.Atk);
+        int maxBefore = t.MaxHp;                 // 3
         var resolver = new Resolver(Db, Leaders);
         PlaceUnit(s, 1, "nl_caravan_guard", new Cell(2, 2));
         var res = resolver.Execute(s, new AttackCommand { Seat = 0, AttackerEntityId = t.EntityId, TargetUnitId = s.Units.First(u => u.OwnerSeat == 1).EntityId });
         Assert.True(res.Success, res.Error?.Message);
-        // atk 2 → Ⅱ ⌊2/2⌋=1 vs Ⅰ 1 → heal 1
-        Assert.Equal(before + 1, Turret(res.State!, 0).CurrentHp);
+        var t2 = Turret(res.State!, 0);
+        Assert.Equal(maxBefore + 1, t2.MaxHp);      // Ⅰ 固定 +1 (Ⅱ 在 atk 1 时为 0)
+        Assert.Equal(maxBefore + 1, t2.CurrentHp);
     }
 
     // ---- S6 炮台死亡与历史池 ----

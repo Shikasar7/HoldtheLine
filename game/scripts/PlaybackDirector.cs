@@ -22,6 +22,7 @@ public interface IPlaybackHost
 	bool IsEmplacement(int entityId);
 	void FloatText(Vector2 center, string text, Color color);
 	void RefreshStandeeStatus(int entityId);
+	void RefreshStandeeAppearance(int entityId);
 	void AccumulateStat(GameEvent e);
 	void FullRender();
 	void ShowWinOverlay(GameEndedEvent ended);
@@ -167,7 +168,27 @@ public sealed class PlaybackDirector
 				break;
 			case UnitBuffedEvent b when _view.Standee(b.UnitEntityId) is { } bn:
 				Flash(bn, BattleTheme.Accent);
-				await Delay(0.08);
+				// 加属性 buff 飘字 (用户): show the atk/hp delta as a stat-style number (+1/+1, +0/+3 吸血, 驻防 ±1/±1 …).
+				if (b.AtkDelta != 0 || b.HpDelta != 0)
+				{
+					string da = (b.AtkDelta >= 0 ? "+" : "") + b.AtkDelta;
+					string dh = (b.HpDelta >= 0 ? "+" : "") + b.HpDelta;
+					_view.FloatText(Center(bn), $"{da}/{dh}", BattleTheme.Accent);
+				}
+				await Delay(0.12);
+				break;
+			case ModuleInstalledEvent mi when _view.Standee(mi.UnitEntityId) is { } turret:
+				_cards.TryGet(mi.ModuleCardId, out var module);
+				var statBeats = ModuleStatBeats(mi, out int oldRange, out int newRange);
+				var turretView = _view.View.Units.FirstOrDefault(u => u.EntityId == mi.UnitEntityId);
+				await PlayModuleInstallFx(turret, mi.UnitEntityId,
+					$"{(mi.ReplacedCardId is null ? "装配" : "换装")} · {module?.Name ?? "新模块"}",
+					module is null ? BattleTheme.CostColor : TurretVisuals.RarityColor(module.Rarity),
+					statBeats, oldRange, newRange, turretView?.Cell);
+				break;
+			case TurretModulesInheritedEvent inherited when _view.Standee(inherited.UnitEntityId) is { } inheritedTurret:
+				await PlayModuleInstallFx(inheritedTurret, inherited.UnitEntityId,
+					$"继承装配 ×{inherited.ModuleCardIds.Count}", BattleTheme.CostColor, [], 0, 0, null);
 				break;
 			case UnitKeywordGrantedEvent kg when kg.Keyword == Keyword.Shield && _view.Standee(kg.UnitEntityId) is { } kn:
 				_sfx.Play("play");
@@ -249,6 +270,227 @@ public sealed class PlaybackDirector
 		}
 	}
 
+	private readonly record struct StatBeat(string Text, Color Color, string? TargetNode);
+
+	/// <summary>A restrained assembly pulse followed by explicit before→after stat receipts.</summary>
+	private async Task PlayModuleInstallFx(Control turret, int entityId, string label, Color quality,
+		IReadOnlyList<StatBeat> statBeats, int oldRange, int newRange, Cell? turretCell)
+	{
+		_sfx.Play("module_install");
+		Vector2 center = Center(turret);
+		_view.FloatText(center + new Vector2(-62, -48), label, quality);
+		Flash(turret, quality.Lightened(0.18f));
+
+		var ringSize = new Vector2(62, 62);
+		var ring = new Panel
+		{
+			Position = center - ringSize / 2f,
+			Size = ringSize,
+			PivotOffset = ringSize / 2f,
+			Scale = new Vector2(0.45f, 0.45f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		ring.AddThemeStyleboxOverride("panel", BattleTheme.Box(new Color(0, 0, 0, 0),
+			new Color(quality.R, quality.G, quality.B, 0.9f), 3, 31));
+		_overlayLayer.AddChild(ring);
+		var ringTween = _h.CreateTween();
+		ringTween.TweenProperty(ring, "scale", new Vector2(1.65f, 1.65f), 0.34)
+			.SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
+		ringTween.Parallel().TweenProperty(ring, "modulate:a", 0f, 0.34);
+		ringTween.TweenCallback(Callable.From(ring.QueueFree));
+
+		for (int i = 0; i < 6; i++)
+		{
+			float angle = i * Mathf.Tau / 6f + 0.22f;
+			var spark = new ColorRect
+			{
+				Color = i % 2 == 0 ? quality.Lightened(0.22f) : quality.Darkened(0.18f),
+				Position = center - new Vector2(4, 2),
+				Size = new Vector2(8, 4),
+				Rotation = angle,
+				MouseFilter = Control.MouseFilterEnum.Ignore,
+			};
+			_overlayLayer.AddChild(spark);
+			var st = _h.CreateTween();
+			st.TweenProperty(spark, "position", spark.Position + Vector2.FromAngle(angle) * 54f, 0.24)
+				.SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.Out);
+			st.Parallel().TweenProperty(spark, "modulate:a", 0f, 0.24);
+			st.TweenCallback(Callable.From(spark.QueueFree));
+		}
+
+		await Delay(0.12);
+		_view.RefreshStandeeAppearance(entityId); // silhouette changes on the locking click, not after the whole queue drains
+		await Delay(0.08);
+
+		for (int i = 0; i < statBeats.Count; i++)
+		{
+			ShowStatReceipt(center, statBeats[i], i);
+			if (statBeats[i].TargetNode is { } nodeName && turret.GetNodeOrNull<Control>(nodeName) is { } target)
+				PulseStatNode(target);
+			await Delay(0.085);
+		}
+		if (newRange != oldRange && turretCell is { } cell)
+			await PlayRangeSweep(cell, oldRange, newRange);
+		else
+			await Delay(0.16);
+	}
+
+	private List<StatBeat> ModuleStatBeats(ModuleInstalledEvent e, out int oldRange, out int newRange)
+	{
+		var unit = _view.View.Units.FirstOrDefault(u => u.EntityId == e.UnitEntityId);
+		var current = unit?.Modules?.ToList() ?? [];
+		var previous = current.ToList();
+		int installedIndex = previous.FindLastIndex(id => id == e.ModuleCardId);
+		if (installedIndex >= 0) previous.RemoveAt(installedIndex);
+		if (e.ReplacedCardId is { } replaced) previous.Add(replaced);
+
+		ModuleSpec? added = _cards.TryGet(e.ModuleCardId, out var addedDef) ? addedDef.Module : null;
+		ModuleSpec? removed = e.ReplacedCardId is { } rid && _cards.TryGet(rid, out var removedDef) ? removedDef.Module : null;
+		var beats = new List<StatBeat>();
+		int atkDelta = (added?.Atk ?? 0) - (removed?.Atk ?? 0);
+		int hpDelta = (added?.Hp ?? 0) - (removed?.Hp ?? 0);
+		if (atkDelta != 0)
+			beats.Add(new StatBeat($"攻击 {e.NewAtk - atkDelta} → {e.NewAtk}", BattleTheme.AtkColor, "__pip_atk"));
+		if (hpDelta != 0)
+			beats.Add(new StatBeat($"生命上限 {e.NewMaxHp - hpDelta} → {e.NewMaxHp}", BattleTheme.HpColor, "__pip_hp"));
+
+		oldRange = EffectiveRange(previous);
+		newRange = EffectiveRange(current);
+		if (oldRange != newRange)
+			beats.Add(new StatBeat($"射程 {oldRange} → {newRange}", BattleTheme.Accent, "__kw"));
+
+		int oldMove = EffectiveMove(previous), newMove = EffectiveMove(current);
+		if (oldMove != newMove)
+			beats.Add(new StatBeat($"移速 {MoveText(oldMove)} → {MoveText(newMove)}", new Color("62b8aa"), "__kw"));
+		int oldAttacks = EffectiveAttacks(previous), newAttacks = EffectiveAttacks(current);
+		if (oldAttacks != newAttacks)
+			beats.Add(new StatBeat($"攻击次数 {oldAttacks} → {newAttacks}", BattleTheme.CostColor, "__module_ring"));
+
+		if (beats.Count == 0 && addedDef is not null)
+		{
+			bool switchOnly = added is not null && added.Atk == 0 && added.Hp == 0 && added.Range == 0 && added.Move == 0;
+			bool lowerSplashCovered = added?.OnHit == "frag" && previous.Any(id =>
+				_cards.TryGet(id, out var d) && d.Module?.OnHit == "blast");
+			bool lowerSiphonCovered = added?.Lifesteal == "fixed" && previous.Any(id =>
+				_cards.TryGet(id, out var d) && d.Module?.Lifesteal == "half");
+			string effect = e.Mirrored && switchOnly ? "镜像重复 · 无额外增益"
+				: added?.Range > 0 && oldRange == newRange ? $"射程已达上限 {newRange}"
+				: lowerSplashCovered ? "溅射Ⅰ被Ⅱ级覆盖"
+				: lowerSiphonCovered ? "汲能Ⅰ被Ⅱ级覆盖"
+				: added switch
+			{
+				{ OnHit: "split" } => "分裂弹道已激活",
+				{ OnHit: "frag" } => "溅射Ⅰ已激活",
+				{ OnHit: "blast" } => "溅射Ⅱ已激活",
+				{ OnHit: "concussion" } => "震撼弹头已激活",
+				{ Lifesteal: "fixed" } => "汲能Ⅰ已激活",
+				{ Lifesteal: "half" } => "汲能Ⅱ已激活",
+				{ Deathrattle: "failsafe_pod" } => "保险舱已待命",
+				_ when added?.GrantKeywords.Contains(Keyword.Pierce) == true => "贯穿已激活",
+				_ => "模块效果已联机",
+			};
+			beats.Add(new StatBeat(effect, TurretVisuals.RarityColor(addedDef.Rarity), "__module_ring"));
+		}
+		return beats;
+	}
+
+	private int EffectiveRange(IReadOnlyList<string> modules)
+	{
+		int range = _cards.Get(TurretVisuals.CoreId).KeywordValue(Keyword.Range);
+		foreach (string id in modules)
+			if (_cards.TryGet(id, out var def) && def.Module is { } m) range += m.Range;
+		return Mathf.Min(4, range);
+	}
+
+	private int EffectiveMove(IReadOnlyList<string> modules)
+	{
+		bool immobile = false;
+		int move = 1;
+		foreach (string id in modules)
+			if (_cards.TryGet(id, out var def) && def.Module is { } m)
+			{
+				immobile |= m.Immobile;
+				move += m.Move;
+			}
+		return immobile ? 0 : move;
+	}
+
+	private int EffectiveAttacks(IReadOnlyList<string> modules) => modules.Any(id =>
+		_cards.TryGet(id, out var def) && def.Module is { ExtraAttacks: > 0 }) ? 2 : 1;
+
+	private static string MoveText(int move) => move == 0 ? "架设" : move.ToString();
+
+	private void ShowStatReceipt(Vector2 center, StatBeat beat, int index)
+	{
+		var size = new Vector2(172, 28);
+		float side = center.X < BattleTheme.ScreenW * 0.72f ? 1f : -1f;
+		var chip = new Panel
+		{
+			Position = center + new Vector2(side > 0 ? 34 : -size.X - 34, -54 + index * 31) ,
+			Size = size,
+			PivotOffset = size / 2f,
+			Scale = new Vector2(0.72f, 0.72f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		chip.AddThemeStyleboxOverride("panel", BattleTheme.Box(new Color(0.035f, 0.03f, 0.025f, 0.92f), beat.Color, 2, 7));
+		var label = BattleTheme.MakeOutlinedLabel(beat.Text, 16, beat.Color, HorizontalAlignment.Center);
+		label.VerticalAlignment = VerticalAlignment.Center;
+		label.Size = size;
+		chip.AddChild(label);
+		_overlayLayer.AddChild(chip);
+		var start = chip.Position;
+		var t = _h.CreateTween();
+		t.TweenProperty(chip, "scale", Vector2.One, 0.12).SetTrans(Tween.TransitionType.Back);
+		t.Parallel().TweenProperty(chip, "position", start + new Vector2(0, -8), 0.12);
+		t.TweenInterval(0.34);
+		t.TweenProperty(chip, "position", chip.Position + new Vector2(0, -18), 0.18);
+		t.Parallel().TweenProperty(chip, "modulate:a", 0f, 0.18);
+		t.TweenCallback(Callable.From(chip.QueueFree));
+	}
+
+	private void PulseStatNode(Control node)
+	{
+		node.PivotOffset = node.Size / 2f;
+		node.Scale = Vector2.One;
+		var t = _h.CreateTween();
+		t.TweenProperty(node, "scale", new Vector2(1.28f, 1.28f), 0.10).SetTrans(Tween.TransitionType.Back);
+		t.TweenProperty(node, "scale", Vector2.One, 0.13).SetTrans(Tween.TransitionType.Sine);
+	}
+
+	private async Task PlayRangeSweep(Cell origin, int oldRange, int newRange)
+	{
+		int outerRange = Mathf.Max(oldRange, newRange);
+		for (int distance = 1; distance <= outerRange; distance++)
+		{
+			for (int col = 0; col < BattleTheme.Cols; col++)
+				for (int row = 0; row < BattleTheme.Rows; row++)
+				{
+					var cell = new Cell(col, row);
+					if (BoardGeometry.StepDistance(origin, cell) != distance) continue;
+					bool newlyReached = newRange > oldRange && distance > oldRange;
+					bool removed = oldRange > newRange && distance > newRange;
+					Color color = removed ? new Color(BattleTheme.DangerColor.R, BattleTheme.DangerColor.G, BattleTheme.DangerColor.B, 0.72f)
+						: newlyReached ? BattleTheme.Accent
+						: new Color(BattleTheme.Accent.R, BattleTheme.Accent.G, BattleTheme.Accent.B, 0.46f);
+					var glow = new Panel
+					{
+						Position = _view.CellScreenPos(cell) + new Vector2(5, 5),
+						Size = new Vector2(BattleTheme.CellW - 10, BattleTheme.CellH - 10),
+						MouseFilter = Control.MouseFilterEnum.Ignore,
+					};
+					glow.AddThemeStyleboxOverride("panel", BattleTheme.Box(
+						new Color(color.R, color.G, color.B, newlyReached || removed ? 0.10f : 0.035f),
+						color, newlyReached || removed ? 3 : 1, 9));
+					_overlayLayer.AddChild(glow);
+					var t = _h.CreateTween();
+					t.TweenProperty(glow, "modulate:a", 0f, 0.42);
+					t.TweenCallback(Callable.From(glow.QueueFree));
+				}
+			await Delay(0.045);
+		}
+		await Delay(0.14);
+	}
+
 	// ---------- item 2: staged attack (melee lunge / ranged projectile) ----------
 
 	/// <summary>Play one attack beat: melee windup→charge→hit→return, or a ranged projectile that must
@@ -264,6 +506,7 @@ public sealed class PlaybackDirector
 		bool ranged = atk.TargetUnitId is int
 			? attacker != null && origin.DistanceTo(targetPos) > 210f
 			: AttackerHasRange(atk.AttackerEntityId);
+		var turretModules = _view.View.Units.FirstOrDefault(u => u.EntityId == atk.AttackerEntityId)?.Modules;
 		Vector2 home = attacker?.Position ?? Vector2.Zero;
 
 		bool moltenSword = IsMoltenSwordAttacker(atk.AttackerEntityId);
@@ -274,8 +517,10 @@ public sealed class PlaybackDirector
 		}
 		else if (ranged)
 		{
-			_sfx.Play("shoot");
-			await FireProjectile(origin, targetPos);
+			_sfx.Play(turretModules is null ? "shoot"
+				: turretModules.Contains(TurretVisuals.GrandId) ? "turret_fire_heavy"
+				: "turret_fire");
+			await FireProjectile(origin, targetPos, turretModules);
 		}
 		else if (attacker != null)
 		{
@@ -284,7 +529,9 @@ public sealed class PlaybackDirector
 
 		// contact frame
 		if (!moltenSword) _sfx.Play("attack");
-		ScreenShake(moltenSword ? 5f : ranged ? 2f : 3f);
+		ScreenShake(moltenSword ? 5f
+			: turretModules?.Contains(TurretVisuals.GrandId) == true ? 4f
+			: ranged ? 2f : 3f);
 
 		bool attackerDied = false;
 		int hits = 0;
@@ -330,14 +577,25 @@ public sealed class PlaybackDirector
 		await _h.ToSignal(t, Tween.SignalName.Finished);
 	}
 
-	// Ranged shot: a glowing bolt flies from attacker to target; damage only resolves once it lands.
-	private async Task FireProjectile(Vector2 from, Vector2 to)
+	// Ranged shot: ordinary ranged units keep the teal bolt; a turret builds a shell from its live modules.
+	private async Task FireProjectile(Vector2 from, Vector2 to, IReadOnlyList<string>? turretModules = null)
 	{
-		var size = new Vector2(52, 26);
+		bool heavy = turretModules?.Contains(TurretVisuals.GrandId) == true;
+		bool heavyBore = turretModules?.Contains("uv_mod_heavy_bore") == true;
+		bool longBarrel = turretModules?.Contains("uv_mod_long_barrel") == true;
+		var size = turretModules is null ? new Vector2(52, 26)
+			: heavy ? new Vector2(76, 36)
+			: heavyBore ? new Vector2(68, 32)
+			: longBarrel ? new Vector2(68, 28)
+			: new Vector2(62, 30);
 		var proj = new Control { Size = size, PivotOffset = size / 2f, MouseFilter = Control.MouseFilterEnum.Ignore };
 		proj.Position = from - size / 2f;
 		proj.Rotation = (to - from).Angle(); // the bolt art points right; align it to the flight direction
-		if (BattleTheme.Tex("fx/projectile_bolt.png") is { } bolt)
+		if (turretModules is not null)
+		{
+			BuildTurretShell(proj, size, turretModules);
+		}
+		else if (BattleTheme.Tex("fx/projectile_bolt.png") is { } bolt)
 		{
 			proj.AddChild(BattleTheme.Art(bolt, Vector2.Zero, size, TextureRect.StretchModeEnum.KeepAspectCentered));
 		}
@@ -348,9 +606,141 @@ public sealed class PlaybackDirector
 		}
 		_overlayLayer.AddChild(proj);
 		var t = _h.CreateTween();
-		t.TweenProperty(proj, "position", to - size / 2f, 0.25).SetTrans(Tween.TransitionType.Sine);
+		double flight = heavy ? 0.29
+			: turretModules?.Any(m => m is "uv_mod_long_barrel" or "uv_mod_rifled_bore") == true ? 0.20
+			: 0.25;
+		t.TweenProperty(proj, "position", to - size / 2f, flight).SetTrans(Tween.TransitionType.Sine);
 		await _h.ToSignal(t, Tween.SignalName.Finished);
 		proj.QueueFree();
+		if (turretModules is not null)
+			await PlayTurretImpact(to, turretModules);
+	}
+
+	private static void BuildTurretShell(Control root, Vector2 size, IReadOnlyList<string> modules)
+	{
+		var set = modules.ToHashSet();
+		bool split = set.Contains("uv_mod_split_shell");
+		bool frag = set.Contains("uv_mod_frag_shell");
+		bool blast = set.Contains("uv_mod_blast_shell");
+		bool concussion = set.Contains("uv_mod_concussion");
+		bool siphon = set.Contains("uv_mod_siphon_shell") || set.Contains("uv_mod_siphon_core");
+		bool pierce = set.Contains("uv_mod_long_barrel") || set.Contains("uv_mod_rifled_bore") || set.Contains(TurretVisuals.GrandId);
+		bool heavyBore = set.Contains("uv_mod_heavy_bore");
+
+		Color glow = blast ? new Color(1f, 0.28f, 0.06f)
+			: concussion ? new Color(0.45f, 0.75f, 1f)
+			: siphon ? new Color(0.82f, 0.18f, 0.22f)
+			: frag ? new Color(1f, 0.58f, 0.16f)
+			: pierce ? new Color(1f, 0.78f, 0.3f)
+			: new Color(0.86f, 0.58f, 0.22f);
+
+		var trail = new ColorRect
+		{
+			Color = new Color(glow.R, glow.G, glow.B, siphon ? 0.62f : 0.34f),
+			Position = new Vector2(0, size.Y * 0.42f),
+			Size = new Vector2(size.X * 0.48f, size.Y * 0.16f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		root.AddChild(trail);
+		if (siphon)
+		{
+			root.AddChild(new ColorRect
+			{
+				Color = new Color(0.9f, 0.16f, 0.2f, 0.7f),
+				Position = new Vector2(0, size.Y * 0.49f),
+				Size = new Vector2(size.X * 0.55f, 2),
+				MouseFilter = Control.MouseFilterEnum.Ignore,
+			});
+		}
+
+		int count = split ? 2 : 1;
+		for (int i = 0; i < count; i++)
+		{
+			float bodyH = split ? size.Y * 0.3f : size.Y * 0.46f;
+			float y = split ? size.Y * (i == 0 ? 0.17f : 0.55f) : size.Y * 0.27f;
+			var body = new Panel
+			{
+				Position = new Vector2(size.X * 0.27f, y),
+				Size = new Vector2(size.X * 0.56f, bodyH),
+				MouseFilter = Control.MouseFilterEnum.Ignore,
+			};
+			body.AddThemeStyleboxOverride("panel", BattleTheme.Box(
+				heavyBore ? new Color(0.11f, 0.1f, 0.09f) : new Color(0.17f, 0.16f, 0.14f),
+				glow, heavyBore ? 3 : 2, 5));
+			root.AddChild(body);
+
+			var nose = new Polygon2D
+			{
+				Color = concussion ? glow.Lightened(0.1f) : new Color(0.78f, 0.55f, 0.25f),
+				Position = new Vector2(size.X * 0.8f, y),
+				Polygon = concussion
+					? new[] { new Vector2(0, 0), new Vector2(size.X * 0.16f, 0), new Vector2(size.X * 0.16f, bodyH), new Vector2(0, bodyH) }
+					: new[] { new Vector2(0, 0), new Vector2(size.X * 0.18f, bodyH / 2f), new Vector2(0, bodyH) },
+			};
+			root.AddChild(nose);
+		}
+
+		if (blast)
+		{
+			var halo = new Panel { Position = new Vector2(size.X * 0.18f, size.Y * 0.08f), Size = size * 0.82f, MouseFilter = Control.MouseFilterEnum.Ignore };
+			halo.AddThemeStyleboxOverride("panel", BattleTheme.Box(new Color(glow.R, glow.G, glow.B, 0.12f), glow, 1, 12));
+			root.AddChild(halo);
+			root.MoveChild(halo, 0);
+		}
+	}
+
+	private async Task PlayTurretImpact(Vector2 center, IReadOnlyList<string> modules)
+	{
+		var set = modules.ToHashSet();
+		bool blast = set.Contains("uv_mod_blast_shell");
+		bool frag = set.Contains("uv_mod_frag_shell");
+		bool concussion = set.Contains("uv_mod_concussion");
+		bool split = set.Contains("uv_mod_split_shell");
+		Color color = blast ? new Color(1f, 0.3f, 0.06f)
+			: concussion ? new Color(0.42f, 0.72f, 1f)
+			: frag ? new Color(1f, 0.62f, 0.18f)
+			: new Color(0.95f, 0.72f, 0.3f);
+		float radius = blast ? 72f : concussion ? 58f : 42f;
+		SpawnImpactRing(center, radius, color, concussion ? 3 : 2);
+
+		int shards = frag ? 10 : split ? 4 : 0;
+		for (int i = 0; i < shards; i++)
+		{
+			float angle = i * Mathf.Tau / shards + (i % 2) * 0.18f;
+			var shard = new ColorRect
+			{
+				Color = color,
+				Position = center - new Vector2(3, 2),
+				Size = new Vector2(6, 3),
+				Rotation = angle,
+				MouseFilter = Control.MouseFilterEnum.Ignore,
+			};
+			_overlayLayer.AddChild(shard);
+			var t = _h.CreateTween();
+			t.TweenProperty(shard, "position", shard.Position + Vector2.FromAngle(angle) * (frag ? 62f : 38f), 0.2);
+			t.Parallel().TweenProperty(shard, "modulate:a", 0f, 0.2);
+			t.TweenCallback(Callable.From(shard.QueueFree));
+		}
+		await Delay(blast || concussion ? 0.1 : 0.06);
+	}
+
+	private void SpawnImpactRing(Vector2 center, float radius, Color color, int border)
+	{
+		var size = new Vector2(34, 34);
+		var ring = new Panel
+		{
+			Position = center - size / 2f,
+			Size = size,
+			PivotOffset = size / 2f,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		ring.AddThemeStyleboxOverride("panel", BattleTheme.Box(new Color(0, 0, 0, 0), color, border, 17));
+		_overlayLayer.AddChild(ring);
+		var t = _h.CreateTween();
+		float scale = radius / (size.X / 2f);
+		t.TweenProperty(ring, "scale", new Vector2(scale, scale), 0.22).SetTrans(Tween.TransitionType.Cubic);
+		t.Parallel().TweenProperty(ring, "modulate:a", 0f, 0.22);
+		t.TweenCallback(Callable.From(ring.QueueFree));
 	}
 
 	/// <summary>Play a 4x2, left-to-right sprite sheet over a board-space point.</summary>

@@ -15,7 +15,7 @@
       }
     ],
     "text": "射程 2,移速 1。装配模块来升级它。每方场上至多一座。",
-    "art_prompt": "a squat bare automated gun frame on a bolted tripod, empty mounting rails ready for modules, glowing brass sight"
+    "art_prompt": "a compact early-stage automated cannon turret on a bolted tripod, one short narrow modest-caliber barrel, exposed empty mounting rails ready for modules, glowing brass sight, capable but visibly unfinished and not intimidating"
   },
   {
     "id": "uv_sentry_token",
@@ -128,7 +128,7 @@
     "module": {
       "lifesteal": "fixed"
     },
-    "text": "装配:吸血Ⅰ — 攻击造成伤害后,炮台回复 1 点生命。",
+    "text": "装配:吸血Ⅰ — 攻击造成伤害后,炮台 +0/+1(直接增加生命,可超过上限)。",
     "art_prompt": "a brass artillery shell with faint glowing siphon runes etched along the casing, thin luminous conduits feeding back into a small reservoir vial at its base"
   },
   {
@@ -141,7 +141,7 @@
     "module": {
       "lifesteal": "half"
     },
-    "text": "装配:吸血Ⅱ — 攻击造成伤害后,炮台回复其一半(向下取整)。同系分级同装取最高。",
+    "text": "装配:吸血Ⅱ — 攻击造成伤害后,炮台 +0/+攻击力一半(向下取整,直接增加生命,可超过上限)。同系分级同装取最高。",
     "art_prompt": "a heavy shell core wrapped in coiled energy-siphon tubing, deep red-gold vital glow pulsing through glass gauges, drops of light flowing backward along the coils"
   },
   {

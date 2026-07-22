@@ -503,8 +503,8 @@ public sealed class Resolver
 
         if (error is null && ctx.State.FindUnit(attacker.EntityId) is { } alive)
         {
-            // 吸血 (docs/20 §2.1): the turret heals after an attack that dealt damage — after retaliation, so a
-            // turret that died to a counter does not heal. 分级取最高 (S5b).
+            // 吸血 (docs/20 §2.1, 用户改版): the turret GAINS +0/+N (permanent, 可超上限) after an attack — after
+            // retaliation, so a turret that died to a counter does not gain. 分级取最高 (S5b).
             if (alive.Turret is not null)
                 ApplyTurretSiphon(ctx, alive);
             // 潜行 (docs/21 §2): attacking reveals a Hidden attacker (if it survived retaliation).
@@ -659,8 +659,10 @@ public sealed class Resolver
             ctx.GrantKeyword(t, Keyword.Rooted, 0, "your_next_turn", turret.OwnerSeat);
     }
 
-    /// <summary>吸血 (docs/20 §2.1): heal the turret by 分级取最高 (S5b) — 吸血Ⅰ固定1 vs 吸血Ⅱ⌊atk/2⌋ (基于炮台攻击力,
-    /// 非落地伤害, per S5b's "攻 6 时Ⅱ回 3"). Both installed → max. No-op without a siphon module.</summary>
+    /// <summary>吸血 (docs/20 §2.1, 用户改版): after an attack the turret GAINS a permanent +0/+N 增益 (直接加生命
+    /// 上限,可超过原上限 — 类 +0/+3 效果,不是恢复), by 分级取最高 (S5b): 吸血Ⅰ固定1 vs 吸血Ⅱ⌊atk/2⌋ (基于炮台攻击力).
+    /// Both installed → max. Routed through <see cref="ResolutionContext.BuffUnit"/> → the External HP layer
+    /// (permanent, survives module swaps). No-op without a siphon module.</summary>
     private static void ApplyTurretSiphon(ResolutionContext ctx, UnitInstance turret)
     {
         int atk = turret.Atk;
@@ -671,9 +673,9 @@ public sealed class Resolver
                 case "fixed": fixedTier = true; break;
                 case "half": halfTier = true; break;
             }
-        int heal = Math.Max(fixedTier ? 1 : 0, halfTier ? atk / 2 : 0);
-        if (heal > 0)
-            ctx.HealUnit(turret, heal);
+        int gain = Math.Max(fixedTier ? 1 : 0, halfTier ? atk / 2 : 0);
+        if (gain > 0)
+            ctx.BuffUnit(turret, 0, gain); // +0/+N 永久增益,可超过上限 (用户改版)
     }
 
     private static IEnumerable<UnitInstance> AdjacentEnemies(ResolutionContext ctx, UnitInstance turret, UnitInstance target) =>

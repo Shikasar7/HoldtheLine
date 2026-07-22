@@ -537,7 +537,8 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 		var pos = CellScreenPos(u.Cell) + new Vector2(7, 7);
 		var size = new Vector2(BattleTheme.CellW - 14, BattleTheme.CellH - 14);
 		var seatColor = BattleTheme.SeatColor(u.OwnerSeat);
-		var art = BattleTheme.Tex($"standees/{u.CardId}.png");
+		string artId = u.Modules is null ? u.CardId : TurretVisuals.StandeeId(u.Modules);
+		var art = BattleTheme.Tex($"standees/{artId}.png");
 
 		// With art the panel goes translucent (seat-tinted) so the board shows through; border keeps ownership readable.
 		var bg = art != null
@@ -548,8 +549,13 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 		btn.Pressed += () => OnUnitClicked(id);
 
 		if (art != null)
-			btn.AddChild(BattleTheme.Art(art, new Vector2(2, 2), size - new Vector2(4, 4),
-				TextureRect.StretchModeEnum.KeepAspectCentered));
+		{
+			var artNode = BattleTheme.Art(art, new Vector2(2, 2), size - new Vector2(4, 4),
+				TextureRect.StretchModeEnum.KeepAspectCentered);
+			artNode.Name = StandeeArtName;
+			btn.AddChild(artNode);
+		}
+		SetTurretModuleRing(btn, u, size);
 
 		SetStandeePips(btn, u, size);
 
@@ -572,6 +578,7 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 		btn.SetMeta("owner", u.OwnerSeat);
 		btn.SetMeta("bg", bg);
 		btn.SetMeta("cardId", u.CardId);
+		btn.SetMeta("artId", artId);
 		return btn;
 	}
 
@@ -583,6 +590,8 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 		btn.Position = CellScreenPos(u.Cell) + new Vector2(7, 7);
 		btn.Scale = Vector2.One;
 		btn.Rotation = 0f;
+		SetStandeeArt(btn, u);
+		SetTurretModuleRing(btn, u, size);
 
 		SetStandeePips(btn, u, size);
 		SetStandeeKeywordLine(btn, KeywordLine(u.Keywords), size, (bool)btn.GetMeta("hasArt"));
@@ -592,6 +601,82 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 		// node used to take its tween with it — a reused node has to kill it explicitly).
 		PlaybackDirector.KillFlashTween(btn);
 		btn.Modulate = StandeeModulate(u, view, actionable);
+	}
+
+	/// <summary>Swap only the authored art layer when a turret loadout changes; pips/status nodes stay live.</summary>
+	private static void SetStandeeArt(Button btn, UnitView u)
+	{
+		string artId = u.Modules is null ? u.CardId : TurretVisuals.StandeeId(u.Modules);
+		if (btn.HasMeta("artId") && (string)btn.GetMeta("artId") == artId) return;
+		if (BattleTheme.Tex($"standees/{artId}.png") is not { } tex) return;
+		if (btn.GetNodeOrNull<TextureRect>(StandeeArtName) is { } art)
+			art.Texture = tex;
+		btn.SetMeta("artId", artId);
+	}
+
+	/// <summary>Five-slot assembly arc over the standee base. Color = rarity; glyph = module family.</summary>
+	private void SetTurretModuleRing(Button btn, UnitView u, Vector2 size)
+	{
+		if (u.Modules is null)
+		{
+			if (btn.GetNodeOrNull(ModuleRingName) is { } stale) { btn.RemoveChild(stale); stale.QueueFree(); }
+			return;
+		}
+		string sig = string.Join('|', u.Modules);
+		if (btn.HasMeta("moduleRingSig") && (string)btn.GetMeta("moduleRingSig") == sig) return;
+		btn.SetMeta("moduleRingSig", sig);
+		if (btn.GetNodeOrNull(ModuleRingName) is { } old) { btn.RemoveChild(old); old.QueueFree(); }
+
+		var holder = new Control { Name = ModuleRingName, Size = size, MouseFilter = MouseFilterEnum.Ignore };
+		Vector2 center = new(size.X / 2f, size.Y - 27f);
+		const float startDeg = 196f, sweepDeg = 148f, gapDeg = 3.2f;
+		float slotDeg = sweepDeg / 5f;
+		for (int i = 0; i < 5; i++)
+		{
+			float a0 = Mathf.DegToRad(startDeg + i * slotDeg + gapDeg / 2f);
+			float a1 = Mathf.DegToRad(startDeg + (i + 1) * slotDeg - gapDeg / 2f);
+			// A dark, slightly wider underlay keeps quality colors readable over every standee painting.
+			holder.AddChild(EllipseArc(center, 56f, 23f, 48f, 16f, a0, a1, new Color(0.035f, 0.03f, 0.025f, 0.94f)));
+			Color fill = new Color(0.22f, 0.22f, 0.21f, 0.74f);
+			CardDefinition? module = null;
+			if (i < u.Modules.Count && _cards.TryGet(u.Modules[i], out var md))
+			{
+				module = md;
+				fill = TurretVisuals.RarityColor(md.Rarity);
+			}
+			holder.AddChild(EllipseArc(center, 54f, 21f, 50f, 18f, a0, a1, fill));
+
+			if (module != null)
+			{
+				float mid = (a0 + a1) / 2f;
+				var glyph = BattleTheme.MakeOutlinedLabel(TurretVisuals.ModuleGlyph(module), 10,
+					Colors.White, HorizontalAlignment.Center);
+				glyph.VerticalAlignment = VerticalAlignment.Center;
+				glyph.Position = center + new Vector2(Mathf.Cos(mid) * 51f, Mathf.Sin(mid) * 19.5f) - new Vector2(7, 7);
+				glyph.Size = new Vector2(14, 14);
+				glyph.MouseFilter = MouseFilterEnum.Ignore;
+				holder.AddChild(glyph);
+			}
+		}
+		btn.AddChild(holder);
+	}
+
+	private static Polygon2D EllipseArc(Vector2 center, float outerX, float outerY, float innerX, float innerY,
+		float start, float end, Color color)
+	{
+		const int steps = 6;
+		var points = new List<Vector2>((steps + 1) * 2);
+		for (int i = 0; i <= steps; i++)
+		{
+			float a = Mathf.Lerp(start, end, i / (float)steps);
+			points.Add(center + new Vector2(Mathf.Cos(a) * outerX, Mathf.Sin(a) * outerY));
+		}
+		for (int i = steps; i >= 0; i--)
+		{
+			float a = Mathf.Lerp(start, end, i / (float)steps);
+			points.Add(center + new Vector2(Mathf.Cos(a) * innerX, Mathf.Sin(a) * innerY));
+		}
+		return new Polygon2D { Polygon = points.ToArray(), Color = color };
 	}
 
 	/// <summary>Standee tint: 影子炮台 (docs/20 §S15) renders半透明暗蓝 (a temporary copy); the active seat's spent
@@ -1831,6 +1916,7 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 	bool IPlaybackHost.IsEmplacement(int entityId) => _emplacementUnits.Contains(entityId);
 	void IPlaybackHost.FloatText(Vector2 center, string text, Color color) => FloatText(center, text, color);
 	void IPlaybackHost.RefreshStandeeStatus(int entityId) => RefreshStandeeStatus(entityId);
+	void IPlaybackHost.RefreshStandeeAppearance(int entityId) => RefreshStandeeAppearance(entityId);
 	void IPlaybackHost.AccumulateStat(GameEvent e) => AccumulateStat(e);
 	void IPlaybackHost.FullRender() => FullRender();
 	void IPlaybackHost.ShowWinOverlay(GameEndedEvent ended) => ShowWinOverlay(ended);
@@ -1851,7 +1937,8 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 		// Shared layout lives in CardView; this panel only differs in geometry and shows the unit's
 		// LIVE stats (生命 X/Y, red when damaged) and effective keywords instead of the printed ones.
 		CardView.FillDetail(_detailPanel, def, new Vector2(DetailW, DetailH), pad: 16f, artH: 264f, statStep: 158f,
-			live: new CardView.LiveUnitStats(u.Atk, u.CurrentHp, u.MaxHp), keywords: u.Keywords);
+			live: new CardView.LiveUnitStats(u.Atk, u.CurrentHp, u.MaxHp), keywords: u.Keywords,
+			artCardId: u.Modules is null ? null : TurretVisuals.CardArtId(u.Modules));
 
 		// 掘世匠会 炮台 (docs/20 §2): overlay the in-装 loadout at the bottom — for a turret this matters more than
 		// the generic printed lore. u.Modules is non-null only on a 工造炮台/影子炮台. The 历史池 (战地重构 取材) is
@@ -2071,6 +2158,8 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 	private const string StatusStripName = "__status_strip";
 	private const string PipAtkName = "__pip_atk";   // 批次C2: 立牌增量更新用的具名子节点
 	private const string PipHpName = "__pip_hp";
+	private const string StandeeArtName = "__standee_art";
+	private const string ModuleRingName = "__module_ring";
 	private const string KwLabelName = "__kw";
 
 	/// <summary>The statuses to show for a unit, evaluated from the editable catalog against the unit's LIVE view
@@ -2194,6 +2283,20 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 		if (_standees.TryGetValue(entityId, out var node)
 			&& _host.GetView(ViewSeat).Units.FirstOrDefault(x => x.EntityId == entityId) is { } uv)
 			SetStandeeStatuses(node, StandeeStatuses(uv));
+	}
+
+	private void RefreshStandeeAppearance(int entityId)
+	{
+		if (_standees.TryGetValue(entityId, out var node)
+			&& _host.GetView(ViewSeat).Units.FirstOrDefault(x => x.EntityId == entityId) is { } uv)
+		{
+			var size = new Vector2(BattleTheme.CellW - 14, BattleTheme.CellH - 14);
+			SetStandeeArt(node, uv);
+			SetTurretModuleRing(node, uv, size);
+			SetStandeePips(node, uv, size);
+			SetStandeeKeywordLine(node, KeywordLine(uv.Keywords), size, (bool)node.GetMeta("hasArt"));
+			SetStandeeStatuses(node, StandeeStatuses(uv));
+		}
 	}
 
 	private bool CandidatesDealDamage(IReadOnlyList<Command> candidates)

@@ -1,4 +1,4 @@
-"""Generate the three original combat cues added for the Duskweaver FX pass.
+"""Generate the authored combat and assembly cues used by special presentation beats.
 
 The synthesis is deterministic and dependency-free. The short cues are emitted
 as 44.1 kHz PCM WAV files, which Godot imports directly.
@@ -54,6 +54,37 @@ def phoenix_rebirth(t: float, rng: random.Random) -> float:
     return 0.30 * tone * envelope(t, 0.07, 1.65) + 0.14 * flame + 0.34 * chime
 
 
+def module_install(t: float, rng: random.Random) -> float:
+    """Three soft ratchet clicks resolving into a warm, low-volume confirmation chime."""
+    value = 0.0
+    for start, freq in ((0.02, 310), (0.11, 365), (0.20, 430)):
+        if t >= start:
+            local = t - start
+            click = 0.55 * math.sin(2 * math.pi * freq * local) + 0.16 * noise(rng)
+            value += click * envelope(local, 0.002, 30)
+    if t >= 0.23:
+        local = t - 0.23
+        chime = sum(math.sin(2 * math.pi * f * local) for f in (392, 523.25, 659.25)) / 3
+        value += 0.34 * chime * envelope(local, 0.018, 6.2)
+    return value * 0.62
+
+
+def turret_fire(t: float, rng: random.Random) -> float:
+    """Compact pneumatic thump with a short brass-mechanism tail; intentionally not sharp."""
+    thump = math.sin(2 * math.pi * (150 - 55 * min(t / 0.18, 1)) * t) * envelope(t, 0.004, 12)
+    mechanism = math.sin(2 * math.pi * 420 * t) * envelope(t, 0.003, 24)
+    air = noise(rng) * envelope(t, 0.004, 18)
+    return 0.54 * thump + 0.14 * mechanism + 0.12 * air
+
+
+def turret_fire_heavy(t: float, rng: random.Random) -> float:
+    """Deeper cannon report with a rounded low end and restrained mechanical rattle."""
+    boom = math.sin(2 * math.pi * (88 - 24 * min(t / 0.30, 1)) * t) * envelope(t, 0.006, 7.4)
+    body = math.sin(2 * math.pi * 176 * t) * envelope(t, 0.004, 13)
+    rattle = noise(rng) * envelope(t, 0.003, 16)
+    return 0.62 * boom + 0.20 * body + 0.12 * rattle
+
+
 def render(name: str, duration: float, synth) -> None:
     rng = random.Random(name)
     samples = []
@@ -73,3 +104,6 @@ if __name__ == "__main__":
     render("molten_slam", 0.72, molten_slam)
     render("spell_ward", 0.72, spell_ward)
     render("phoenix_rebirth", 1.25, phoenix_rebirth)
+    render("module_install", 0.62, module_install)
+    render("turret_fire", 0.30, turret_fire)
+    render("turret_fire_heavy", 0.48, turret_fire_heavy)

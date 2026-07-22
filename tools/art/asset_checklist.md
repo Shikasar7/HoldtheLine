@@ -243,3 +243,10 @@ id:`leader_iv_valen`、`leader_wp_saen`。1024×1024(维持正方形——最终
 - 镜像工坊的双机械臂、相同炮件与镜面高光在手牌缩略图尺寸仍可读。
 - 5/5 卡面尺寸正确,无 standee;Godot `.import` 与缓存完整。
 - QA 总览:`tools/art/out/docs20_new_art_contact.jpg`。
+
+### J.3 工造炮台动态外观补强(2026-07-22)
+
+- 卡面插画 4 态:裸炮、快速装填机、主炮核心、主炮核心+快速装填机。
+- 棋子采用“4 种上装 × 3 种底盘”组合,共 12 态;底盘为三脚架、架设平台、履带底盘。
+- 同时装备架设平台与履带底盘时,规则加成均保留,棋子显示最后装配的底盘,确保每次装配都会改变轮廓。
+- 生成脚本:`tools/art/build_turret_variants.py`;QA:`tools/art/out/turret_v2_card_contact.png`、`tools/art/out/turret_v2_standee_contact.png`。

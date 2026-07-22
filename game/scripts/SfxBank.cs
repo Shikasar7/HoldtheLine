@@ -34,6 +34,9 @@ public sealed class SfxBank
         LoadOrFallback("molten_slam", Tone(74f, 0.42f, 6f, Wave.Square, 0.7f, noise: 0.35f)); // 熔岩巨剑
         LoadOrFallback("spell_ward", Tone(988f, 0.34f, 5f, Wave.Triangle, 0.42f, noise: 0.08f)); // 法术护体
         LoadOrFallback("phoenix_rebirth", Tone(659f, 0.85f, 2f, Wave.Triangle, 0.5f, noise: 0.12f)); // 浴火重生
+        LoadOrFallback("module_install", Tone(392f, 0.42f, 7f, Wave.Triangle, 0.34f, noise: 0.06f)); // 炮台装配,柔和棘轮
+        LoadOrFallback("turret_fire", Tone(142f, 0.24f, 11f, Wave.Sine, 0.48f, noise: 0.1f)); // 轻炮
+        LoadOrFallback("turret_fire_heavy", Tone(82f, 0.40f, 7f, Wave.Sine, 0.62f, noise: 0.12f)); // 贯日主炮
         LoadOrFallback("death", Tone(90f, 0.22f, 7f, Wave.Square, 0.5f, noise: 0.55f));       // unit death
         LoadOrFallback("leaderhit", Tone(60f, 0.30f, 4f, Wave.Sine, 0.85f, noise: 0.15f));    // leader damage
         // --- flow / feedback ---

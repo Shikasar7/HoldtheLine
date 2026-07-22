@@ -267,7 +267,7 @@ public static class CardView
     /// in-match stats for the printed ones; <paramref name="keywords"/> substitutes its effective (live)
     /// keyword list for the card's printed one.</summary>
     public static void FillDetail(Panel panel, CardDefinition def, Vector2 size, float pad, float artH, float statStep,
-        LiveUnitStats? live = null, IReadOnlyList<KeywordSpec>? keywords = null)
+        LiveUnitStats? live = null, IReadOnlyList<KeywordSpec>? keywords = null, string? artCardId = null)
     {
         bool isOrder = def.Type != CardType.Unit;
         float panelH = size.Y;
@@ -275,7 +275,7 @@ public static class CardView
         var faction = FactionColor(def.Faction);
 
         // Card art uses the same per-card framing as the face, adapted to this window's aspect.
-        if (BattleTheme.Tex($"cards/{def.Id}.png") is { } artTex)
+        if (BattleTheme.Tex($"cards/{artCardId ?? def.Id}.png") is { } artTex)
             panel.AddChild(ArtWindow(artTex, def.Id, new Vector2(pad, pad), new Vector2(innerW, artH)));
         else
         {
