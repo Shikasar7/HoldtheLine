@@ -173,7 +173,7 @@
 	"faction": "iron_vow",
 	"type": "order",
 	"rarity": "common",
-	"cost": 3,
+	"cost": 2,
 	"effects": [{ "trigger": "play", "action": "grant_keyword", "target": "target_unit", "keyword": "shield", "duration": "permanent" }],
 	"text": "使一个友方随从获得持盾。",
 	"art_prompt": "a line of shields snapping together into an interlocked wall, sparks deflecting"
@@ -301,12 +301,9 @@
 	"keywords": [
 	  {
 		"keyword": "guardian"
-	  },
-	  {
-		"keyword": "hold_fast"
 	  }
 	],
-	"text": "守护,坚守。",
+	"text": "守护。",
 	"art_prompt": "a stone-grey sentinel in heavy layered plate, standing like a boulder that won't budge"
   },
   {
@@ -421,17 +418,14 @@
 	"type": "unit",
 	"rarity": "epic",
 	"cost": 7,
-	"atk": 5,
+	"atk": 4,
 	"hp": 9,
 	"keywords": [
 	  {
 		"keyword": "guardian"
-	  },
-	  {
-		"keyword": "hold_fast"
 	  }
 	],
-	"text": "守护,坚守。",
+	"text": "守护。",
 	"art_prompt": "a colossal adamant guardian statue come alive, immense shield, cracks glowing faintly"
   },
   {
