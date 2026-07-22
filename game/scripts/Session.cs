@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using HoldTheLine.Net.Client;
 using HoldTheLine.Net.Protocol;
@@ -293,6 +295,7 @@ public static class Session
                     GameConfig.Nickname = p.Name;
                     Prefs.Nickname = p.Name;
                 }
+                ReconcileDeletedDecks(p);
                 ProfileUpdated?.Invoke(p);
                 break;
             case QueueStatus q: QueueStatusReceived?.Invoke(q); break;
@@ -313,6 +316,28 @@ public static class Session
                 AuthOkReceived?.Invoke(ok);
                 break;
             case ErrorMsg e: Errored?.Invoke(e); break;
+        }
+    }
+
+    /// <summary>Deck-sync 兜底 (方案1): make locally-deleted decks stick on the server. On every account
+    /// snapshot, replay pending server-side deletes — an id the account still lists gets a fresh delete_deck
+    /// (covers a delete made offline, or one whose message dropped); an id already gone confirms the delete
+    /// and clears its tombstone. Only ids the player explicitly deleted are ever touched, so a deck built on
+    /// another device / account (present on the server, absent locally) is left alone. The server re-pushes a
+    /// Profile after each delete_deck, so this converges in one extra round-trip and then stops sending.
+    /// Runs on the WS receive thread, like the Identity/Nickname writes just above — same file-store contract.</summary>
+    private static void ReconcileDeletedDecks(Profile p)
+    {
+        var pending = DeckStorage.PendingServerDeletes();
+        if (pending.Count == 0)
+            return;
+        var present = new HashSet<string>(p.Decks.Select(d => d.Id));
+        foreach (var serverId in pending)
+        {
+            if (present.Contains(serverId))
+                _ = SendAsync(new DeleteDeck { DeckId = serverId }); // still there → (re)issue the delete
+            else
+                DeckStorage.ClearServerDeleted(serverId);            // gone → intent fulfilled, drop the tombstone
         }
     }
 }

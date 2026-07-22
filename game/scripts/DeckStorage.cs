@@ -27,6 +27,10 @@ public sealed record StoredDeck
 public static class DeckStorage
 {
     private const string Path = "user://decks.json";
+    // Server ids of decks the player deleted locally that may still live on the server — a delete made while
+    // offline never sent its delete_deck, and even an online one can drop. Kept in a SEPARATE file from
+    // decks.json so the reconcile replay (runs on the WS thread, see Session) never races a deck-list write.
+    private const string DeletesPath = "user://deck_deletes.json";
 
     public static List<StoredDeck> LoadAll()
     {
@@ -93,6 +97,42 @@ public static class DeckStorage
         all.RemoveAll(d => d.Id == id);
         Persist(all);
     }
+
+    // ---------- pending server-side deletes (tombstones) ----------
+    // These make a local delete stick on the server even when it couldn't be delivered at delete time. The set
+    // holds ONLY ids the player explicitly deleted; a server deck merely absent locally (another device /
+    // account) is never touched, so reconciling can't wipe a deck built elsewhere.
+
+    /// <summary>Server ids whose deletion still needs confirming against the account. Replayed on the next
+    /// <c>Profile</c> push (see Session): still-listed ids get a fresh delete_deck, vanished ids are cleared.</summary>
+    public static List<string> PendingServerDeletes()
+    {
+        var json = UserFile.ReadText(DeletesPath);
+        if (string.IsNullOrWhiteSpace(json))
+            return new List<string>();
+        try { return JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>(); }
+        catch { return new List<string>(); }
+    }
+
+    /// <summary>Tombstone a server deck for deletion (idempotent). No-op on a null/empty id — a deck that was
+    /// never pushed to the server has no server copy to reap.</summary>
+    public static void MarkServerDeleted(string? serverId)
+    {
+        if (string.IsNullOrEmpty(serverId))
+            return;
+        var all = PendingServerDeletes();
+        if (!all.Contains(serverId)) { all.Add(serverId); PersistDeletes(all); }
+    }
+
+    /// <summary>Drop a tombstone once its deletion is confirmed (the id no longer appears in the account).</summary>
+    public static void ClearServerDeleted(string serverId)
+    {
+        var all = PendingServerDeletes();
+        if (all.Remove(serverId)) PersistDeletes(all);
+    }
+
+    private static void PersistDeletes(List<string> ids) =>
+        UserFile.WriteAtomic(DeletesPath, JsonSerializer.Serialize(ids));
 
     /// <summary>Record the server id for a local deck once it has been saved online (matched by the local
     /// id the editor noted before pushing to the server).</summary>

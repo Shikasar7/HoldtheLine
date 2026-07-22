@@ -496,18 +496,29 @@ public partial class MenuScene : Control
     private void ShowLobby()
     {
         var pf = Session.Profile;
-        // The player's saved decks first (from the last profile push), then the built-in starters.
+        // The player's saved decks first (from the last profile push), then the built-in starters. A saved deck
+        // that references a removed card (a rework — 方案3) is flagged ⚠: it can't be queued until repaired.
         var options = new List<(string Id, string Label, Color Color, string Tip)>();
         if (pf != null)
-            foreach (var d in pf.Decks) options.Add((d.Id, d.Name, FactionTint(d.Faction), DeckTip(d.Leader, d.CardIds)));
+            foreach (var d in pf.Decks)
+            {
+                bool bad = DeckObsolete(d.CardIds);
+                string label = bad ? "⚠ " + d.Name : d.Name;
+                string tip = bad ? "⚠ 含已移除卡牌,需在编辑器修复,或用「清理失效卡组」删除\n" + DeckTip(d.Leader, d.CardIds)
+                                 : DeckTip(d.Leader, d.CardIds);
+                options.Add((d.Id, label, FactionTint(d.Faction), tip));
+            }
         foreach (var d in DeckOptions) options.Add((d.Id, d.Label, d.Color, BuiltinDeckTip(d.Id)));
         if (options.All(o => o.Id != _lobbyDeck)) // first open / deleted deck → last used, else newest edited
             _lobbyDeck = DefaultLobbyDeck(options);
         int ownCount = pf?.Decks.Count ?? 0;
+        int strays = StrayServerDecks(pf).Count; // 方案3: server decks the local manager can't reach / repair
 
         // docs/18 rev3: one parchment sheet, everything visible — deck grid (3 columns, edit chips beside
-        // own decks), then the action stack with the gold ranked-queue CTA.
-        float winH = WinContentTop + 40 + 34 + GridHeight(options.Count) + 28 + 76 + 16 + 60 + 16 + 56 + 16 + 56 + 16 + 52 + WinContentBottom;
+        // own decks), then the action stack with the gold ranked-queue CTA. The 清理失效卡组 row appears only
+        // when there is something to clean, so a healthy account never sees it.
+        float cleanupH = strays > 0 ? 56 + 16 : 0;
+        float winH = WinContentTop + 40 + 34 + GridHeight(options.Count) + 28 + 76 + 16 + 60 + 16 + cleanupH + 56 + 16 + 56 + 16 + 52 + WinContentBottom;
         var win = WindowPanelTitled(new Vector2(1160, winH), pf != null ? pf.Name : "已 连 接");
 
         float y = WinContentTop;
@@ -518,6 +529,10 @@ public partial class MenuScene : Control
 
         win.AddChild(BtnPrimary("排 位 匹 配", new Vector2((1160 - 520) / 2f, y), new Vector2(520, 76), StartQueue)); y += 92;
         win.AddChild(Btn("好友房间", new Vector2((1160 - 520) / 2f, y), new Vector2(520, 60), ShowFriendRoom)); y += 76;
+        if (strays > 0)
+        {
+            win.AddChild(Btn($"清理失效卡组 ({strays})", new Vector2((1160 - 520) / 2f, y), new Vector2(520, 56), ShowServerDeckCleanup)); y += 72;
+        }
         win.AddChild(Btn("卡组编辑", new Vector2(232, y), new Vector2(340, 56), OpenDeckEditor));
         win.AddChild(Btn("天梯排行", new Vector2(588, y), new Vector2(340, 56), ShowLadder)); y += 72;
         // docs/12 B1: account panel entry sits beside disconnect.
@@ -530,6 +545,17 @@ public partial class MenuScene : Control
 
     private async void StartQueue()
     {
+        // 方案3: don't send a deck the server will only bounce with deck_needs_repair — stop it here with a
+        // fixable message. Built-ins and healthy decks fall through unchanged.
+        if (Session.Profile?.Decks.FirstOrDefault(d => d.Id == _lobbyDeck) is { } sel && DeckObsolete(sel.CardIds))
+        {
+            var bp = NewPanel();
+            PanelLabel(bp, "该卡组需要修复", 380, 44, BattleTheme.DangerColor);
+            PanelLabel(bp, "含已移除的卡牌,请在卡组编辑器修复,或在「清理失效卡组」中删除", 456, 22, BattleTheme.TextDim);
+            bp.AddChild(Btn("返回", new Vector2(Cx, 560), new Vector2(600, 64), ShowLobby));
+            return;
+        }
+
         var p = NewPanel();
         PanelLabel(p, "排位匹配中…", 380, 48, BattleTheme.Accent);
         var status = PanelLabel(p, "正在寻找对手", 460, 26, BattleTheme.TextDim);
@@ -717,6 +743,30 @@ public partial class MenuScene : Control
         return d is null ? "" : DeckTip(d.Leader, d.Expand());
     }
 
+    /// <summary>True when a deck references a card the current data no longer knows — a rework removed it
+    /// (docs/20 §6-U6 迁移). The server rejects such a deck at queue time with deck_needs_repair, so the lobby
+    /// flags it ⚠ and blocks queueing with it (方案3). Uses the same card db the tooltips already load.</summary>
+    private static bool DeckObsolete(IReadOnlyList<string> cardIds)
+    {
+        _tipCards ??= GameData.LoadCards();
+        return cardIds.Any(id => !_tipCards.TryGet(id, out _));
+    }
+
+    /// <summary>Server decks the local 卡组管理 view can't reach or repair (方案3): either含已移除卡 (obsolete),
+    /// or with no local copy at all (local data was reset, or the deck was made on another device / account).
+    /// These are what 清理失效卡组 lists so they can be deleted straight by server id. A healthy deck that still
+    /// has its local copy is managed as usual and never appears here.</summary>
+    private static List<DeckSummary> StrayServerDecks(Profile? pf)
+    {
+        if (pf is null)
+            return new List<DeckSummary>();
+        var localServerIds = DeckStorage.LoadAll()
+            .Where(d => !string.IsNullOrEmpty(d.ServerId))
+            .Select(d => d.ServerId!)
+            .ToHashSet();
+        return pf.Decks.Where(d => DeckObsolete(d.CardIds) || !localServerIds.Contains(d.Id)).ToList();
+    }
+
     /// <summary>Resolve a lobby deck id to its flat card list: a built-in preconstructed deck, else a saved
     /// deck from the last profile push. Null if unknown (the 查看牌组 panel then shows "unavailable").</summary>
     private static IReadOnlyList<string>? ResolveDeckCards(string deckId)
@@ -742,6 +792,88 @@ public partial class MenuScene : Control
         var local = DeckStorage.LoadAll().FirstOrDefault(d => d.ServerId == ds.Id);
         DeckEditContext.Editing = new DeckEditContext.Deck(local?.Id ?? DeckStorage.NewId(), ds.Name, ds.Faction, ds.CardIds, ds.Id);
         SceneFx.ChangeScene(this, "res://scenes/menu/Deck.tscn");
+    }
+
+    /// <summary>方案3 兜底: the server's own deck list, filtered to the strays the local 卡组管理 can't reach or
+    /// repair (see <see cref="StrayServerDecks"/>) — obsolete-after-a-rework decks and server-only decks with no
+    /// local copy. Each can be deleted straight by server id, closing the "联机里还在,但本地管理器删不到" gap.</summary>
+    private void ShowServerDeckCleanup()
+    {
+        var pf = Session.Profile;
+        var strays = StrayServerDecks(pf);
+        var localByServerId = DeckStorage.LoadAll()
+            .Where(d => !string.IsNullOrEmpty(d.ServerId))
+            .ToDictionary(d => d.ServerId!, d => d.Id);
+
+        var win = WindowPanelTitled(new Vector2(1000, 820), "清 理 失 效 卡 组");
+        WinLabel(win, "只存在于服务器,或含已移除卡牌的卡组 — 从账号中删除,不影响可正常游玩的卡组", WinContentTop, 18, BattleTheme.InkDim);
+
+        if (strays.Count == 0)
+            WinLabel(win, "没有需要清理的卡组", WinContentTop + 72, 24, BattleTheme.InkMain);
+
+        const float listTop = WinContentTop + 56f, backY = 660f;
+        var scroll = new ScrollContainer { Position = new Vector2(120, listTop), Size = new Vector2(760, backY - listTop - 16) };
+        scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        win.AddChild(scroll);
+        var list = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        list.AddThemeConstantOverride("separation", 8);
+        scroll.AddChild(list);
+
+        foreach (var d in strays)
+        {
+            bool obsolete = DeckObsolete(d.CardIds);
+            var row = new Panel { CustomMinimumSize = new Vector2(736, 56) };
+            row.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.PanelDark, FactionTint(d.Faction), 1, 8));
+
+            var name = BattleTheme.MakeOutlinedLabel(d.Name, 22, BattleTheme.TextMain, HorizontalAlignment.Left);
+            name.Position = new Vector2(14, 7); name.Size = new Vector2(430, 42); name.ClipContents = true;
+            row.AddChild(name);
+            var tag = BattleTheme.MakeLabel(obsolete ? "含已移除卡牌" : "无本地副本", 17,
+                obsolete ? BattleTheme.DangerColor : BattleTheme.TextDim, HorizontalAlignment.Left);
+            tag.Position = new Vector2(452, 15); tag.Size = new Vector2(160, 30);
+            row.AddChild(tag);
+
+            var del = BattleTheme.MakeButton(new Vector2(612, 4), new Vector2(118, 48), BattleTheme.PanelDark, BattleTheme.DangerColor, 1, 8);
+            del.Text = "删除"; del.AddThemeFontSizeOverride("font_size", 20);
+            del.AddThemeColorOverride("font_color", BattleTheme.DangerColor);
+            var captured = d;
+            del.Pressed += () => ConfirmDeleteServerDeck(captured, localByServerId.GetValueOrDefault(captured.Id));
+            row.AddChild(del);
+            list.AddChild(row);
+        }
+
+        win.AddChild(Btn("返回", new Vector2((1000 - 520) / 2f, backY), new Vector2(520, 52), ShowLobby));
+    }
+
+    private void ConfirmDeleteServerDeck(DeckSummary d, string? localId)
+    {
+        var p = NewPanel();
+        PanelLabel(p, $"删除「{d.Name}」?", 372, 40, BattleTheme.DangerColor);
+        PanelLabel(p, "从你的账号中删除这套卡组,不可恢复", 440, 22, BattleTheme.TextDim);
+        p.AddChild(Btn("删除", new Vector2(Cx, 540), new Vector2(290, 64), () =>
+        {
+            RefreshOnNextProfile(ShowServerDeckCleanup); // subscribe before the send so the trimmed profile can't beat it
+            DeleteServerDeck(d.Id);                       // tombstone + delete now (same robust path as the manager)
+            if (localId != null) DeckStorage.Delete(localId); // drop the local copy too when there was one
+        }));
+        p.AddChild(Btn("取消", new Vector2(Cx + 310, 540), new Vector2(290, 64), ShowServerDeckCleanup));
+    }
+
+    /// <summary>Rebuild a panel once the server pushes the next account snapshot. A delete_deck is confirmed by
+    /// the server re-pushing a fresh <see cref="Profile"/>, so this is how the cleanup list drops a just-deleted
+    /// deck. One-shot and self-detaching; the guard keeps a late fire from re-opening a closed overlay.</summary>
+    private void RefreshOnNextProfile(System.Action rebuild)
+    {
+        void OnProfilePush(Profile _)
+        {
+            Session.ProfileUpdated -= OnProfilePush;
+            Callable.From(() =>
+            {
+                if (GodotObject.IsInstanceValid(this) && _panel != null && GodotObject.IsInstanceValid(_panel))
+                    rebuild();
+            }).CallDeferred();
+        }
+        Session.ProfileUpdated += OnProfilePush;
     }
 
     // ---------- account (docs/12 B1): register/login on top of the persistent guest identity ----------
@@ -1166,11 +1298,23 @@ public partial class MenuScene : Control
         p.AddChild(Btn("删除", new Vector2(Cx, 540), new Vector2(290, 64), () =>
         {
             DeckStorage.Delete(d.Id);
-            if (Session.Connected && !string.IsNullOrEmpty(d.ServerId))
-                _ = Session.SendAsync(new DeleteDeck { DeckId = d.ServerId });
+            DeleteServerDeck(d.ServerId); // tombstone + (if online) delete now — see DeleteServerDeck
             ShowDeckManager();
         }));
         p.AddChild(Btn("取消", new Vector2(Cx + 310, 540), new Vector2(290, 64), ShowDeckManager));
+    }
+
+    /// <summary>Reap a deck's server copy (方案1). Always tombstones the id first, so a delete made offline —
+    /// or one whose delete_deck drops — is replayed the next time the account snapshot arrives (Session's
+    /// deck-delete reconcile). Sends the delete straight away when connected so the common online case still
+    /// deletes immediately. A null/empty id (deck never pushed) is a no-op.</summary>
+    private static void DeleteServerDeck(string? serverId)
+    {
+        if (string.IsNullOrEmpty(serverId))
+            return;
+        DeckStorage.MarkServerDeleted(serverId);
+        if (Session.Connected)
+            _ = Session.SendAsync(new DeleteDeck { DeckId = serverId });
     }
 
     /// <summary>Deck-row tint from the faction catalog (docs/22 批次D4). Unlike the card face, the old switch
