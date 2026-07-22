@@ -730,7 +730,6 @@ public sealed class Resolver
 
     private static RuleError? ResolveEndTurn(ResolutionContext ctx)
     {
-        ctx.ExpireShadowTurrets(ctx.State.ActiveSeat); // 影子炮台 vanishes at its owner's turn end (docs/20 §S15)
         ctx.ExpireEndOfTurnGrants(); // pounce, etc. lapse before control passes
         ctx.TickTraps();             // 烬火陷阱: revealed fire re-ticks its occupant + counts down (docs/21 §1.7)
         ctx.Emit(new TurnEndedEvent { Seat = ctx.State.ActiveSeat, TurnNumber = ctx.State.TurnNumber });

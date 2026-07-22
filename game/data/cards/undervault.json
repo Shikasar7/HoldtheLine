@@ -9,7 +9,10 @@
     "atk": 1,
     "hp": 3,
     "keywords": [
-      { "keyword": "range", "value": 2 }
+      {
+        "keyword": "range",
+        "value": 2
+      }
     ],
     "text": "射程 2,移速 1。装配模块来升级它。每方场上至多一座。",
     "art_prompt": "a squat bare automated gun frame on a bolted tripod, empty mounting rails ready for modules, glowing brass sight"
@@ -24,13 +27,17 @@
     "atk": 1,
     "hp": 2,
     "keywords": [
-      { "keyword": "range", "value": 2 },
-      { "keyword": "emplacement" }
+      {
+        "keyword": "range",
+        "value": 2
+      },
+      {
+        "keyword": "emplacement"
+      }
     ],
     "text": "射程 2,架设。",
     "art_prompt": "a small freshly-unfolded sentry turret, single ballista bolt loaded"
   },
-
   {
     "id": "uv_mod_long_barrel",
     "name": "加长炮管",
@@ -38,7 +45,9 @@
     "type": "equipment",
     "rarity": "common",
     "cost": 2,
-    "module": { "range": 1 },
+    "module": {
+      "range": 1
+    },
     "text": "装配:炮台射程 +1(总射程上限 4)。",
     "art_prompt": "a long extended brass gun barrel with fine sighting rings, laid on a workbench, muzzle toward the viewer, centered prop on dark ground"
   },
@@ -49,7 +58,9 @@
     "type": "equipment",
     "rarity": "common",
     "cost": 2,
-    "module": { "atk": 2 },
+    "module": {
+      "atk": 2
+    },
     "text": "装配:炮台攻击力 +2。",
     "art_prompt": "a thick reinforced cannon breech and firing chamber, stacked reinforcing rings, heavy iron prop centered on dark ground"
   },
@@ -60,7 +71,11 @@
     "type": "equipment",
     "rarity": "rare",
     "cost": 3,
-    "module": { "grant_keywords": ["pierce"] },
+    "module": {
+      "grant_keywords": [
+        "pierce"
+      ]
+    },
     "text": "装配:炮台获得贯穿。",
     "art_prompt": "a gun barrel cutaway showing spiraled rifling grooves down the bore, brass sighting arrays sighting along a line, prop centered on dark ground"
   },
@@ -71,7 +86,9 @@
     "type": "equipment",
     "rarity": "rare",
     "cost": 3,
-    "module": { "on_hit": "split" },
+    "module": {
+      "on_hit": "split"
+    },
     "text": "装配:远程命中后,目标相邻的随机一个其他敌方随从受一半伤害(向上取整)。",
     "art_prompt": "a splitting twin-headed artillery shell forking into two projectiles mid-air, brass casing, prop centered on dark ground"
   },
@@ -82,7 +99,9 @@
     "type": "equipment",
     "rarity": "common",
     "cost": 2,
-    "module": { "on_hit": "frag" },
+    "module": {
+      "on_hit": "frag"
+    },
     "text": "装配:溅射Ⅰ — 远程命中后,与目标相邻的所有敌方随从各受 1 点伤害。",
     "art_prompt": "a segmented fragmentation shell with a scored casing bursting into shrapnel, brass fuse, prop centered on dark ground"
   },
@@ -93,7 +112,9 @@
     "type": "equipment",
     "rarity": "epic",
     "cost": 5,
-    "module": { "on_hit": "blast" },
+    "module": {
+      "on_hit": "blast"
+    },
     "text": "装配:溅射Ⅱ — 远程命中后,与目标相邻的所有敌方随从各受一半伤害(向上取整)。同系分级同装取最高。",
     "art_prompt": "a heavy siege mortar shell wreathed in a wide blast ring, glowing hot casing, prop centered on dark ground"
   },
@@ -104,7 +125,9 @@
     "type": "equipment",
     "rarity": "common",
     "cost": 2,
-    "module": { "lifesteal": "fixed" },
+    "module": {
+      "lifesteal": "fixed"
+    },
     "text": "装配:吸血Ⅰ — 攻击造成伤害后,炮台回复 1 点生命。",
     "art_prompt": "a brass artillery shell with faint glowing siphon runes etched along the casing, thin luminous conduits feeding back into a small reservoir vial at its base"
   },
@@ -115,7 +138,9 @@
     "type": "equipment",
     "rarity": "rare",
     "cost": 3,
-    "module": { "lifesteal": "half" },
+    "module": {
+      "lifesteal": "half"
+    },
     "text": "装配:吸血Ⅱ — 攻击造成伤害后,炮台回复其一半(向下取整)。同系分级同装取最高。",
     "art_prompt": "a heavy shell core wrapped in coiled energy-siphon tubing, deep red-gold vital glow pulsing through glass gauges, drops of light flowing backward along the coils"
   },
@@ -126,7 +151,9 @@
     "type": "equipment",
     "rarity": "epic",
     "cost": 4,
-    "module": { "on_hit": "concussion" },
+    "module": {
+      "on_hit": "concussion"
+    },
     "text": "装配:远程命中后,目标迟缓(下回合无法移动)。",
     "art_prompt": "a stubby concussion shell with a blunt hammer-shaped head, shockwave rings engraved on the casing, faint radiating tremor lines in the air around it"
   },
@@ -137,7 +164,11 @@
     "type": "equipment",
     "rarity": "common",
     "cost": 3,
-    "module": { "atk": 1, "hp": 3, "immobile": true },
+    "module": {
+      "atk": 1,
+      "hp": 3,
+      "immobile": true
+    },
     "text": "装配:+1/+3,坚守;炮台无法移动(视同架设,可吃重新部署;炮台不吃架设的额外效果伤)。",
     "art_prompt": "a heavy anchored gun platform with pylons driven into rock, sandbag skirt, immovable siege mount, prop centered on dark ground"
   },
@@ -148,7 +179,9 @@
     "type": "equipment",
     "rarity": "rare",
     "cost": 2,
-    "module": { "move": 1 },
+    "module": {
+      "move": 1
+    },
     "text": "装配:炮台移速 +1。",
     "art_prompt": "a pair of heavy iron caterpillar tracks and drive wheels on a reinforced undercarriage frame, mud-caked treads, tow chains coiled at the side"
   },
@@ -159,7 +192,9 @@
     "type": "equipment",
     "rarity": "epic",
     "cost": 6,
-    "module": { "extra_attacks": 1 },
+    "module": {
+      "extra_attacks": 1
+    },
     "text": "装配:炮台每回合可攻击两次。",
     "art_prompt": "a whirring autoloader mechanism with a revolving shell drum and brass gears, every gauge past red, prop centered on dark ground"
   },
@@ -170,7 +205,9 @@
     "type": "equipment",
     "rarity": "rare",
     "cost": 4,
-    "module": { "deathrattle": "failsafe_pod" },
+    "module": {
+      "deathrattle": "failsafe_pod"
+    },
     "text": "亡语(炮台被击毁时):随机保住其余在装模块中的 2 件,你的下一座炮台落成时自动装上;随后本保险舱作废。",
     "art_prompt": "a sealed welded-shut armored failsafe capsule with heavy latches and a blinking safety light, prop centered on dark ground"
   },
@@ -181,11 +218,17 @@
     "type": "equipment",
     "rarity": "legendary",
     "cost": 6,
-    "module": { "atk": 3, "hp": 3, "range": 1, "grant_keywords": ["pierce"] },
+    "module": {
+      "atk": 3,
+      "hp": 3,
+      "range": 1,
+      "grant_keywords": [
+        "pierce"
+      ]
+    },
     "text": "装配:+3/+3,射程 +1(上限 4),贯穿。",
     "art_prompt": "a colossal fortress cannon core with a brass sun emblem, barrel longer than a house, anchored on iron legs"
   },
-
   {
     "id": "uv_cog_apprentice",
     "name": "齿轮学徒",
@@ -196,7 +239,12 @@
     "atk": 1,
     "hp": 2,
     "effects": [
-      { "trigger": "battlecry", "action": "buff", "target": "target_unit_ally", "hp": 1 }
+      {
+        "trigger": "battlecry",
+        "action": "buff",
+        "target": "target_unit_ally",
+        "hp": 1
+      }
     ],
     "text": "战吼:一个友方随从 +0/+1。",
     "art_prompt": "a young dwarf apprentice hauling an oversized wrench and a belt of spare gears"
@@ -211,7 +259,9 @@
     "atk": 0,
     "hp": 4,
     "keywords": [
-      { "keyword": "taunt" }
+      {
+        "keyword": "taunt"
+      }
     ],
     "text": "嘲讽。",
     "art_prompt": "a bolted-down spiked barricade frame, wooden stakes and iron braces, immovable"
@@ -226,7 +276,10 @@
     "atk": 2,
     "hp": 2,
     "keywords": [
-      { "keyword": "range", "value": 2 }
+      {
+        "keyword": "range",
+        "value": 2
+      }
     ],
     "text": "射程 2。",
     "art_prompt": "a stout dwarf with a short wide-barreled scattergun, smoke curling from the muzzle"
@@ -241,7 +294,12 @@
     "atk": 2,
     "hp": 2,
     "effects": [
-      { "trigger": "deathrattle", "action": "buff", "target": "friendly_turret", "hp": 2 }
+      {
+        "trigger": "deathrattle",
+        "action": "buff",
+        "target": "friendly_turret",
+        "hp": 2
+      }
     ],
     "text": "亡语:若你的炮台在场,你的炮台 +0/+2。",
     "art_prompt": "a dwarf gun crew member with rammer and powder satchel tending the line, ready to feed the guns"
@@ -256,7 +314,12 @@
     "atk": 3,
     "hp": 3,
     "effects": [
-      { "trigger": "battlecry", "action": "heal", "target": "target_unit", "amount": 2 }
+      {
+        "trigger": "battlecry",
+        "action": "heal",
+        "target": "target_unit",
+        "amount": 2
+      }
     ],
     "text": "战吼:一个随从恢复 2 点生命。",
     "art_prompt": "an engineer in a heavy apron welding a dented automaton plate, sparks flying"
@@ -271,7 +334,13 @@
     "atk": 2,
     "hp": 3,
     "effects": [
-      { "trigger": "battlecry", "action": "grant_keyword", "target": "target_unit_ally", "keyword": "taunt", "duration": "permanent" }
+      {
+        "trigger": "battlecry",
+        "action": "grant_keyword",
+        "target": "target_unit_ally",
+        "keyword": "taunt",
+        "duration": "permanent"
+      }
     ],
     "text": "战吼:一个友方随从获得嘲讽。",
     "art_prompt": "a foreman dwarf unrolling blueprints while a wall frame rises behind him"
@@ -286,7 +355,13 @@
     "atk": 2,
     "hp": 3,
     "effects": [
-      { "trigger": "battlecry", "action": "buff", "target": "friendly_turret", "atk": 1, "hp": 1 }
+      {
+        "trigger": "battlecry",
+        "action": "buff",
+        "target": "friendly_turret",
+        "atk": 1,
+        "hp": 1
+      }
     ],
     "text": "战吼:若你的炮台在场,你的炮台 +1/+1。",
     "art_prompt": "a gear-foreman throwing a master lever, the turret on the line spinning up hotter"
@@ -301,7 +376,11 @@
     "atk": 3,
     "hp": 4,
     "effects": [
-      { "trigger": "battlecry", "action": "draw", "amount": 1 }
+      {
+        "trigger": "battlecry",
+        "action": "draw",
+        "amount": 1
+      }
     ],
     "text": "战吼:抽 1 张牌。",
     "art_prompt": "a salvage crew hauling scrap and parts back from a wreck, one holding a recovered schematic"
@@ -316,7 +395,9 @@
     "atk": 4,
     "hp": 6,
     "keywords": [
-      { "keyword": "hold_fast" }
+      {
+        "keyword": "hold_fast"
+      }
     ],
     "text": "坚守。",
     "art_prompt": "a heavy armored steam-hauler grinding forward on iron treads, escorting the guns"
@@ -331,7 +412,9 @@
     "atk": 5,
     "hp": 7,
     "keywords": [
-      { "keyword": "taunt" }
+      {
+        "keyword": "taunt"
+      }
     ],
     "text": "嘲讽。",
     "art_prompt": "a walking ironclad automaton with a furnace chest and shield-plate arms"
@@ -346,8 +429,12 @@
     "atk": 5,
     "hp": 10,
     "keywords": [
-      { "keyword": "guardian" },
-      { "keyword": "hold_fast" }
+      {
+        "keyword": "guardian"
+      },
+      {
+        "keyword": "hold_fast"
+      }
     ],
     "text": "守护,坚守。",
     "art_prompt": "a walking fortress-crawler the size of a gatehouse grinding forward on massive legs"
@@ -362,12 +449,15 @@
     "atk": 5,
     "hp": 7,
     "effects": [
-      { "trigger": "battlecry", "action": "summon_shadow_turret", "target": "none" }
+      {
+        "trigger": "battlecry",
+        "action": "summon_shadow_turret",
+        "target": "none"
+      }
     ],
-    "text": "战吼:若你的炮台在场,在维尔达相邻的空格放置一座影子炮台(复制你的炮台,突袭,回合结束时消失)。",
+    "text": "战吼:若你的炮台在场,在维尔达相邻的空格放置一座影子炮台(复制你炮台当前的面板与模块,获得突袭;长期存在,直到被消灭)。",
     "art_prompt": "a master artificer-woman surrounded by deploying gun parts and blueprints, the whole line lighting up"
   },
-
   {
     "id": "uv_calibrate",
     "name": "重新部署",
@@ -376,7 +466,13 @@
     "rarity": "common",
     "cost": 1,
     "effects": [
-      { "trigger": "play", "action": "grant_keyword", "target": "target_unit_ally", "keyword": "mobilized", "duration": "end_of_turn" }
+      {
+        "trigger": "play",
+        "action": "grant_keyword",
+        "target": "target_unit_ally",
+        "keyword": "mobilized",
+        "duration": "end_of_turn"
+      }
     ],
     "text": "一个友方架设随从本回合可移动一格。",
     "art_prompt": "a dwarf crew unbolting a turret from its mount and rolling it to a new firing position, sparks and chains"
@@ -389,7 +485,12 @@
     "rarity": "common",
     "cost": 2,
     "effects": [
-      { "trigger": "play", "action": "heal", "target": "target_unit", "amount": 4 }
+      {
+        "trigger": "play",
+        "action": "heal",
+        "target": "target_unit",
+        "amount": 4
+      }
     ],
     "text": "一个随从恢复 4 点生命。",
     "art_prompt": "mechanics swarming a smoking turret with hammers and rivet guns"
@@ -402,7 +503,12 @@
     "rarity": "rare",
     "cost": 3,
     "effects": [
-      { "trigger": "play", "action": "summon", "summon_card_id": "uv_sentry_token", "amount": 2 }
+      {
+        "trigger": "play",
+        "action": "summon",
+        "summon_card_id": "uv_sentry_token",
+        "amount": 2
+      }
     ],
     "text": "在你的底线行召唤两座 1/2 哨戒炮(射程 2、架设)。",
     "art_prompt": "supply crates cracking open mid-airdrop, sentry turrets unfolding their legs"
@@ -415,7 +521,11 @@
     "rarity": "rare",
     "cost": 2,
     "effects": [
-      { "trigger": "play", "action": "field_rebuild", "target": "none" }
+      {
+        "trigger": "play",
+        "action": "field_rebuild",
+        "target": "none"
+      }
     ],
     "text": "将历史池中当前未在装的模块随机 2 个装回你的炮台(空位不足则装到满;无合法目标不可使用)。",
     "art_prompt": "engineers digging in the gun line with sandbags and salvaged plating, refitting an emplacement from a parts crate"
@@ -428,7 +538,11 @@
     "rarity": "epic",
     "cost": 3,
     "effects": [
-      { "trigger": "play", "action": "mirror_module", "target": "none" }
+      {
+        "trigger": "play",
+        "action": "mirror_module",
+        "target": "none"
+      }
     ],
     "text": "复制你炮台上的一件在装模块并装配(无视同名唯一;需 1 个空位;开关类复制无增益)。",
     "art_prompt": "twin mechanical arms holding up two identical glowing gun components face to face over a workbench, mirrored highlights, blueprint scrolls and calipers scattered below"

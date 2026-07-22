@@ -145,8 +145,12 @@ public sealed class PlaybackDirector
 			case CardDrawnEvent cd when cd.Seat == _view.ViewSeat:
 				_sfx.Play("draw");
 				break;
-			case UnitDeployedEvent:
+			case UnitDeployedEvent ude:
 				_sfx.Play("play");
+				// 影子炮台 (docs/20 §S15, 长期存在版): announce the 维尔达 copy so it reads as a real persistent turret,
+				// not just another body — it's a snapshot of your turret and stays until killed.
+				if (_view.View.Units.FirstOrDefault(u => u.EntityId == ude.UnitEntityId)?.IsShadow == true)
+					_view.FloatText(_view.CellScreenPos(ude.Cell) + new Vector2(BattleTheme.CellW / 2f - 60, 0), "影子炮台·突袭!", BattleTheme.CostColor);
 				await Delay(0.05);
 				break;
 			case UnitMovedEvent m when _view.Standee(m.UnitEntityId) is { } node:

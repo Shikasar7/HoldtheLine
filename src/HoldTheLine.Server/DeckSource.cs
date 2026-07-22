@@ -13,7 +13,16 @@ public sealed class DeckSource(DeckStore decks, GameContent content)
     public ResolvedDeck Resolve(string guestId, string deckId)
     {
         if (decks.Get(guestId, deckId) is { } saved)
+        {
+            // docs/20 §6-U6 迁移: a rework can REMOVE cards (掘世匠会 砍了 13+ 张), so a player's saved deck may
+            // reference ids the current data no longer knows. Reject it up front with a fixable message + the
+            // missing count, instead of letting an unknown id crash game creation deeper in. 不自动替换成等价卡.
+            var removed = saved.CardIds.Where(id => !content.Cards.TryGet(id, out _)).Distinct(StringComparer.Ordinal).ToList();
+            if (removed.Count > 0)
+                throw new ProtocolError("deck_needs_repair",
+                    $"卡组「{saved.Name}」含 {removed.Count} 张已移除的卡牌,请在牌组编辑器中修复后再对战。");
             return new ResolvedDeck(saved.CardIds, saved.Leader);
+        }
         if (content.FindDeck(deckId) is { } built)
             return new ResolvedDeck(built.Expand(), built.Leader);
         throw new ProtocolError("unknown_deck", $"No deck '{deckId}'.");

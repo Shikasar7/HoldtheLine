@@ -481,7 +481,7 @@ public class UndervaultTurretTests
     // ---- S15 影子炮台 ----
 
     [Fact]
-    public void S15_ShadowTurret_copiesPanel_fullHp_assault_thenVanishes()
+    public void S15_ShadowTurret_copiesPanel_fullHp_assault_persistent()
     {
         var (s, ctx, t) = Build(AnchorPlatform); // atk 2, maxHp 6
         t.Turret!.DamageTaken = 2;
@@ -495,10 +495,9 @@ public class UndervaultTurretTests
         Assert.Equal(6, shadow.CurrentHp);                // 满血落地
         Assert.True(shadow.HasKeyword(Keyword.Assault));  // 突袭
         Assert.Contains(AnchorPlatform, shadow.Turret!.Modules);
-
-        ctx.ExpireShadowTurrets(0);
-        Assert.DoesNotContain(s.Units, u => u.Turret is { IsShadow: true }); // 回合末消失
-        Assert.Contains(s.Units, u => u.Turret is { IsShadow: false });      // 本体仍在
+        // 长期存在版 (用户改版): the shadow persists (no turn-end expiry) but is still IsShadow — 唯一/模块指向 仍是本体.
+        Assert.Same(t, ctx.FriendlyTurret(0));            // 本体炮台仍是"你的炮台"
+        Assert.NotSame(shadow, ctx.FriendlyTurret(0));    // 影子不占本体位
     }
 
     [Fact]
@@ -511,6 +510,35 @@ public class UndervaultTurretTests
         ctx.ProcessDeaths();
         Assert.Empty(s.Player(0).PendingModules);                   // 亡语类模块对影子惰性
         Assert.Contains(FailsafePod, s.Player(0).InstalledHistory); // 本体保险舱未作废
+    }
+
+    [Fact]
+    public void S15_BothPlayers_eachVela_copiesOwnTurret()
+    {
+        // Repro: 双方都是匠会且都有炮台,A 的维尔达复制炮台后,B 的维尔达也应复制自己的炮台。
+        var state = MinimalState();
+        var ctx = new ResolutionContext(state, Db);
+        ctx.PlaceTurret(0, new Cell(2, 0));
+        ctx.PlaceTurret(1, new Cell(2, 3));
+        int v0 = GiveCard(state, 0, "uv_master_artificer");
+        int v1 = GiveCard(state, 1, "uv_master_artificer");
+        state.Player(0).Mana = 10;
+        var r = new Resolver(Db, Leaders);
+
+        var a = r.Execute(state, new PlayCardCommand { Seat = 0, CardEntityId = v0, TargetCell = new Cell(0, 0) });
+        Assert.True(a.Success, a.Error?.Message);
+        Assert.Contains(a.State!.Units, u => u.OwnerSeat == 0 && u.Turret is { IsShadow: true });
+
+        var b = r.Execute(a.State!, new EndTurnCommand { Seat = 0 });
+        Assert.True(b.Success, b.Error?.Message);
+        Assert.Contains(b.State!.Units, u => u.OwnerSeat == 0 && u.Turret is { IsShadow: true }); // A 的影子长期存在
+        Assert.Equal(1, b.State!.ActiveSeat);
+        b.State!.Player(1).Mana = 10;
+
+        var c = r.Execute(b.State!, new PlayCardCommand { Seat = 1, CardEntityId = v1, TargetCell = new Cell(0, 3) });
+        Assert.True(c.Success, c.Error?.Message);
+        Assert.Contains(c.State!.Units, u => u.OwnerSeat == 1 && u.Turret is { IsShadow: true }); // B 也复制
+        Assert.Contains(c.State!.Units, u => u.OwnerSeat == 0 && u.Turret is { IsShadow: true }); // A 的影子仍在场
     }
 
     // ---- §1.1 铸炮唯一 ----

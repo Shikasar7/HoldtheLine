@@ -567,9 +567,8 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 		// keyword list, so 持盾/坚守 track the current charge / not-moved condition rather than mere presence.
 		SetStandeeStatuses(btn, StandeeStatuses(u));
 
-		// Dim the active player's own units that can no longer act (集结中 or already spent).
-		if (u.OwnerSeat == view.ActiveSeat && !actionable.Contains(u.EntityId))
-			btn.Modulate = new Color(0.6f, 0.6f, 0.6f);
+		// Dim spent units; 影子炮台 (docs/20 §S15) gets a ghostly tint so it reads as a temporary copy.
+		btn.Modulate = StandeeModulate(u, view, actionable);
 		btn.SetMeta("owner", u.OwnerSeat);
 		btn.SetMeta("bg", bg);
 		btn.SetMeta("cardId", u.CardId);
@@ -592,7 +591,15 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 		// A fire-and-forget Flash tween must not keep overriding the modulate we set below (a freed
 		// node used to take its tween with it — a reused node has to kill it explicitly).
 		PlaybackDirector.KillFlashTween(btn);
-		btn.Modulate = u.OwnerSeat == view.ActiveSeat && !actionable.Contains(u.EntityId)
+		btn.Modulate = StandeeModulate(u, view, actionable);
+	}
+
+	/// <summary>Standee tint: 影子炮台 (docs/20 §S15) renders半透明暗蓝 (a temporary copy); the active seat's spent
+	/// units dim; everything else is full white.</summary>
+	private static Color StandeeModulate(UnitView u, PlayerView view, HashSet<int> actionable)
+	{
+		if (u.IsShadow) return new Color(0.62f, 0.72f, 0.95f, 0.62f);
+		return u.OwnerSeat == view.ActiveSeat && !actionable.Contains(u.EntityId)
 			? new Color(0.6f, 0.6f, 0.6f)
 			: Colors.White;
 	}
@@ -1129,10 +1136,51 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 	private void SelectCard(int cardEntityId, bool autoSubmit)
 	{
 		if (_busy) return;
-		var handCard = _host.GetView(ViewSeat).Self.Hand.FirstOrDefault(h => h.EntityId == cardEntityId);
+		var view = _host.GetView(ViewSeat);
+		var handCard = view.Self.Hand.FirstOrDefault(h => h.EntityId == cardEntityId);
+		// 掘世匠会 装配 (docs/20): a module / 镜像工坊 does not target the board — a tap installs (free slot) or pops
+		// a module picker (满位报废 / 镜像复制). Handled host-side; the board-targeting state machine is bypassed.
+		if (handCard != null && _cards.TryGet(handCard.CardId, out var mdef) && IsModulePlay(mdef))
+		{
+			if (autoSubmit) TryHandleModulePlay(cardEntityId, mdef, view); // a drag-start just no-ops (no board drop)
+			return;
+		}
 		bool crossAim = handCard != null && _cards.TryGet(handCard.CardId, out var cardDef)
 			&& cardDef.Effects.Any(e => e.Target == "cell_cross_all"); // 十字 AOE → hover shows friendly-fire footprint
 		_targeting.SelectCard(cardEntityId, autoSubmit, crossAim);
+	}
+
+	/// <summary>Whether a hand card is a 掘世匠会 module install (Equipment) or a 镜像工坊 order — both pick an in-装
+	/// module, not a board target, so they route to <see cref="ModulePickerPanel"/> instead of board targeting.</summary>
+	private static bool IsModulePlay(CardDefinition def) =>
+		def.Type == CardType.Equipment
+		|| def.Effects.Any(e => e.Trigger == "play" && e.Action == "mirror_module");
+
+	/// <summary>Routes a module play (docs/20): a free-slot install submits immediately; a full turret pops the 报废
+	/// picker; 镜像工坊 pops the 复制 picker. All candidates come from the engine's LegalCommands (server-authoritative).</summary>
+	private void TryHandleModulePlay(int cardEntityId, CardDefinition def, PlayerView view)
+	{
+		var candidates = _host.LegalCommands(ViewSeat)
+			.OfType<PlayCardCommand>().Where(p => p.CardEntityId == cardEntityId).Cast<Command>().ToList();
+		if (candidates.Count == 0)
+		{
+			// Distinguish WHY it's unplayable (docs/20): 无炮台 / 同名唯一 / 镜像无料. A full-turret non-dup module
+			// still yields 顶替 candidates, so reaching here for Equipment means 无炮台 or 已装同名.
+			var turret = view.Units.FirstOrDefault(u => !u.IsShadow && u.OwnerSeat == ViewSeat && u.Modules != null);
+			Log(turret is null ? "需要炮台在场才能装配模块。"
+				: def.Type == CardType.Equipment ? "炮台已装备相同模块,不可装备重复模块。"
+				: "炮台上没有可复制的模块。");
+			return;
+		}
+		if (def.Type == CardType.Equipment)
+		{
+			// A free-slot install carries no ReplacedModuleCardId → play it straight away.
+			if (candidates.OfType<PlayCardCommand>().FirstOrDefault(p => p.ReplacedModuleCardId is null) is { } free)
+			{ Submit(free); return; }
+			ModulePickerPanel.ShowScrap(_overlayLayer, _cards, _sfx, view, candidates, Submit); // 满位顶替
+			return;
+		}
+		ModulePickerPanel.ShowMirror(_overlayLayer, _cards, _sfx, view, candidates, Submit); // 镜像工坊
 	}
 
 	private void OnUnitClicked(int entityId)
@@ -1805,12 +1853,69 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 		CardView.FillDetail(_detailPanel, def, new Vector2(DetailW, DetailH), pad: 16f, artH: 264f, statStep: 158f,
 			live: new CardView.LiveUnitStats(u.Atk, u.CurrentHp, u.MaxHp), keywords: u.Keywords);
 
+		// 掘世匠会 炮台 (docs/20 §2): overlay the in-装 loadout at the bottom — for a turret this matters more than
+		// the generic printed lore. u.Modules is non-null only on a 工造炮台/影子炮台. The 历史池 (战地重构 取材) is
+		// shown only for the viewer's OWN real turret (server-authoritative, self-visible per PlayerView).
+		if (u.Modules is { } mods)
+		{
+			var history = !u.IsShadow && u.OwnerSeat == ViewSeat ? _host.GetView(ViewSeat).Self.InstalledHistory : null;
+			AddTurretModuleStrip(mods, u.IsShadow, history);
+		}
+
 		// Close button added last so it sits on top of the art and is always clickable.
 		var close = BattleTheme.MakeButton(new Vector2(DetailW - 46, 10), new Vector2(36, 36), BattleTheme.PanelDark, BattleTheme.TextDim, 1, 8);
 		close.Text = "✕";
 		close.AddThemeFontSizeOverride("font_size", 20);
 		close.Pressed += HideDetail;
 		_detailPanel.AddChild(close);
+	}
+
+	/// <summary>掘世匠会 炮台装配面板 (docs/20 §2): a bottom strip on the unit inspector listing the turret's in-装
+	/// modules (grouped, 镜像 duplicates shown as ×N) and the 5-slot count. Empty turret shows 裸炮.</summary>
+	private void AddTurretModuleStrip(System.Collections.Generic.IReadOnlyList<string> mods, bool isShadow,
+		System.Collections.Generic.IReadOnlyList<string>? history)
+	{
+		bool showHistory = history is { Count: > 0 };
+		float stripH = showHistory ? 214f : 170f;
+		var strip = new Panel { Position = new Vector2(12, DetailH - stripH - 12), Size = new Vector2(DetailW - 24, stripH) };
+		strip.AddThemeStyleboxOverride("panel", BattleTheme.Box(new Color(0.06f, 0.05f, 0.05f, 0.94f), BattleTheme.Accent, 1, 8));
+		_detailPanel.AddChild(strip);
+
+		string head = isShadow ? $"影子炮台 · 复制装配  {mods.Count}/5" : $"装配模块  {mods.Count}/5";
+		var title = BattleTheme.MakeLabel(head, 18, BattleTheme.TextMain, HorizontalAlignment.Left);
+		title.AddThemeFontOverride("font", BattleTheme.UiFontBold);
+		title.Position = new Vector2(12, 8); title.Size = new Vector2(DetailW - 48, 26);
+		strip.AddChild(title);
+
+		float y = 40f;
+		if (mods.Count == 0)
+		{
+			var empty = BattleTheme.MakeLabel("裸炮 · 尚未装配任何模块", 15, BattleTheme.TextDim, HorizontalAlignment.Left);
+			empty.Position = new Vector2(14, y); empty.Size = new Vector2(DetailW - 52, 24);
+			strip.AddChild(empty);
+			y += 26f;
+		}
+		else
+			foreach (var g in mods.GroupBy(id => id))
+			{
+				_cards.TryGet(g.Key, out var md);
+				int n = g.Count();
+				var line = BattleTheme.MakeLabel($"◆ {(md?.Name ?? g.Key)}{(n > 1 ? $"  ×{n}" : "")}", 15, BattleTheme.TextMain, HorizontalAlignment.Left);
+				line.Position = new Vector2(16, y); line.Size = new Vector2(DetailW - 56, 22);
+				strip.AddChild(line);
+				y += 23f;
+			}
+
+		// 历史池 (docs/20 §2.1): 战地重构 的取材来源 — a compact one-line summary of distinct module names.
+		if (showHistory)
+		{
+			var names = history!.Select(id => _cards.TryGet(id, out var d) ? d.Name : id);
+			var hist = BattleTheme.MakeLabel($"历史池 ({history!.Count})  {string.Join("、", names)}", 13, BattleTheme.TextDim, HorizontalAlignment.Left);
+			hist.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+			hist.ClipContents = true;
+			hist.Position = new Vector2(14, stripH - 46); hist.Size = new Vector2(DetailW - 52, 40);
+			strip.AddChild(hist);
+		}
 	}
 
 	private void HideDetail() => _detailPanel.Visible = false;

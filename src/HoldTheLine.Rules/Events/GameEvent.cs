@@ -52,7 +52,6 @@ namespace HoldTheLine.Rules.Events;
 [JsonDerivedType(typeof(ModuleInstalledEvent), "module_installed")]
 [JsonDerivedType(typeof(TurretModulesInheritedEvent), "turret_modules_inherited")]
 [JsonDerivedType(typeof(TurretFailsafeEvent), "turret_failsafe")]
-[JsonDerivedType(typeof(ShadowTurretExpiredEvent), "shadow_turret_expired")]
 [JsonDerivedType(typeof(GameEndedEvent), "game_ended")]
 public abstract record GameEvent
 {
@@ -414,12 +413,6 @@ public sealed record TurretFailsafeEvent : GameEvent
     public required IReadOnlyList<string> SavedModuleCardIds { get; init; }
 }
 
-/// <summary>影子炮台 (docs/20 §S15) vanished at its owner's turn end. Public.</summary>
-public sealed record ShadowTurretExpiredEvent : GameEvent
-{
-    public required int Seat { get; init; }
-    public required int UnitEntityId { get; init; }
-}
 
 public sealed record GameEndedEvent : GameEvent
 {

@@ -337,9 +337,11 @@ internal sealed class ResolutionContext
         Emit(new TurretFailsafeEvent { Seat = seat, SavedModuleCardIds = saved });
     }
 
-    /// <summary>影子炮台 (维尔达, docs/20 §S15): a runtime SNAPSHOT of <paramref name="source"/> turret — same modules
-    /// (so RecomputeTurret yields the same panel) + external layers, 满血, 突袭 (Assault). Not unique (IsShadow),
-    /// can't be module/镜像/重构/保险舱-targeted, and vanishes at its owner's turn end. Does not enter the history pool.</summary>
+    /// <summary>影子炮台 (维尔达, docs/20 §S15, 用户改版: 长期存在版): a runtime SNAPSHOT of <paramref name="source"/>
+    /// turret — same modules (so RecomputeTurret yields the same panel) + external layers, 满血, 突袭 (Assault). It is
+    /// a PERSISTENT independent copy (no longer expires at turn end): it stays on the board until killed. Flagged
+    /// IsShadow so it does NOT count toward turret uniqueness (领袖 铸炮 still allowed), can't be
+    /// module/镜像/重构-targeted, its death does not trigger 保险舱, and it never enters the history pool.</summary>
     public void SummonShadowTurret(int seat, UnitInstance source, Cell cell)
     {
         var st = source.Turret!;
@@ -368,17 +370,6 @@ internal sealed class ResolutionContext
             Cell = cell, Atk = unit.Atk, Hp = unit.CurrentHp,
         });
         TriggerTrapOnEntry(unit);
-    }
-
-    /// <summary>影子炮台 消失 (docs/20 §S15): removes <paramref name="seat"/>'s shadow turrets at that seat's turn end.
-    /// Direct removal — no deathrattle, no history, no 保险舱 (亡语类模块对影子惰性), no death sweep.</summary>
-    public void ExpireShadowTurrets(int seat)
-    {
-        foreach (var s in State.Units.Where(u => u.OwnerSeat == seat && u.Turret is { IsShadow: true }).ToList())
-        {
-            State.Units.Remove(s);
-            Emit(new ShadowTurretExpiredEvent { Seat = seat, UnitEntityId = s.EntityId });
-        }
     }
 
     /// <summary>战地重构 (docs/20 §S8): install up to <paramref name="count"/> RANDOM modules from <paramref
