@@ -111,23 +111,75 @@ public class TrapTests
     }
 
     [Fact]
-    public void Revealed_trap_reticks_only_at_the_occupant_owners_turn_end_and_burns_out_after_two_turns()
+    public void Stepping_on_a_trap_sears_once_and_the_same_turn_end_does_not_re_sear()
     {
+        // Regression (docs/21 §1.7 timing): the step turn's own end used to double-dip — entry 灼蚀 + an
+        // immediate end-of-turn re-tick meant 6 灼蚀 in a single turn. Stepping on must cost exactly one hit.
         var state = TestKit.NewGame();
         state.ActiveSeat = 1;
-        Trap(state, 0, new Cell(2, 1), revealed: true); // burning, TurnsLeft = 2
-        var occupant = TestKit.Place(state, 1, "t_guardian", new Cell(2, 1)); // 2/8, sits on the fire
+        Trap(state, 0, new Cell(2, 1));
+        var mover = TestKit.Place(state, 1, "t_big", new Cell(2, 2)); // 5/6
         var resolver = TestKit.NewResolver();
 
-        state = resolver.Execute(state, new EndTurnCommand { Seat = 1 }).State!; // owner's turn end: 8 → 5, TurnsLeft → 1
-        Assert.Equal(5, state.FindUnit(occupant.EntityId)!.CurrentHp);
-        Assert.Single(state.CellStates);
+        state = resolver.Execute(state, new MoveUnitCommand
+        { Seat = 1, UnitEntityId = mover.EntityId, To = new Cell(2, 1) }).State!; // entry: 6 → 3
+        Assert.Equal(3, state.FindUnit(mover.EntityId)!.CurrentHp);
 
-        // The ENEMY's turn end does not re-sear the seat-1 occupant — the fire only counts down and expires.
-        var last = resolver.Execute(state, new EndTurnCommand { Seat = 0 });
-        Assert.Equal(5, last.State!.FindUnit(occupant.EntityId)!.CurrentHp);
+        state = resolver.Execute(state, new EndTurnCommand { Seat = 1 }).State!; // step turn end: NO second hit
+        Assert.Equal(3, state.FindUnit(mover.EntityId)!.CurrentHp);
+        Assert.Single(state.CellStates); // the fire is still burning, waiting for the occupant's NEXT turn
+    }
+
+    [Fact]
+    public void Trap_re_sears_at_the_occupant_owners_next_turn_end_after_surviving_the_enemy_turn()
+    {
+        // The full timeline: step (entry hit) → own turn end (no) → enemy turn end (no) → own NEXT turn end (hit),
+        // then the fire burns out. "现形后火焰持续 2 回合" = two of the occupant-owner's turns (step turn + one more).
+        var state = TestKit.NewGame();
+        state.ActiveSeat = 1;
+        Trap(state, 0, new Cell(2, 1));
+        var mover = TestKit.Place(state, 1, "t_guardian", new Cell(2, 2)); // 2/8, survives 3 sears
+        var resolver = TestKit.NewResolver();
+
+        state = resolver.Execute(state, new MoveUnitCommand
+        { Seat = 1, UnitEntityId = mover.EntityId, To = new Cell(2, 1) }).State!; // entry: 8 → 5, revealed
+        Assert.Equal(5, state.FindUnit(mover.EntityId)!.CurrentHp);
+        Assert.False(state.CellStates.Single(s => s.Kind == "trap").Hidden);
+
+        state = resolver.Execute(state, new EndTurnCommand { Seat = 1 }).State!; // step turn end: no re-sear
+        Assert.Equal(5, state.FindUnit(mover.EntityId)!.CurrentHp);
+
+        state = resolver.Execute(state, new EndTurnCommand { Seat = 0 }).State!; // enemy turn end: no re-sear
+        Assert.Equal(5, state.FindUnit(mover.EntityId)!.CurrentHp);
+        Assert.Single(state.CellStates); // fire survived to the occupant's own next turn
+
+        var last = resolver.Execute(state, new EndTurnCommand { Seat = 1 }); // occupant's NEXT turn end: 5 → 2, expires
+        Assert.Equal(2, last.State!.FindUnit(mover.EntityId)!.CurrentHp);
         Assert.Empty(last.State!.CellStates);
         Assert.Contains(last.Events, e => e is TrapExpiredEvent);
+    }
+
+    [Fact]
+    public void Trap_does_not_re_sear_an_occupant_that_walked_off_before_its_turn_end()
+    {
+        // "若仍在格上再判一次" — stepping off before your turn ends dodges the second 灼蚀; the fire then burns out.
+        var state = TestKit.NewGame();
+        state.ActiveSeat = 1;
+        Trap(state, 0, new Cell(2, 1));
+        var mover = TestKit.Place(state, 1, "t_guardian", new Cell(2, 2)); // 2/8
+        var resolver = TestKit.NewResolver();
+
+        state = resolver.Execute(state, new MoveUnitCommand
+        { Seat = 1, UnitEntityId = mover.EntityId, To = new Cell(2, 1) }).State!; // entry: 8 → 5
+        state = resolver.Execute(state, new EndTurnCommand { Seat = 1 }).State!; // step turn end: no hit
+        state = resolver.Execute(state, new EndTurnCommand { Seat = 0 }).State!; // enemy turn end: no hit
+
+        // seat 1's next turn: walk OFF the fire, then end — no second sear lands.
+        state = resolver.Execute(state, new MoveUnitCommand
+        { Seat = 1, UnitEntityId = mover.EntityId, To = new Cell(2, 2) }).State!;
+        var last = resolver.Execute(state, new EndTurnCommand { Seat = 1 });
+        Assert.Equal(5, last.State!.FindUnit(mover.EntityId)!.CurrentHp);
+        Assert.Empty(last.State!.CellStates); // abandoned fire burned out
     }
 
     [Fact]

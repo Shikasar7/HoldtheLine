@@ -609,17 +609,29 @@ internal sealed class ResolutionContext
         ProcessDeaths();
     }
 
-    /// <summary>End-of-turn re-tick (docs/21 §1.7): every revealed trap burns an occupant owned by the seat
-    /// whose turn is ending (该随从**所有者**每次回合结束才判定 — the enemy's turn end does not re-sear your
-    /// unit), then counts down; the fire is removed when it reaches zero.</summary>
+    /// <summary>End-of-turn re-tick (docs/21 §1.7, timing clarified): a revealed trap only acts at the end of its
+    /// OCCUPANT-OWNER's turn — never the enemy's — and never on the very turn the occupant stepped in (the entry
+    /// 灼蚀 already counted for that turn). So a unit that walks onto the fire takes the entry hit, then sits safely
+    /// through its own turn end AND the enemy's turn, and is re-seared only at the end of its NEXT turn; the fire
+    /// then burns down over 2 of the occupant-owner's turns and expires. While the cell is abandoned (empty) the
+    /// fire just counts down at every boundary so it can never linger forever.</summary>
     public void TickTraps()
     {
         foreach (var trap in State.CellStates.Where(s => s.Kind == "trap" && s.Revealed).ToList())
         {
-            if (State.UnitAt(trap.Cell) is { } occupant && occupant.OwnerSeat == State.ActiveSeat)
-                ApplyTrapSear(trap, occupant, revealed: false);
-            trap.TurnsLeft--;
-            if (trap.TurnsLeft <= 0)
+            if (State.UnitAt(trap.Cell) is { } occupant)
+            {
+                // The enemy's turn is ending with the occupant still on the fire: it waits — neither re-searing
+                // nor burning down — so it survives to the occupant's own next turn end (该随从所有者每次回合结束才判定).
+                if (occupant.OwnerSeat != State.ActiveSeat)
+                    continue;
+                // The occupant's OWN turn is ending. Re-sear unless the trap already bit it THIS turn (the entry
+                // hit on the step turn, or a same-turn re-entry) — that would double-dip a single turn.
+                if (trap.LastSearTurn != State.TurnNumber)
+                    ApplyTrapSear(trap, occupant, revealed: false);
+            }
+            // Fall through (occupied-and-owner, or abandoned): burn the fire down one turn.
+            if (--trap.TurnsLeft <= 0)
             {
                 State.CellStates.Remove(trap);
                 Emit(new TrapExpiredEvent { OwnerSeat = trap.OwnerSeat, Cell = trap.Cell });
@@ -630,6 +642,7 @@ internal sealed class ResolutionContext
 
     private void ApplyTrapSear(CellState trap, UnitInstance victim, bool revealed)
     {
+        trap.LastSearTurn = State.TurnNumber; // guards the step turn's own end from double-dipping (docs/21 §1.7)
         // The event's Damage field shows the 架设-adjusted number (same helper DamageUnit applies internally).
         int amount = DamageMath.EffectAmountAgainst(victim, TrapSearDamage);
         Emit(new TrapTriggeredEvent

@@ -186,8 +186,13 @@ public sealed class CellState
     public bool Hidden { get; set; }
     /// <summary>Trap: has been triggered and its fire is now burning (public). Set in step 4c.</summary>
     public bool Revealed { get; set; }
-    /// <summary>Trap: turns of burning left after reveal; counted down at turn boundaries. Unused by smoke.</summary>
+    /// <summary>Trap: turns of burning left after reveal; counted down at the occupant-owner's turn ends (or at
+    /// every boundary while the cell is abandoned, so it can't linger forever). Unused by smoke.</summary>
     public int TurnsLeft { get; set; }
+    /// <summary>Trap: the TurnNumber of the most recent 灼蚀 (entry OR re-tick). Guards a single turn from
+    /// dealing damage twice — the step turn's own end-of-turn tick must not double-dip the entry hit
+    /// (docs/21 §1.7). Unused by smoke.</summary>
+    public int LastSearTurn { get; set; }
 
     public CellState Clone() => new()
     {
@@ -198,6 +203,7 @@ public sealed class CellState
         Hidden = Hidden,
         Revealed = Revealed,
         TurnsLeft = TurnsLeft,
+        LastSearTurn = LastSearTurn,
     };
 }
 

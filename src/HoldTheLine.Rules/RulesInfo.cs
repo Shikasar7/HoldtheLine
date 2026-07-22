@@ -48,8 +48,14 @@ public static class RulesInfo
     /// TargetModuleCardId (additive — old logs replay unchanged);领袖 布罗姆 铸炮 replaces 加农校准. New events
     /// module_installed/turret_modules_inherited/turret_failsafe/shadow_turret_expired. PlayerView adds turret
     /// loadout + history/pending passthrough. Turret is 架设效果伤豁免 (§1.2). 掘世匠会 pool 31→33; 迟缓 reuses 定身.
-    /// DataHash changes — client and server must ship this same data (server + client 同步重部署).</remarks>
-    public const string Version = "0.10.0";
+    /// DataHash changes — client and server must ship this same data (server + client 同步重部署).
+    /// 0.10.1 (2026-07-22): 烬火陷阱 timing fix (docs/21 §1.7). Stepping onto a trap used to deal the entry 灼蚀
+    /// AND an immediate re-tick at that same turn's end (6 灼蚀 in one turn). The re-tick now fires only at the
+    /// occupant-owner's turn end and never on the step turn itself, so a unit takes the entry hit, sits safely
+    /// through its own turn end + the enemy turn, and is re-seared at its NEXT turn end. CellState gains an
+    /// internal LastSearTurn guard (server-side only; not in PlayerView, DataHash unchanged). Old command logs
+    /// replay under the new timing. Server + client must ship this same version (Hello handshake gates on it).</remarks>
+    public const string Version = "0.10.1";
 
     /// <summary>压力潮汐 start round, forwarded from the (internal) <see cref="Engine.TurnFlow"/> so the client
     /// HUD can show the tide countdown (docs/17) without hardcoding 8 and drifting from the rule. Read-only
