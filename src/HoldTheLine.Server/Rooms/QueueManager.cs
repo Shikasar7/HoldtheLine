@@ -33,7 +33,7 @@ public sealed class QueueManager : IDisposable
     public void Join(ClientConnection conn, string deckId)
     {
         _deckSource.Resolve(conn.GuestId, deckId); // reject an unknown/illegal deck before queuing
-        int rating = _ladder.Get(conn.GuestId).Rating;
+        int rating = _ladder.Mmr(conn.GuestId); // pair by hidden MMR, not the visible points
         lock (_gate)
         {
             _waiting.RemoveAll(w => w.Conn == conn);
