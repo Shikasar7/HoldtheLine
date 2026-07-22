@@ -30,18 +30,26 @@ public static class DeckStorage
 
     public static List<StoredDeck> LoadAll()
     {
-        if (!Godot.FileAccess.FileExists(Path))
-            return new List<StoredDeck>();
-        using var f = Godot.FileAccess.Open(Path, Godot.FileAccess.ModeFlags.Read);
-        if (f == null)
-            return new List<StoredDeck>();
+        // Main file first, then its .bak (crash window of an interrupted save). A copy that fails to
+        // parse is quarantined, NOT treated as an empty library — treating it as empty made the next
+        // save overwrite the player's entire deck collection with a one-deck list.
+        if (TryParse(UserFile.ReadText(Path)) is { } decks)
+            return decks;
+        UserFile.Quarantine(Path);
+        return TryParse(UserFile.ReadText(Path + ".bak")) ?? new List<StoredDeck>();
+    }
+
+    private static List<StoredDeck>? TryParse(string? json)
+    {
+        if (json is null)
+            return null;
         try
         {
-            return JsonSerializer.Deserialize<List<StoredDeck>>(f.GetAsText()) ?? new List<StoredDeck>();
+            return JsonSerializer.Deserialize<List<StoredDeck>>(json) ?? new List<StoredDeck>();
         }
         catch
         {
-            return new List<StoredDeck>();
+            return null;
         }
     }
 
@@ -99,12 +107,6 @@ public static class DeckStorage
 
     public static string NewId() => "deck-" + System.Guid.NewGuid().ToString("N")[..10];
 
-    private static void Persist(List<StoredDeck> all)
-    {
-        using var f = Godot.FileAccess.Open(Path, Godot.FileAccess.ModeFlags.Write);
-        if (f != null)
-            f.StoreString(JsonSerializer.Serialize(all, new JsonSerializerOptions { WriteIndented = true }));
-        else
-            GD.PushError($"DeckStorage: cannot write {Path}");
-    }
+    private static void Persist(List<StoredDeck> all) =>
+        UserFile.WriteAtomic(Path, JsonSerializer.Serialize(all, new JsonSerializerOptions { WriteIndented = true }));
 }

@@ -34,34 +34,26 @@ public static class Prefs
 
     private static Stored? _cached;
 
-    // Callers hold _gate. Reads _cached, else the file, else defaults.
+    // Callers hold _gate. Reads _cached, else the file (or its .bak after an interrupted save), else defaults.
     private static Stored Load()
     {
         if (_cached is { } c)
             return c;
         Stored? stored = null;
-        if (Godot.FileAccess.FileExists(Path))
+        if (UserFile.ReadBestText(Path) is { } json)
         {
-            using var f = Godot.FileAccess.Open(Path, Godot.FileAccess.ModeFlags.Read);
-            if (f != null)
-            {
-                try { stored = JsonSerializer.Deserialize<Stored>(f.GetAsText()); }
-                catch { stored = null; }
-            }
+            try { stored = JsonSerializer.Deserialize<Stored>(json); }
+            catch { stored = null; }
         }
         _cached = stored ?? new Stored();
         return _cached;
     }
 
-    // Callers hold _gate.
+    // Callers hold _gate. Atomic write via .tmp+rename so a mid-save crash can't truncate prefs.json.
     private static void Save(Stored stored)
     {
         _cached = stored;
-        using var f = Godot.FileAccess.Open(Path, Godot.FileAccess.ModeFlags.Write);
-        if (f != null)
-            f.StoreString(JsonSerializer.Serialize(stored));
-        else
-            GD.PushError($"Prefs: cannot write {Path}");
+        UserFile.WriteAtomic(Path, JsonSerializer.Serialize(stored));
     }
 
     private static T Get<T>(Func<Stored, T> read)
