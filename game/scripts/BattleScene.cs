@@ -17,7 +17,7 @@ namespace HoldTheLine.Game;
 /// PlayerView and LegalCommands only — never authoritative state (enforced by ArchitectureTests).
 /// Both players share the screen; the active player's hand shows, the opponent's is hidden.
 /// </summary>
-public partial class BattleScene : Control
+public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 {
 	private CardDatabase _cards = null!;
 	private LeaderDatabase _leaders = null!;
@@ -29,8 +29,6 @@ public partial class BattleScene : Control
 	private bool _connFailed;            // reconnect permanently failed — a concede can no longer settle the match
 	private System.Action<ConnectionState>? _connHandler; // stored so it can be unhooked from the persistent client
 	private System.Action<RatingChange>? _ratingHandler;  // ranked ELO delta pushed post-match (C3); unhooked on exit
-	private RatingChange? _ratingChange; // latest rating_change (may arrive before or after the win overlay)
-	private Label? _ratingLabel;         // rating line on the result screen, filled/animated once the delta is known
 
 	private Control _boardLayer = null!, _standeeLayer = null!, _handLayer = null!, _hudLayer = null!, _overlayLayer = null!;
 	private readonly Button[,] _cellButtons = new Button[BattleTheme.Cols, BattleTheme.Rows];
@@ -59,7 +57,6 @@ public partial class BattleScene : Control
 
 	// AI art (null → geometric placeholder fallback everywhere).
 	private Texture2D? _boardTex, _cardBackTex, _gemCost, _gemAtk, _gemHp;
-	private readonly Dictionary<string, Texture2D?> _frameTex = new();
 	private TextureRect? _oppAvatar, _selfAvatar;
 
 	// Mode.
@@ -68,51 +65,39 @@ public partial class BattleScene : Control
 	private int _humanSeat;
 	private int _aiSeat;
 
-	private Control? _gameMenu; // in-match menu overlay (继续 / 查看牌组 / 投降 / 返回菜单)
+	private GameMenuPanel _menu = null!; // in-match menu overlay (继续 / 查看牌组 / 投降 / 返回菜单) — panels/GameMenuPanel.cs (docs/22 批次E3)
 	private readonly IReadOnlyList<string>?[] _deckCards = new IReadOnlyList<string>?[2]; // brought decklists, for 查看牌组
 	private readonly string[] _seatFactionMark = { "", "" }; // hotseat 交接提示: each seat's short faction name (自选卡组后不再固定铁誓/游群)
 
-	private Control? _mulliganPanel;     // 起手重抽 overlay (docs/11 §6), offline + online
-	private int _mulliganMode;           // online only: 0 none, 1 selecting, 2 waiting-for-opponent
-	private int _mulliganShownSeat = -1; // offline hotseat: seat whose panel is currently up
-	private Label? _mulliganTimerLabel;  // countdown label on the online panel; freed with the panel
-	private int _mulliganTimerSecs;      // ticks down locally, re-synced by MulliganTimerReceived
+	private MulliganPanel _mulligan = null!; // 起手重抽 overlay (docs/11 §6), offline + online — panels/MulliganPanel.cs (docs/22 批次E3)
+	private MatchEndPanel _matchEnd = null!; // 结算面板 (胜负/战报/排位评分) — panels/MatchEndPanel.cs (docs/22 批次E3)
 
-	// Presentation queue (plan §10 item 9). Every public event — whether the in-process host dispatched
-	// it on the main thread or the RemoteGameHost received it on the WebSocket thread — lands in this
-	// thread-safe queue and is played back one BEAT at a time by a single consumer (RunPlayback), paced
-	// by animation rather than by network arrival. Local and online drive the same consumer, so the feel
-	// work in items 2/3/5 (attack stages, projectiles, hit feedback, opponent card reveal) has one seam.
-	private readonly System.Collections.Concurrent.ConcurrentQueue<GameEvent> _playQueue = new();
-	private bool _playing;
+	// 回放导演 (docs/22 批次E1): owns the presentation queue and the whole "consume GameEvent → animation"
+	// layer (beats, staged attacks, projectiles, FX, shake, floaters). BattleScene feeds it events and
+	// implements IPlaybackHost (board geometry + scene callbacks) — see PlaybackDirector.cs.
+	private PlaybackDirector _director = null!;
 	private Label? _connLabel;   // connection / opponent status banner (online only)
 	private Label? _timerLabel;  // turn countdown (online only)
+	private int _timerShownSecs = int.MinValue; // 批次C2: 倒计时节流 — 上次显示的 (secs, mine),没变就不碰 Label
+	private bool _timerShownMine;
 	private double _turnSecondsLeft;
 	private int _turnActiveSeat = -1;
 
 	// A view is "fixed" (always the local seat, mirrored for seat 1) in vs-AI and online; hotseat flips.
 	private bool FixedView => _vsAi || _online;
 
-	// Selection / targeting state.
-	private enum SelKind { None, Card, Unit, Leader }
-	private SelKind _selKind = SelKind.None;
-	private List<Command> _candidates = new();
-	private Cell? _chosenCell;
-	// docs/21: after cell+target are pinned, a 引导·N order still needs its 引导者, and 焰鞭's friendly mode a
-	// 二段目标 — an extra unit pick that narrows the remaining candidates before submit.
-	private enum ExtraPick { None, Channeler, Secondary, Echo }
-	private ExtraPick _extraPick = ExtraPick.None;
+	// Selection / targeting (docs/22 批次E2): the decision state machine — candidate filtering, extra picks
+	// (引导者/二段目标/门德复述) and command convergence — lives in TargetingController (pure C#, no Godot).
+	// BattleScene keeps rendering (highlights, previews, cursor) and forwards input facts via ITargetingHost.
+	private TargetingController _targeting = null!;
 	private Control? _echoBar; // 薪火回响·门德: the 空放/再次施放 button bar shown during an Echo pick
-	private bool _crossPreview; // true while aiming a 十字 AOE order (cell_cross_all) — hover shows the footprint
 
 	// The hand card whose effect is currently being aimed — lifted + enlarged so the player never loses
 	// track of "which card am I resolving" while picking a target (paired with the 取消 button).
 	private readonly Dictionary<int, Button> _handCards = new(); // entityId → hand card button (rebuilt each RenderHand)
 	private Button? _liftedCard; // the node currently lifted; tracked separately so a transient un-lift keeps the model
-	// Which hand card is selected — DERIVED, never stored: every Card-kind candidate is a PlayCardCommand for the
-	// same card. Deriving it means a transient un-lift (mid-drag, a _busy pulse) can never forget it (review fix).
-	private int? SelectedCardId =>
-		_selKind == SelKind.Card && _candidates.FirstOrDefault() is PlayCardCommand p ? p.CardEntityId : null;
+	// Which hand card is selected — derived by the controller from its candidates, never stored (review fix).
+	private int? SelectedCardId => _targeting.SelectedCardId;
 
 	// Hand layout: cards nearly fill the hand strip; the leader panel stacks vertically on the left.
 	private static readonly Vector2 HandCardSize = new(196, 280);
@@ -134,8 +119,6 @@ public partial class BattleScene : Control
 	private Vector2 _dragTarget;      // mouse target the ghost eases toward each frame (item 1)
 	private Control? _dragGhost;
 	private Cell? _dragHoverCell;     // legal cell currently under the cursor (item 1: strengthen its highlight)
-
-	private Tween? _shakeTween;       // active screen-shake tween (item 2/6), killed before a new one starts
 
 	private enum HitKind { Cell, Unit, Leader }
 	private readonly record struct Hit(HitKind Kind, Cell Cell, int UnitId);
@@ -172,9 +155,20 @@ public partial class BattleScene : Control
 		_cards = GameData.LoadCards();
 		_leaders = GameData.LoadLeaders();
 		_statusCatalog = GameData.LoadStatusCatalog();
+		_targeting = new TargetingController(this);
 
 		BuildStaticUi();
 		_sfx = new SfxBank(this);
+		_director = new PlaybackDirector(this, this, _overlayLayer, _cards, _sfx);
+		_mulligan = new MulliganPanel(_overlayLayer, _handLayer, _sfx, _cards);
+		_matchEnd = new MatchEndPanel(this, _overlayLayer, _sfx, _online);
+		_menu = new GameMenuPanel(_overlayLayer, this, _sfx, _cards, _online,
+			isMatchOver: () => _host.GetView(ViewSeat).Result != null,
+			surrenderSubText: () => FixedView ? "本局将判负" : $"玩家{OfflineConcedeSeat() + 1} 判负",
+			deckCards: () => _deckCards[ViewSeat],
+			onSurrender: ConcedeMatch,
+			onLeaveAsConcede: LeaveAsConcede,
+			onExitToMenu: () => SceneFx.ChangeScene(this, "res://scenes/menu/Menu.tscn"));
 
 		if (_online)
 		{
@@ -206,7 +200,7 @@ public partial class BattleScene : Control
 		var local = new LocalGameHost(_cards, _leaders, config, aiProfile: AiProfile.For(GameConfig.VsAiLevel));
 		_localHost = local;
 		_host = local;
-		_host.Subscribe(0, e => _playQueue.Enqueue(e)); // seat-0 public stream → presentation queue (RunPlayback animates + tallies)
+		_host.Subscribe(0, e => _director.Enqueue(e)); // seat-0 public stream → presentation queue (RunPlayback animates + tallies)
 
 		FullRender();
 
@@ -221,7 +215,11 @@ public partial class BattleScene : Control
 	{
 		if (customCards is { Count: > 0 })
 			return (customCards, customLeader ?? "");
-		var d = GameData.LoadDecks().First(x => x.Id == builtinId);
+		// The requested built-in may be missing (damaged/partial data files — GameData now skips bad
+		// files instead of throwing). Fall back to any intact deck rather than crashing scene setup.
+		var decks = GameData.LoadDecks();
+		var d = decks.FirstOrDefault(x => x.Id == builtinId) ?? decks.FirstOrDefault()
+			?? throw new System.IO.InvalidDataException($"没有任何可用卡组(找不到 {builtinId})——游戏数据已损坏,请重新安装。");
 		return (d.Expand(), d.Leader);
 	}
 
@@ -239,8 +237,6 @@ public partial class BattleScene : Control
 		_gemCost = BattleTheme.Tex("ui/gem_cost.png");
 		_gemAtk = BattleTheme.Tex("ui/gem_atk.png");
 		_gemHp = BattleTheme.Tex("ui/gem_hp.png");
-		foreach (var f in new[] { "iron_vow", "wildpack", "neutral", "duskweaver", "undervault" })
-			_frameTex[f] = BattleTheme.Tex($"ui/frame_{f}.png"); // duskweaver/undervault frames land in X4 (null-safe until then)
 
 		if (_boardTex != null)
 		{
@@ -452,6 +448,24 @@ public partial class BattleScene : Control
 		RefreshInteractable(view);
 	}
 
+	/// <summary>批次C2: 极端场景(重连 resync 等快照可能整体跳变)的全量重建入口 — 丢弃全部立牌/手牌
+	/// 节点再走 FullRender(空字典下增量路径退化为全部重建)。常规刷新走 FullRender 的增量 diff。</summary>
+	private void ForceFullRebuild()
+	{
+		foreach (var node in _standees.Values)
+			if (IsInstanceValid(node)) node.QueueFree();
+		_standees.Clear();
+		_emplacementUnits.Clear();
+		foreach (Node c in _handLayer.GetChildren())
+		{
+			_handLayer.RemoveChild(c);
+			c.QueueFree();
+		}
+		_handCards.Clear();
+		_liftedCard = null;
+		FullRender();
+	}
+
 	private const string CellFxName = "__cell_fx";
 
 	/// <summary>docs/21 §1.6/§1.7: paint 烟幕 / 陷阱 overlays onto the board cells. Hidden ENEMY traps are already
@@ -486,79 +500,161 @@ public partial class BattleScene : Control
 		}
 	}
 
+	/// <summary>批次C2 增量渲染: diff by EntityId — 消失的删、新出现的建、仍在的原地更新
+	/// (位置/攻血/关键词行/状态徽标/明暗)。CardId 或归属变化(如 UnitTransformedEvent)时整牌重建。</summary>
 	private void RenderStandees(PlayerView view, HashSet<int> actionable)
 	{
-		foreach (var node in _standees.Values)
-			node.QueueFree();
-		_standees.Clear();
-		_emplacementUnits.Clear();
+		var live = new HashSet<int>(view.Units.Select(u => u.EntityId));
+		foreach (var kv in _standees.ToList())
+		{
+			var u = live.Contains(kv.Key) ? view.Units.First(x => x.EntityId == kv.Key) : null;
+			bool keep = u != null && IsInstanceValid(kv.Value)
+				&& (string)kv.Value.GetMeta("cardId") == u.CardId
+				&& (int)kv.Value.GetMeta("owner") == u.OwnerSeat;
+			if (keep) continue;
+			if (IsInstanceValid(kv.Value)) kv.Value.QueueFree();
+			_standees.Remove(kv.Key);
+		}
 
+		_emplacementUnits.Clear();
 		foreach (var u in view.Units)
 		{
-			var pos = CellScreenPos(u.Cell) + new Vector2(7, 7);
-			var size = new Vector2(BattleTheme.CellW - 14, BattleTheme.CellH - 14);
-			var seatColor = BattleTheme.SeatColor(u.OwnerSeat);
-			var art = BattleTheme.Tex($"standees/{u.CardId}.png");
-
-			// With art the panel goes translucent (seat-tinted) so the board shows through; border keeps ownership readable.
-			var bg = art != null
-				? new Color(seatColor.R, seatColor.G, seatColor.B, 0.22f)
-				: seatColor.Darkened(0.15f);
-			var btn = BattleTheme.MakeButton(pos, size, bg, seatColor, 3, 8);
-			int id = u.EntityId;
-			btn.Pressed += () => OnUnitClicked(id);
-
-			if (art != null)
-				btn.AddChild(BattleTheme.Art(art, new Vector2(2, 2), size - new Vector2(4, 4),
-					TextureRect.StretchModeEnum.KeepAspectCentered));
-
-			btn.AddChild(Pip(u.Atk.ToString(), BattleTheme.AtkColor, new Vector2(6, 4), _gemAtk));
-			var hpColor = u.CurrentHp < u.MaxHp ? BattleTheme.DangerColor : BattleTheme.HpColor;
-			btn.AddChild(Pip(u.CurrentHp.ToString(), hpColor, new Vector2(size.X - 40, 4), _gemHp));
-
-			var name = BattleTheme.MakeOutlinedLabel(ShortName(u.CardId), art != null ? 15 : 17, BattleTheme.TextMain, HorizontalAlignment.Center);
-			name.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
-			name.ClipContents = true;
-			if (art != null) { name.Position = new Vector2(4, size.Y - 24); name.Size = new Vector2(size.X - 8, 22); }
-			else { name.Position = new Vector2(6, 44); name.Size = new Vector2(size.X - 12, 40); }
-			btn.AddChild(name);
-
-			string kw = KeywordLine(u.Keywords);
-			if (kw.Length > 0)
+			if (_standees.TryGetValue(u.EntityId, out var btn))
+				UpdateStandee(btn, u, view, actionable);
+			else
 			{
-				var kwl = BattleTheme.MakeOutlinedLabel(kw, 14, BattleTheme.Accent, HorizontalAlignment.Center);
-				kwl.Position = new Vector2(4, art != null ? size.Y - 46 : size.Y - 26);
-				kwl.Size = new Vector2(size.X - 8, 22);
-				btn.AddChild(kwl);
+				btn = CreateStandee(u, view, actionable);
+				_standeeLayer.AddChild(btn);
+				_standees[u.EntityId] = btn;
 			}
-
-			// Status badges on the card face (buffs left / debuffs right) — driven by LIVE state, not the static
-			// keyword list, so 持盾/坚守 track the current charge / not-moved condition rather than mere presence.
-			SetStandeeStatuses(btn, StandeeStatuses(u));
-
-			// Dim the active player's own units that can no longer act (集结中 or already spent).
-			if (u.OwnerSeat == view.ActiveSeat && !actionable.Contains(u.EntityId))
-				btn.Modulate = new Color(0.6f, 0.6f, 0.6f);
-			btn.SetMeta("owner", u.OwnerSeat);
-			btn.SetMeta("bg", bg);
-			_standeeLayer.AddChild(btn);
-			_standees[u.EntityId] = btn;
 			if (u.Keywords.Any(k => k.Keyword == Keyword.Emplacement))
 				_emplacementUnits.Add(u.EntityId); // 架设 is innate & entityIds never recycle → never a false tag
 		}
 	}
 
+	private Button CreateStandee(UnitView u, PlayerView view, HashSet<int> actionable)
+	{
+		var pos = CellScreenPos(u.Cell) + new Vector2(7, 7);
+		var size = new Vector2(BattleTheme.CellW - 14, BattleTheme.CellH - 14);
+		var seatColor = BattleTheme.SeatColor(u.OwnerSeat);
+		var art = BattleTheme.Tex($"standees/{u.CardId}.png");
+
+		// With art the panel goes translucent (seat-tinted) so the board shows through; border keeps ownership readable.
+		var bg = art != null
+			? new Color(seatColor.R, seatColor.G, seatColor.B, 0.22f)
+			: seatColor.Darkened(0.15f);
+		var btn = BattleTheme.MakeButton(pos, size, bg, seatColor, 3, 8);
+		int id = u.EntityId;
+		btn.Pressed += () => OnUnitClicked(id);
+
+		if (art != null)
+			btn.AddChild(BattleTheme.Art(art, new Vector2(2, 2), size - new Vector2(4, 4),
+				TextureRect.StretchModeEnum.KeepAspectCentered));
+
+		SetStandeePips(btn, u, size);
+
+		var name = BattleTheme.MakeOutlinedLabel(ShortName(u.CardId), art != null ? 15 : 17, BattleTheme.TextMain, HorizontalAlignment.Center);
+		name.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+		name.ClipContents = true;
+		if (art != null) { name.Position = new Vector2(4, size.Y - 24); name.Size = new Vector2(size.X - 8, 22); }
+		else { name.Position = new Vector2(6, 44); name.Size = new Vector2(size.X - 12, 40); }
+		btn.AddChild(name);
+
+		btn.SetMeta("hasArt", art != null); // the kw line's y anchor, needed when a later update (re)builds it
+		SetStandeeKeywordLine(btn, KeywordLine(u.Keywords), size, art != null);
+
+		// Status badges on the card face (buffs left / debuffs right) — driven by LIVE state, not the static
+		// keyword list, so 持盾/坚守 track the current charge / not-moved condition rather than mere presence.
+		SetStandeeStatuses(btn, StandeeStatuses(u));
+
+		// Dim the active player's own units that can no longer act (集结中 or already spent).
+		if (u.OwnerSeat == view.ActiveSeat && !actionable.Contains(u.EntityId))
+			btn.Modulate = new Color(0.6f, 0.6f, 0.6f);
+		btn.SetMeta("owner", u.OwnerSeat);
+		btn.SetMeta("bg", bg);
+		btn.SetMeta("cardId", u.CardId);
+		return btn;
+	}
+
+	/// <summary>原地更新一个复用的立牌,使其与"销毁重建"后的新节点状态一致。回放期间的移动动画由
+	/// 事件回放的 tween 负责;这里的落位是 FullRender 的静止点语义(与旧版重建落位一致)。</summary>
+	private void UpdateStandee(Button btn, UnitView u, PlayerView view, HashSet<int> actionable)
+	{
+		var size = new Vector2(BattleTheme.CellW - 14, BattleTheme.CellH - 14);
+		btn.Position = CellScreenPos(u.Cell) + new Vector2(7, 7);
+		btn.Scale = Vector2.One;
+		btn.Rotation = 0f;
+
+		SetStandeePips(btn, u, size);
+		SetStandeeKeywordLine(btn, KeywordLine(u.Keywords), size, (bool)btn.GetMeta("hasArt"));
+		SetStandeeStatuses(btn, StandeeStatuses(u));
+
+		// A fire-and-forget Flash tween must not keep overriding the modulate we set below (a freed
+		// node used to take its tween with it — a reused node has to kill it explicitly).
+		PlaybackDirector.KillFlashTween(btn);
+		btn.Modulate = u.OwnerSeat == view.ActiveSeat && !actionable.Contains(u.EntityId)
+			? new Color(0.6f, 0.6f, 0.6f)
+			: Colors.White;
+	}
+
+	/// <summary>(Re)build the atk/hp corner pips; skipped when the displayed numbers are unchanged.</summary>
+	private void SetStandeePips(Button btn, UnitView u, Vector2 size)
+	{
+		string key = $"{u.Atk}/{u.CurrentHp}/{u.MaxHp}";
+		if (btn.HasMeta("pipKey") && (string)btn.GetMeta("pipKey") == key) return;
+		btn.SetMeta("pipKey", key);
+		if (btn.GetNodeOrNull(PipAtkName) is { } oldAtk) { btn.RemoveChild(oldAtk); oldAtk.QueueFree(); }
+		if (btn.GetNodeOrNull(PipHpName) is { } oldHp) { btn.RemoveChild(oldHp); oldHp.QueueFree(); }
+
+		var atk = Pip(u.Atk.ToString(), BattleTheme.AtkColor, new Vector2(6, 4), _gemAtk);
+		atk.Name = PipAtkName;
+		btn.AddChild(atk);
+		var hpColor = u.CurrentHp < u.MaxHp ? BattleTheme.DangerColor : BattleTheme.HpColor;
+		var hp = Pip(u.CurrentHp.ToString(), hpColor, new Vector2(size.X - 40, 4), _gemHp);
+		hp.Name = PipHpName;
+		btn.AddChild(hp);
+	}
+
+	/// <summary>(Re)build the keyword line label; updates text in place, removes it when empty.</summary>
+	private static void SetStandeeKeywordLine(Button btn, string kw, Vector2 size, bool hasArt)
+	{
+		var kwl = btn.GetNodeOrNull<Label>(KwLabelName);
+		if (kw.Length == 0)
+		{
+			if (kwl != null) { btn.RemoveChild(kwl); kwl.QueueFree(); }
+			return;
+		}
+		if (kwl != null) { kwl.Text = kw; return; }
+		kwl = BattleTheme.MakeOutlinedLabel(kw, 14, BattleTheme.Accent, HorizontalAlignment.Center);
+		kwl.Name = KwLabelName;
+		kwl.Position = new Vector2(4, hasArt ? size.Y - 46 : size.Y - 26);
+		kwl.Size = new Vector2(size.X - 8, 22);
+		btn.AddChild(kwl);
+	}
+
+	/// <summary>批次C2 增量渲染: diff by EntityId — 离手的删、新抽的建(CardView.BuildFace 只为新卡跑一次)、
+	/// 不变的复用(重置到未悬停/未选中基准态,只更新位置与容器内次序)。</summary>
 	private void RenderHand(PlayerView view)
 	{
 		HideCardPreview();
-		foreach (Node c in _handLayer.GetChildren())
-			c.QueueFree();
-		_handCards.Clear();
 
 		var hand = view.Self.Hand;
+		var live = new HashSet<int>(hand.Select(h => h.EntityId));
+		foreach (var kv in _handCards.ToList())
+		{
+			bool keep = live.Contains(kv.Key) && IsInstanceValid(kv.Value)
+				&& (string)kv.Value.GetMeta("cardId") == hand.First(h => h.EntityId == kv.Key).CardId;
+			if (keep) continue;
+			if (IsInstanceValid(kv.Value)) { _handLayer.RemoveChild(kv.Value); kv.Value.QueueFree(); }
+			_handCards.Remove(kv.Key);
+		}
+
 		int n = hand.Count;
 		if (n == 0)
+		{
+			_liftedCard = null;
 			return;
+		}
 
 		float spacing = n <= 1 ? 0 : Mathf.Min(HandCardSize.X + 14f, (HandRight - HandLeft - HandCardSize.X) / (n - 1));
 		float startX = (HandLeft + HandRight) / 2f - ((n - 1) * spacing) / 2f - HandCardSize.X / 2f;
@@ -566,120 +662,48 @@ public partial class BattleScene : Control
 		for (int i = 0; i < n; i++)
 		{
 			var ch = hand[i];
-			var def = _cards.Get(ch.CardId);
-			bool isOrder = def.Type != CardType.Unit;
 			var pos = new Vector2(startX + i * spacing, HandY);
-			// Border color doubles as the card-type cue: faction color = unit, 辉尘 teal = order.
-			var border = isOrder ? BattleTheme.Accent : FactionColor(def.Faction);
-			var card = BattleTheme.MakeButton(pos, HandCardSize, BattleTheme.PanelDark, border, 3, 10);
-			int id = ch.EntityId;
-			float cardX = pos.X;
-			card.PivotOffset = HandCardSize / 2f;          // lift/scale the selected card about its centre
-			card.SetMeta("basePos", pos);                  // restored by ClearCardHighlight
-			card.SetMeta("border", border);                // the card-type cue, re-applied after de-selecting
-			card.ButtonDown += () => BeginCardDrag(id); // tap = select, drag = play (see _Input/EndCardDrag)
-			card.MouseEntered += () => { ShowCardPreview(def, cardX); HoverLift(card, true); };
-			card.MouseExited += () => { HideCardPreview(); HoverLift(card, false); };
-			card.AddChild(BuildCardVisual(def, HandCardSize, compact: true));
-			_handLayer.AddChild(card);
-			_handCards[id] = card;
-		}
-		_liftedCard = null; // the old lifted node was just freed; the new nodes start un-lifted
-	}
-
-	// ---------- card visuals (shared by hand cards and the hover preview) ----------
-
-	/// <summary>Full card face: art, faction frame, gems, type badge, name, rules text.</summary>
-	private Control BuildCardVisual(CardDefinition def, Vector2 size, bool compact, bool backing = false)
-	{
-		float w = size.X, h = size.Y;
-		bool isOrder = def.Type != CardType.Unit;
-		// Artwork is allowed past the nominal aperture; the faction frame above is the exact mask.
-		// Clip only at the outside of the card so large zoom values cannot bleed into neighbouring UI.
-		var root = new Control { Size = size, MouseFilter = MouseFilterEnum.Ignore, ClipContents = true };
-
-		if (backing)
-		{
-			var bg = new Panel { Size = size, MouseFilter = MouseFilterEnum.Ignore };
-			bg.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.PanelDark,
-				isOrder ? BattleTheme.Accent : FactionColor(def.Faction), 3, 12));
-			root.AddChild(bg);
-		}
-
-		int gem = Mathf.RoundToInt(h * 0.155f);
-		int nameSize = Mathf.RoundToInt(h * 0.062f);
-		int bodySize = Mathf.RoundToInt(h * (compact ? 0.048f : 0.042f)); // 预览字号略缩,换取放下全文
-
-		var art = BattleTheme.Tex($"cards/{def.Id}.png");
-		var frame = _frameTex.GetValueOrDefault(def.Faction) ?? _frameTex.GetValueOrDefault("neutral");
-		if (art != null && frame != null)
-		{
-			// Frame art window measured on the generated frames: x 16.5%~84%, y 15.2%~68.8%.
-			root.AddChild(CardView.FaceArt(art, def.Id, frame, size));
-			root.AddChild(BattleTheme.Art(frame, Vector2.Zero, size, TextureRect.StretchModeEnum.Scale));
-
-			var name = BattleTheme.MakeOutlinedLabel(def.Name, nameSize,
-				isOrder ? BattleTheme.Accent : BattleTheme.TextMain, HorizontalAlignment.Center);
-			name.ClipContents = true;
-			name.Position = new Vector2(8, h * 0.64f);
-			name.Size = new Vector2(w - 16, nameSize + 10);
-			root.AddChild(name);
-
-			// Rules text on a soft dark plate: the frames' leather panels vary too much in
-			// brightness (wildpack is near-dark) for bare ink to stay readable.
-			if (!string.IsNullOrWhiteSpace(CardTextFormatting.GetBbcode(def.Id, BattleTheme.BodyText(def.Text))))
+			if (!_handCards.TryGetValue(ch.EntityId, out var card))
 			{
-				var platePos = new Vector2(w * 0.14f, h * 0.715f);
-				var plateSize = new Vector2(w * 0.72f, h * (compact ? 0.19f : 0.215f)); // 两行完整显示
-				var plate = new Panel { Position = platePos, Size = plateSize, MouseFilter = MouseFilterEnum.Ignore };
-				plate.AddThemeStyleboxOverride("panel", BattleTheme.Box(
-					new Color(0.07f, 0.06f, 0.05f, 0.78f), new Color(0.62f, 0.5f, 0.3f, 0.55f), 1, 8));
-				root.AddChild(plate);
-
-				var body = CardTextFormatting.MakeRichLabel(def.Id, BattleTheme.BodyText(def.Text), bodySize,
-					new Color(0.93f, 0.89f, 0.8f));
-				body.VerticalAlignment = VerticalAlignment.Center;
-				body.ClipContents = true;
-				body.Position = platePos + new Vector2(w * 0.02f, 2);
-				body.Size = plateSize - new Vector2(w * 0.04f, 4);
-				root.AddChild(body);
+				card = CreateHandCard(ch, pos);
+				_handLayer.AddChild(card);
+				_handCards[ch.EntityId] = card;
 			}
+			else
+			{
+				// 复用: 杀掉在途 hover tween,回到基准位置/缩放/描边 — 与一张刚重建的新卡状态一致。
+				KillHoverTween(card);
+				card.SetMeta("basePos", pos); // MouseEntered/ClearCardHighlight 读的是这份 meta,复用后仍指向新位
+				card.Position = pos;
+				card.Scale = Vector2.One;
+				BattleTheme.SetButtonBg(card, BattleTheme.PanelDark, (Color)card.GetMeta("border"), 3, 10);
+			}
+			_handLayer.MoveChild(card, i); // 排序/插入后次序会变;子节点索引同时是重叠手牌的绘制序
 		}
-		else
-		{
-			var name = BattleTheme.MakeOutlinedLabel(def.Name, nameSize + 2, BattleTheme.TextMain, HorizontalAlignment.Center);
-			name.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
-			name.ClipContents = true;
-			name.Position = new Vector2(8, h * 0.18f);
-			name.Size = new Vector2(w - 16, nameSize * 2.6f);
-			root.AddChild(name);
-
-			var body = CardTextFormatting.MakeRichLabel(def.Id, BattleTheme.BodyText(def.Text), bodySize + 2,
-				BattleTheme.TextDim);
-			body.ClipContents = true;
-			body.Position = new Vector2(10, h * 0.42f);
-			body.Size = new Vector2(w - 20, h * 0.42f);
-			root.AddChild(body);
-		}
-
-		root.AddChild(Pip(def.Cost.ToString(), BattleTheme.CostColor, new Vector2(2, 2), _gemCost, gem));
-		if (!isOrder)
-		{
-			root.AddChild(Pip(def.Atk.ToString(), BattleTheme.AtkColor, new Vector2(2, h - gem - 2), _gemAtk, gem));
-			root.AddChild(Pip(def.Hp.ToString(), BattleTheme.HpColor, new Vector2(w - gem - 2, h - gem - 2), _gemHp, gem));
-		}
-		else
-		{
-			// Order badge (top-right 辉尘 roundel): units carry atk/hp gems, orders carry this — 一眼可辨.
-			var badge = new Panel { Position = new Vector2(w - gem - 2, 2), Size = new Vector2(gem, gem), MouseFilter = MouseFilterEnum.Ignore };
-			badge.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.AccentSoft, BattleTheme.Accent, 2, gem / 2));
-			var glyph = BattleTheme.MakeOutlinedLabel("令", Mathf.RoundToInt(gem * 0.5f), Colors.White, HorizontalAlignment.Center);
-			glyph.Size = new Vector2(gem, gem);
-			badge.AddChild(glyph);
-			root.AddChild(badge);
-		}
-		return root;
+		_liftedCard = null; // 与旧全量重建语义一致:每次 RenderHand 后都回到未浮起态
 	}
+
+	private Button CreateHandCard(CardInHandView ch, Vector2 pos)
+	{
+		var def = _cards.Get(ch.CardId);
+		bool isOrder = def.Type != CardType.Unit;
+		// Border color doubles as the card-type cue: faction color = unit, 辉尘 teal = order.
+		var border = isOrder ? BattleTheme.Accent : CardView.FactionColor(def.Faction);
+		var card = BattleTheme.MakeButton(pos, HandCardSize, BattleTheme.PanelDark, border, 3, 10);
+		int id = ch.EntityId;
+		card.PivotOffset = HandCardSize / 2f;          // lift/scale the selected card about its centre
+		card.SetMeta("basePos", pos);                  // restored by ClearCardHighlight
+		card.SetMeta("border", border);                // the card-type cue, re-applied after de-selecting
+		card.SetMeta("cardId", ch.CardId);             // 批次C2: diff key — 同 EntityId 换牌面时整卡重建
+		card.ButtonDown += () => BeginCardDrag(id); // tap = select, drag = play (see _Input/EndCardDrag)
+		// 悬停预览的锚点 X 读 LIVE 的 basePos(复用节点挪位后闭包里的旧坐标会失真,故不捕获局部变量)。
+		card.MouseEntered += () => { ShowCardPreview(def, ((Vector2)card.GetMeta("basePos")).X); HoverLift(card, true); };
+		card.MouseExited += () => { HideCardPreview(); HoverLift(card, false); };
+		card.AddChild(CardView.BuildFace(def, HandCardSize, backing: false));
+		return card;
+	}
+
+	// ---------- card visuals (shared face renderer lives in CardView) ----------
 
 	private void ShowCardPreview(CardDefinition def, float cardX)
 	{
@@ -687,43 +711,10 @@ public partial class BattleScene : Control
 			return;
 		HideCardPreview();
 
-		// Enlarged card + a full-rules plate below it (the frames' own text panels are too small for long texts).
-		string fullText = CardTextFormatting.GetBbcode(def.Id, BattleTheme.BodyText(def.Text));
-		float plateH = fullText.Length > 0
-			? 76f + 24f * Mathf.Ceil(CardTextFormatting.PlainText(fullText).Length / 15f)
-			: 0f;
-		float totalH = PreviewSize.Y + (plateH > 0 ? plateH + 8f : 0f);
+		// Enlarged card + a full-rules plate below it; only the anchor math is battle-specific.
+		var root = CardView.BuildHoverPreview(def, PreviewSize, withKeywords: false);
 		float x = Mathf.Clamp(cardX + HandCardSize.X / 2 - PreviewSize.X / 2, 10, BattleTheme.ScreenW - PreviewSize.X - 10);
-		var root = new Control
-		{
-			Position = new Vector2(x, HandY - totalH - 12),
-			Size = new Vector2(PreviewSize.X, totalH),
-			MouseFilter = MouseFilterEnum.Ignore,
-		};
-		root.AddChild(BuildCardVisual(def, PreviewSize, compact: true, backing: true));
-
-		if (plateH > 0)
-		{
-			bool isOrder = def.Type != CardType.Unit;
-			var plate = new Panel { Position = new Vector2(0, PreviewSize.Y + 8f), Size = new Vector2(PreviewSize.X, plateH), MouseFilter = MouseFilterEnum.Ignore };
-			plate.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.PanelDark,
-				isOrder ? BattleTheme.Accent : FactionColor(def.Faction), 2, 10));
-
-			var tag = BattleTheme.MakeOutlinedLabel(isOrder ? "指令" : "随从", 16,
-				isOrder ? BattleTheme.Accent : BattleTheme.TextDim, HorizontalAlignment.Center);
-			tag.Position = new Vector2(12, 8);
-			tag.Size = new Vector2(PreviewSize.X - 24, 22);
-			plate.AddChild(tag);
-
-			var text = CardTextFormatting.MakeRichLabel(def.Id, BattleTheme.BodyText(def.Text), 19,
-				BattleTheme.TextMain);
-			text.VerticalAlignment = VerticalAlignment.Top;
-			text.Position = new Vector2(14, 36);
-			text.Size = new Vector2(PreviewSize.X - 28, plateH - 44);
-			plate.AddChild(text);
-			root.AddChild(plate);
-		}
-
+		root.Position = new Vector2(x, HandY - root.Size.Y - 12);
 		_overlayLayer.AddChild(root);
 		_cardPreview = root;
 	}
@@ -744,7 +735,7 @@ public partial class BattleScene : Control
 		if (_dragCardId != null) return; // don't cover the board mid-drag
 		if (!_leaders.TryGet(leaderId, out var l) || l.SkillEffects.Count == 0) return;
 
-		var accent = FactionColor(l.Faction);
+		var accent = CardView.FactionColor(l.Faction);
 		string body = SkillEffectText(l);
 
 		const float w = 420f, pad = 16f, headerH = 28f, lineH = 28f;
@@ -960,17 +951,7 @@ public partial class BattleScene : Control
 
 	// ---------- selection ----------
 
-	private void ClearSelection()
-	{
-		_selKind = SelKind.None;
-		_candidates.Clear();
-		_chosenCell = null;
-		_crossPreview = false;
-		_extraPick = ExtraPick.None;
-		CloseEchoBar(); // 门德复述: drop the 空放/再次施放 bar if a pick was pending
-		ClearHighlights();
-		RefreshSelectionUi(); // SelectedCardId now derives to null → hides 取消 and drops the card lift
-	}
+	private void ClearSelection() => _targeting.Clear();
 
 	/// <summary>Reconcile the transient selection UI — the 取消 button's visibility and the lifted/enlarged
 	/// "card in play" highlight — with the current selection. Called wherever a selection settles or clears.
@@ -978,7 +959,7 @@ public partial class BattleScene : Control
 	private void RefreshSelectionUi()
 	{
 		if (_cancelBtn is null) return; // HUD not built yet
-		bool active = _selKind != SelKind.None && !_busy && _dragCardId is null;
+		bool active = _targeting.Kind != TargetingKind.None && !_busy && _dragCardId is null;
 		_cancelBtn.Visible = active;
 		if (active && SelectedCardId is { } id)
 			HighlightSelectedCard(id);
@@ -1043,7 +1024,7 @@ public partial class BattleScene : Control
 
 	private void OnCancelSelection()
 	{
-		if (_selKind == SelKind.None) return;
+		if (_targeting.Kind == TargetingKind.None) return;
 		_sfx.Play("button");
 		ClearSelection();
 		Log("已取消。");
@@ -1053,9 +1034,9 @@ public partial class BattleScene : Control
 	// blast — cyan on empty/enemy cells, a red frame on any FRIENDLY unit caught in it (misplay guard).
 	private void OnCellHover(int scol, int srow)
 	{
-		if (_busy || !_crossPreview || _selKind != SelKind.Card) return;
+		if (_busy || !_targeting.CrossAim || _targeting.Kind != TargetingKind.Card) return;
 		var center = ScreenToBoard(scol, srow);
-		if (!_candidates.Any(c => CellOf(c) is { } cc && cc == center)) return; // not a legal center
+		if (!_targeting.IsCrossCenter(center)) return; // not a legal center
 		ShowCrossFootprint(center);
 	}
 
@@ -1075,9 +1056,9 @@ public partial class BattleScene : Control
 
 	private void OnCellHoverExit()
 	{
-		if (_busy || !_crossPreview || _selKind != SelKind.Card) return;
+		if (_busy || !_targeting.CrossAim || _targeting.Kind != TargetingKind.Card) return;
 		ClearHighlights();
-		HighlightCardCandidates(); // restore the plain legal-cell highlight
+		_targeting.RefreshCandidateHighlights(); // restore the plain legal-cell highlight
 	}
 
 	private void ClearHighlights()
@@ -1111,55 +1092,47 @@ public partial class BattleScene : Control
 	private void HighlightLeader() =>
 		BattleTheme.SetButtonBg(_oppLeaderBtn, BattleTheme.PanelDark, BattleTheme.Accent, 5, 10);
 
+	// ---------- ITargetingHost (docs/22 批次E2): fact queries + presentation requests for the controller ----------
+
+	int ITargetingHost.ActiveSeat => ActiveSeat;
+	IReadOnlyList<Command> ITargetingHost.LegalCommands(int seat) => _host.LegalCommands(seat);
+	TargetUnitFact? ITargetingHost.Unit(int entityId) =>
+		_host.GetView(ViewSeat).Units.FirstOrDefault(u => u.EntityId == entityId) is { } u
+			? new TargetUnitFact(u.Cell, u.OwnerSeat) : null;
+	bool ITargetingHost.CandidatesDealDamage(IReadOnlyList<Command> candidates) => CandidatesDealDamage(candidates);
+	bool ITargetingHost.CandidatesAreFriendlyReceivers(IReadOnlyList<Command> candidates) => CandidatesAreFriendlyReceivers(candidates);
+
+	void ITargetingHost.ClearHighlights() => ClearHighlights();
+	void ITargetingHost.HighlightCell(Cell cell) => HighlightCell(cell);
+	void ITargetingHost.HighlightUnit(int unitId, PickHighlight color) => HighlightUnitColor(unitId, PickColor(color));
+	void ITargetingHost.HighlightLeader() => HighlightLeader();
+	void ITargetingHost.RefreshSelectionUi() => RefreshSelectionUi();
+	void ITargetingHost.ShowEchoBar(bool global) => ShowEchoBar(global);
+	void ITargetingHost.CloseEchoBar() => CloseEchoBar();
+	void ITargetingHost.Log(string message) => Log(message);
+	void ITargetingHost.LogPick(string keyword, PickHighlight color, string instruction) => LogPick(keyword, PickColor(color), instruction);
+	void ITargetingHost.Submit(Command cmd) => Submit(cmd);
+
+	/// <summary>Map the controller's semantic pick color onto the theme palette.</summary>
+	private static Color PickColor(PickHighlight color) => color switch
+	{
+		PickHighlight.Danger => BattleTheme.DangerColor,
+		PickHighlight.Receiver => BattleTheme.HpColor,
+		PickHighlight.Channel => BattleTheme.CostColor,
+		_ => BattleTheme.Accent,
+	};
+
 	private void OnCardClicked(int cardEntityId) => SelectCard(cardEntityId, autoSubmit: true);
 
+	/// <summary>Gate + fact gathering for a card pick: the "is this a 十字 AOE" flag needs the card database,
+	/// so it is evaluated here; all filtering/convergence happens inside the controller.</summary>
 	private void SelectCard(int cardEntityId, bool autoSubmit)
 	{
 		if (_busy) return;
-		int seat = ActiveSeat;
-		var legal = _host.LegalCommands(seat);
-		_candidates = legal.Where(c => c is PlayCardCommand p && p.CardEntityId == cardEntityId).ToList();
-		_selKind = SelKind.Card;
-		_chosenCell = null;
 		var handCard = _host.GetView(ViewSeat).Self.Hand.FirstOrDefault(h => h.EntityId == cardEntityId);
-		_crossPreview = handCard != null && _cards.TryGet(handCard.CardId, out var cardDef)
+		bool crossAim = handCard != null && _cards.TryGet(handCard.CardId, out var cardDef)
 			&& cardDef.Effects.Any(e => e.Target == "cell_cross_all"); // 十字 AOE → hover shows friendly-fire footprint
-		ClearHighlights();
-
-		if (_candidates.Count == 0) { Log("这张牌现在打不出。"); ClearSelection(); return; }
-		// No-target card (e.g. 抽牌指令): a tap plays it immediately; a drag waits for the drop.
-		if (autoSubmit && _candidates.Count == 1 && CellOf(_candidates[0]) is null && UnitOf(_candidates[0]) is null)
-		{ Submit(_candidates[0]); return; }
-		// Non-directional channels (燔火/燎原) still need their channeler disambiguated. Previously they
-		// fell through to the unit-target prompt even though their commands carry no primary target.
-		if (_candidates.All(c => CellOf(c) is null && UnitOf(c) is null) && PromptExtraPick()) return;
-
-		HighlightCardCandidates();
-		RefreshSelectionUi(); // lift the card + show 取消 (skipped mid-drag; re-applied once the drag drops)
-	}
-
-	private void HighlightCardCandidates()
-	{
-		var cells = _candidates.Select(CellOf).Where(c => c != null).Select(c => c!.Value).Distinct().ToList();
-		bool needCell = cells.Count > 0 && _chosenCell is null;
-		if (needCell)
-		{
-			foreach (var cell in cells)
-				HighlightCell(cell);
-			if (CandidatesDealDamage())
-				LogPick("作用目标", BattleTheme.DangerColor, "选择一个格子施放。");
-			else
-				Log("选择一个格子放置 / 施放。");
-		}
-		else
-		{
-			bool receiver = CandidatesAreFriendlyReceivers();
-			var color = receiver ? BattleTheme.HpColor : BattleTheme.DangerColor;
-			foreach (var id in _candidates.Select(UnitOf).Where(u => u != null).Select(u => u!.Value).Distinct())
-				HighlightUnitColor(id, color);
-			LogPick(receiver ? "接受目标" : "作用目标", color,
-				receiver ? "选择一个友方随从接受效果。" : "选择一个随从承受效果。");
-		}
+		_targeting.SelectCard(cardEntityId, autoSubmit, crossAim);
 	}
 
 	private void OnUnitClicked(int entityId)
@@ -1170,125 +1143,26 @@ public partial class BattleScene : Control
 
 		if (_busy) return;
 
-		// docs/21: a click during a pending 引导者 / 二段目标 / 门德复述 pick fills that dimension first.
-		if (_extraPick == ExtraPick.Channeler) { PickExtra(ChannelerOf, entityId); return; }
-		if (_extraPick == ExtraPick.Secondary) { PickExtra(SecondaryOf, entityId); return; }
-		if (_extraPick == ExtraPick.Echo) { PickEchoUnit(entityId); return; }
-
-		int seat = ActiveSeat;
-
-		// If we're mid-target-pick, treat as a target first (a unit target, or the unit's cell for an AOE).
-		if (_selKind is SelKind.Card or SelKind.Leader && TryPickUnitOrItsCell(entityId)) return;
-
-		if (unit is null) return;
-
-		if (unit.OwnerSeat != seat)
-		{
-			// Clicking an enemy while a unit is selected = attack it.
-			if (_selKind == SelKind.Unit && TryPickUnitTarget(entityId)) return;
-			return; // enemy piece: detail is already shown, nothing else to do
-		}
-
-		var legal = _host.LegalCommands(seat);
-		_candidates = legal.Where(c =>
-			(c is MoveUnitCommand m && m.UnitEntityId == entityId) ||
-			(c is AttackCommand a && a.AttackerEntityId == entityId)).ToList();
-		_selKind = SelKind.Unit;
-		_chosenCell = null;
-		ClearHighlights();
-		HighlightUnit(entityId);
-		RefreshSelectionUi(); // a selected unit can also be backed out of with 取消
-
-		if (_candidates.Count == 0) { Log("这个随从本回合无法行动。"); return; }
-		foreach (var cmd in _candidates)
-		{
-			if (cmd is MoveUnitCommand m) HighlightCell(m.To);
-			else if (cmd is AttackCommand a) { if (a.TargetLeader) HighlightLeader(); else if (a.TargetUnitId is { } t) HighlightUnit(t); }
-		}
-		Log("移动到高亮格,或攻击高亮目标。");
-	}
-
-	private bool TryPickUnitTarget(int unitId)
-	{
-		var filtered = _candidates.Where(c => UnitOf(c) == unitId).ToList();
-		if (filtered.Count == 0) return false;
-		if (filtered.Count == 1) { Submit(filtered[0]); return true; }
-		_candidates = filtered;
-		if (PromptExtraPick()) return true; // a 引导·N target still needs its 引导者
-		ClearHighlights();
-		HighlightCardCandidates();
-		RefreshSelectionUi();
-		return true;
-	}
-
-	/// <summary>A click landing on a unit while aiming: first try it as a unit target, otherwise (a
-	/// row/column/十字 AOE order or leader skill) treat it as picking that unit's CELL — a click on an
-	/// occupied cell must aim the AOE there, not fizzle (the standee sits on top of the cell button).</summary>
-	private bool TryPickUnitOrItsCell(int unitId)
-	{
-		if (_extraPick == ExtraPick.Channeler) { PickExtra(ChannelerOf, unitId); return true; }
-		if (_extraPick == ExtraPick.Secondary) { PickExtra(SecondaryOf, unitId); return true; }
-		if (TryPickUnitTarget(unitId)) return true;
-		var u = _host.GetView(ViewSeat).Units.FirstOrDefault(x => x.EntityId == unitId);
-		if (u != null && _candidates.Any(c => CellOf(c) is { } cc && cc == u.Cell))
-		{
-			PickCell(u.Cell);
-			return true;
-		}
-		return false;
+		_targeting.OnUnitClicked(entityId);
 	}
 
 	private void OnCellClicked(int scol, int srow)
 	{
-		if (_busy || _selKind == SelKind.None) return;
-		PickCell(ScreenToBoard(scol, srow));
+		if (_busy || _targeting.Kind == TargetingKind.None) return;
+		_targeting.PickCell(ScreenToBoard(scol, srow));
 	}
 
-	private void PickCell(Cell cell)
-	{
-		if (_selKind == SelKind.None) return;
-		if (_extraPick == ExtraPick.Echo) { PickEchoCell(cell); return; } // 门德复述: cell-aimed re-cast
-
-		// Exact cell match, else column fallback (spatial column orders).
-		var exact = _candidates.Where(c => CellOf(c) is { } cc && cc.Col == cell.Col && cc.Row == cell.Row).ToList();
-		var pick = exact.Count > 0 ? exact : _candidates.Where(c => CellOf(c) is { } cc && cc.Col == cell.Col).ToList();
-		if (pick.Count == 0) { Log("这里不是合法目标。"); return; }
-		if (pick.Count == 1 && (UnitOf(pick[0]) is null)) { Submit(pick[0]); return; }
-
-		// Deploy cell chosen but a battlecry target is still needed — or a 引导·N cell order needs its 引导者.
-		_candidates = pick;
-		_chosenCell = cell;
-		if (PromptExtraPick()) return; // 烟幕弹 etc.: cell pinned, now pick the 引导者
-		ClearHighlights();
-		HighlightCardCandidates();
-		RefreshSelectionUi(); // after a drag-drop this is where the lift + 取消 first appear
-	}
-
-	private void OnLeaderClicked(int leaderSeat) => PickLeader();
-
-	private void PickLeader()
+	private void OnLeaderClicked(int leaderSeat)
 	{
 		if (_busy) return;
-		var filtered = _candidates.Where(c => c is AttackCommand { TargetLeader: true }).ToList();
-		if (filtered.Count == 1) { Submit(filtered[0]); return; }
-		Log("需要先选中一个能攻击本体的随从。");
+		_targeting.PickLeader();
 	}
 
 	private void OnLeaderPower()
 	{
 		if (_busy) return;
 		_sfx.Play("button");
-		int seat = ActiveSeat;
-		var legal = _host.LegalCommands(seat);
-		_candidates = legal.Where(c => c is UseLeaderSkillCommand).ToList();
-		_selKind = SelKind.Leader;
-		_chosenCell = null;
-		ClearHighlights();
-		if (_candidates.Count == 0) { Log("现在无法发动领袖技能。"); ClearSelection(); return; }
-		if (_candidates.Count == 1 && CellOf(_candidates[0]) is null && UnitOf(_candidates[0]) is null)
-		{ Submit(_candidates[0]); return; }
-		HighlightCardCandidates();
-		RefreshSelectionUi(); // leader skill is aiming — offer 取消
+		_targeting.SelectLeaderSkill();
 	}
 
 	private void OnEndTurn()
@@ -1306,8 +1180,8 @@ public partial class BattleScene : Control
 		{
 			GetViewport().SetInputAsHandled(); // consume Esc so it can't also reach a focused overlay button
 			// Priority: an open menu closes first; else back out of an active aim; else open the menu.
-			if (_gameMenu is { } m && GodotObject.IsInstanceValid(m)) { ToggleGameMenu(); return; }
-			if (_selKind != SelKind.None && !_busy && _dragCardId is null) { OnCancelSelection(); return; }
+			if (_menu.IsOpen) { ToggleGameMenu(); return; }
+			if (_targeting.Kind != TargetingKind.None && !_busy && _dragCardId is null) { OnCancelSelection(); return; }
 			ToggleGameMenu(); // open the in-match menu (继续 / 查看牌组 / 投降 / 返回菜单)
 			return;
 		}
@@ -1351,7 +1225,7 @@ public partial class BattleScene : Control
 	// only when the hovered cell changes (mouse-motion fires often).
 	private void HighlightDragHover(Vector2 mousePos)
 	{
-		if (_selKind != SelKind.Card) return;
+		if (_targeting.Kind != TargetingKind.Card) return;
 		var hit = HitTest(mousePos);
 		Cell? cell = hit switch
 		{
@@ -1364,14 +1238,14 @@ public partial class BattleScene : Control
 		_dragHoverCell = cell;
 
 		// 十字 AOE: show the full blast footprint (friendly-fire in red) while dragging over a legal cell.
-		if (_crossPreview && cell is { } center && _candidates.Any(c => CellOf(c) is { } x && x == center))
+		if (_targeting.CrossAim && cell is { } center && _targeting.IsCrossCenter(center))
 		{
 			ShowCrossFootprint(center);
 			return;
 		}
 
-		HighlightCardCandidates();
-		if (cell is { } cc && _candidates.Any(c => CellOf(c) is { } x && x.Col == cc.Col && x.Row == cc.Row))
+		_targeting.RefreshCandidateHighlights();
+		if (cell is { } cc && _targeting.IsExactLegalCell(cc))
 			BattleTheme.SetButtonBg(CellButton(cc), BattleTheme.Accent, Colors.White, 5);
 	}
 
@@ -1389,9 +1263,9 @@ public partial class BattleScene : Control
 		if (hit is null) { ClearSelection(); Log("已取消。"); return; }
 		switch (hit.Value.Kind)
 		{
-			case HitKind.Cell: PickCell(hit.Value.Cell); break;
-			case HitKind.Unit: TryPickUnitOrItsCell(hit.Value.UnitId); break;
-			case HitKind.Leader: PickLeader(); break;
+			case HitKind.Cell: _targeting.PickCell(hit.Value.Cell); break;
+			case HitKind.Unit: _targeting.TryPickUnitOrItsCell(hit.Value.UnitId); break;
+			case HitKind.Leader: _targeting.PickLeader(); break;
 		}
 	}
 
@@ -1435,7 +1309,8 @@ public partial class BattleScene : Control
 	private async void Submit(Command cmd)
 	{
 		// 熔剑祭士 (docs/21 §3.2): before a bare deploy resolves, offer the 献祭 panel to equip the 熔岩巨剑.
-		if (cmd is PlayCardCommand { SacrificeEntityIds: null } deploy && ShowSacrificePanelIfNeeded(deploy)) return;
+		if (cmd is PlayCardCommand { SacrificeEntityIds: null } deploy
+			&& SacrificePanel.TryShow(_overlayLayer, _cards, _sfx, _host.GetView(ViewSeat), deploy, Submit)) return;
 		if (_online) { SubmitOnline(cmd); return; }
 		if (_busy) return;
 		_busy = true;
@@ -1451,185 +1326,6 @@ public partial class BattleScene : Control
 		RefreshInteractable();
 	}
 
-	// ---------- 熔剑祭士 献祭面板 (docs/21 §3.2) ----------
-
-	private readonly List<int> _sacrificePicks = new();
-
-	/// <summary>True (and shows the panel) when this deploy is a 熔剑祭士 with ≥2 hand orders to sacrifice —
-	/// otherwise the caller deploys plain. The panel builds the real command (with SacrificeEntityIds) on confirm.</summary>
-	private bool ShowSacrificePanelIfNeeded(PlayCardCommand deploy)
-	{
-		var view = _host.GetView(ViewSeat);
-		if (view.Self.Hand.FirstOrDefault(h => h.EntityId == deploy.CardEntityId) is not { } handCard
-			|| !_cards.TryGet(handCard.CardId, out var def)
-			|| !def.Effects.Any(e => e.Trigger == "battlecry" && e.Action == "sacrifice_equip"))
-			return false;
-
-		var orders = view.Self.Hand
-			.Where(h => h.EntityId != deploy.CardEntityId && _cards.TryGet(h.CardId, out var d) && d.Type == CardType.Order)
-			.ToList();
-		if (orders.Count < 2)
-			return false; // nothing to sacrifice → the caller just deploys the 2/4 body
-
-		ShowSacrificePanel(deploy, orders);
-		return true;
-	}
-
-	private void ShowSacrificePanel(PlayCardCommand deploy, List<CardInHandView> orders)
-	{
-		_sacrificePicks.Clear();
-		// The parchment has a thick painted frame (about 76 px on every edge), so all content lives inside
-		// an explicit safe area. Keep every child in panel-local coordinates: the old implementation mixed
-		// panel-local headings with screen-space cards/actions, which let them drift outside the canvas.
-		const float pw = 1300, cardsTop = 218, choiceH = 112, choiceGapY = 14;
-		const int choicesPerRow = 3;
-		int choiceRows = (orders.Count + choicesPerRow - 1) / choicesPerRow;
-		float cardsBottom = cardsTop + choiceRows * choiceH + (choiceRows - 1) * choiceGapY;
-		float pickCountY = cardsBottom + 18;
-		float actionsY = pickCountY + 42;
-		float buttonY = actionsY - 34; // lift the action pair clear of the parchment's bottom ornament
-		float ph = actionsY + 64 + 86; // bottom ornament safe area
-		float px = (BattleTheme.ScreenW - pw) / 2f, py = (BattleTheme.ScreenH - ph) / 2f;
-		var ember = Color.FromHtml("c65a3d");
-		var emberDark = Color.FromHtml("513029");
-		var bronze = Color.FromHtml("8f7247");
-		var charred = Color.FromHtml("2a2520");
-
-		var overlay = new Button { Name = "__sacrifice_panel", Flat = true };
-		overlay.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-		overlay.AddThemeStyleboxOverride("normal", BattleTheme.Box(new Color(0, 0, 0, 0.72f), null, 0, 0));
-
-		var panel = new Panel
-		{
-			Position = new Vector2(px, py),
-			Size = new Vector2(pw, ph),
-			MouseFilter = MouseFilterEnum.Stop,
-		};
-		panel.AddThemeStyleboxOverride("panel", (StyleBox?)BattleTheme.ParchmentPanel() ?? BattleTheme.Box(BattleTheme.PanelDark, BattleTheme.Accent, 3, 12));
-		overlay.AddChild(panel);
-
-		// A short plaque title carries the dramatic beat; the rules are split into two quieter lines below it
-		// instead of forcing one long sentence through the ornamental frame.
-		var plaque = BattleTheme.TitlePlaque(new Vector2(240, 24), new Vector2(820, 96));
-		bool hasPlaque = plaque is not null;
-		if (plaque is not null) panel.AddChild(plaque);
-		var title = hasPlaque
-			? BattleTheme.MakeOutlinedLabel("熔剑祭士 · 熔岩献祭", 32, BattleTheme.TextMain, HorizontalAlignment.Center)
-			: BattleTheme.MakeLabel("熔剑祭士 · 熔岩献祭", 32, BattleTheme.InkMain, HorizontalAlignment.Center);
-		title.AddThemeFontOverride("font", BattleTheme.HeadingFont);
-		title.Position = new Vector2(250, 43); title.Size = new Vector2(800, 48);
-		panel.AddChild(title);
-
-		var callout = BattleTheme.MakeLabel("选择 2 张指令牌投入炉火", 22, BattleTheme.InkMain, HorizontalAlignment.Center);
-		callout.AddThemeFontOverride("font", BattleTheme.UiFontBold);
-		callout.Position = new Vector2(90, 120); callout.Size = new Vector2(pw - 180, 34);
-		panel.AddChild(callout);
-		var reward = BattleTheme.MakeLabel("熔岩巨剑  ◆  +3 攻击   ◆  射程 2   ◆  贯穿", 20, emberDark, HorizontalAlignment.Center);
-		reward.AddThemeFontOverride("font", BattleTheme.UiFontBold);
-		reward.Position = new Vector2(90, 153); reward.Size = new Vector2(pw - 180, 32);
-		panel.AddChild(reward);
-		var hint = BattleTheme.MakeLabel("献祭牌进入墓地，之后仍可被复燃或信使回收", 16, BattleTheme.InkDim, HorizontalAlignment.Center);
-		hint.Position = new Vector2(90, 183); hint.Size = new Vector2(pw - 180, 26);
-		panel.AddChild(hint);
-
-		var cardBtns = new Dictionary<int, Button>();
-		var stateLabels = new Dictionary<int, Label>();
-		Button? equipBtn = null;
-		var pickCount = BattleTheme.MakeLabel("献祭槽  0 / 2", 18, BattleTheme.InkDim, HorizontalAlignment.Center);
-		pickCount.AddThemeFontOverride("font", BattleTheme.UiFontBold);
-		pickCount.Position = new Vector2(90, pickCountY); pickCount.Size = new Vector2(pw - 180, 30);
-		panel.AddChild(pickCount);
-		void Repaint()
-		{
-			foreach (var (id, b) in cardBtns)
-			{
-				bool selected = _sacrificePicks.Contains(id);
-				BattleTheme.SetButtonBg(b, selected ? emberDark : charred, selected ? ember : bronze, selected ? 4 : 2, 10);
-				stateLabels[id].Text = selected ? "◆  已选入炉" : "点击选择";
-				stateLabels[id].AddThemeColorOverride("font_color", selected ? new Color(1f, 0.69f, 0.46f) : BattleTheme.TextDim);
-			}
-			pickCount.Text = $"献祭槽  {_sacrificePicks.Count} / 2";
-			pickCount.AddThemeColorOverride("font_color", _sacrificePicks.Count == 2 ? emberDark : BattleTheme.InkDim);
-			if (equipBtn != null) equipBtn.Disabled = _sacrificePicks.Count != 2;
-		}
-
-		// Wide, card-like choice tiles: real card art provides recognition, while a stable name/cost column
-		// remains readable. Three columns keep the maximum eight eligible cards within three rows.
-		const float cw = 350, gapX = 20;
-		for (int i = 0; i < orders.Count; i++)
-		{
-			var o = orders[i];
-			_cards.TryGet(o.CardId, out var od);
-			int col = i % choicesPerRow, row = i / choicesPerRow;
-			int rowCount = Math.Min(choicesPerRow, orders.Count - row * choicesPerRow);
-			float rowW = rowCount * cw + (rowCount - 1) * gapX;
-			float bx = (pw - rowW) / 2f + col * (cw + gapX), by = cardsTop + row * (choiceH + choiceGapY);
-			var b = BattleTheme.MakeButton(new Vector2(bx, by), new Vector2(cw, choiceH), charred, bronze, 2, 10);
-
-			var artFrame = new Panel { Position = new Vector2(12, 10), Size = new Vector2(78, 92), MouseFilter = MouseFilterEnum.Ignore };
-			artFrame.AddThemeStyleboxOverride("panel", BattleTheme.Box(new Color(0.08f, 0.07f, 0.06f, 1f), bronze, 2, 6));
-			b.AddChild(artFrame);
-			if (BattleTheme.Tex($"cards/{o.CardId}.png") is { } art)
-				b.AddChild(CardView.ArtWindow(art, o.CardId, new Vector2(16, 14), new Vector2(70, 84)));
-
-			var cardName = BattleTheme.MakeOutlinedLabel(od?.Name ?? o.CardId, 22, BattleTheme.TextMain, HorizontalAlignment.Left);
-			cardName.Position = new Vector2(106, 13); cardName.Size = new Vector2(226, 32);
-			b.AddChild(cardName);
-			var meta = BattleTheme.MakeLabel($"指令牌   ·   {od?.Cost ?? 0} 费", 17, new Color(0.57f, 0.82f, 0.78f), HorizontalAlignment.Left);
-			meta.AddThemeFontOverride("font", BattleTheme.UiFontBold);
-			meta.Position = new Vector2(106, 44); meta.Size = new Vector2(226, 26);
-			b.AddChild(meta);
-			var state = BattleTheme.MakeLabel("点击选择", 16, BattleTheme.TextDim, HorizontalAlignment.Left);
-			state.Position = new Vector2(106, 73); state.Size = new Vector2(226, 24);
-			b.AddChild(state);
-			int id = o.EntityId;
-			b.Pressed += () =>
-			{
-				if (_sacrificePicks.Contains(id)) _sacrificePicks.Remove(id);
-				else if (_sacrificePicks.Count < 2) _sacrificePicks.Add(id);
-				_sfx.Play("button");
-				Repaint();
-			};
-			cardBtns[id] = b;
-			stateLabels[id] = state;
-			panel.AddChild(b);
-		}
-
-		equipBtn = BattleTheme.MakeButton(new Vector2(pw / 2f - 270, buttonY), new Vector2(250, 64), BattleTheme.AtkColor, BattleTheme.AtkColor, 2, 10, textured: true);
-		// The gold plate uses 30 px nine-slice rails. Their implicit content margins used to force this control
-		// taller than its steel twin, despite identical Size/Position values. Keep the ornate rails, but give
-		// the text a compact content box so the two buttons resolve to the same 64 px visual height.
-		foreach (var stateName in new[] { "normal", "hover", "pressed", "focus", "disabled" })
-			if (equipBtn.GetThemeStylebox(stateName) is { } style)
-			{
-				style.ContentMarginTop = 10;
-				style.ContentMarginBottom = 10;
-			}
-		equipBtn.Text = "献祭并装备"; equipBtn.AddThemeFontSizeOverride("font_size", 22);
-		equipBtn.Pressed += () =>
-		{
-			if (_sacrificePicks.Count != 2) return;
-			var withSac = deploy with { SacrificeEntityIds = _sacrificePicks.ToList() };
-			CloseSacrificePanel();
-			Submit(withSac);
-		};
-		panel.AddChild(equipBtn);
-
-		var skipBtn = BattleTheme.MakeButton(new Vector2(pw / 2f + 20, buttonY), new Vector2(250, 64), BattleTheme.PanelDark, bronze, 2, 10, textured: true);
-		skipBtn.Text = "直接上场"; skipBtn.AddThemeFontSizeOverride("font_size", 22);
-		skipBtn.Pressed += () => { CloseSacrificePanel(); Submit(deploy); };
-		panel.AddChild(skipBtn);
-
-		Repaint();
-		_overlayLayer.AddChild(overlay);
-	}
-
-	private void CloseSacrificePanel()
-	{
-		if (_overlayLayer.GetNodeOrNull("__sacrifice_panel") is { } p) { _overlayLayer.RemoveChild(p); p.QueueFree(); }
-		_sacrificePicks.Clear();
-	}
-
 	/// <summary>Submit one command, then play its events back through the shared presentation queue.
 	/// The in-process host dispatches synchronously, so every event is already queued by the time the
 	/// submit returns; RunPlayback drains and animates them. Returns false if rejected or the game ended
@@ -1640,7 +1336,7 @@ public partial class BattleScene : Control
 		var result = await _host.SubmitCommandAsync(cmd.Seat, cmd);
 		if (!result.Accepted) { Log($"非法操作:{result.Error?.Code}"); return false; }
 
-		await RunPlayback();
+		await _director.RunPlayback();
 		return _host.GetView(0).Result == null;
 	}
 
@@ -1652,7 +1348,9 @@ public partial class BattleScene : Control
 		while (_vsAi && ActiveSeat == _aiSeat && _host.GetView(0).Result == null)
 		{
 			await Delay(0.5);
-			var cmd = _localHost!.SuggestCommand(_aiSeat);
+			// Off the main thread: Hard-tier search rollouts take real milliseconds — run them on the pool
+			// (the host guards its state with _gate) and resume on the main thread for the Apply/render.
+			var cmd = await Task.Run(() => _localHost!.SuggestCommand(_aiSeat));
 			if (cmd is null) break;
 			if (!await Apply(cmd)) return; // game ended (overlay shown), keep input locked
 			if (cmd is EndTurnCommand) break;
@@ -1703,7 +1401,7 @@ public partial class BattleScene : Control
 	/// unhooked from a persistent (shared) client on exit.</summary>
 	private void WireRemoteEvents(RemoteGameHost remote)
 	{
-		remote.Subscribe(0, e => { _playQueue.Enqueue(e); Callable.From(KickPlayback).CallDeferred(); });
+		remote.Subscribe(0, e => { _director.Enqueue(e); Callable.From(KickPlayback).CallDeferred(); });
 		remote.ViewUpdated += _ => Callable.From(RefreshFromSnapshot).CallDeferred();
 		_connHandler = s => Callable.From(() => OnConnState(s)).CallDeferred();
 		remote.ConnectionStateChanged += _connHandler;
@@ -1723,15 +1421,15 @@ public partial class BattleScene : Control
 		SetConn("");
 		FullRender();
 		RefreshMulliganUi(); // show the 起手重抽 panel if the match opened into a mulligan phase
-		if (!_playQueue.IsEmpty) KickPlayback();
+		if (_director.HasPending) KickPlayback();
 	}
 
 	/// <summary>Re-render after a pure snapshot update (reconnect resync carries no events, so the
 	/// event pump won't fire). No-op during normal event flow — the pump owns that.</summary>
 	private void RefreshFromSnapshot()
 	{
-		if (_onlineReady && !_playing && _playQueue.IsEmpty && _remoteHost?.GetView(_humanSeat).Result is null)
-			FullRender();
+		if (_onlineReady && !_director.IsPlaying && !_director.HasPending && _remoteHost?.GetView(_humanSeat).Result is null)
+			ForceFullRebuild(); // resync 快照可能整体跳变(错过的回合无事件),不走增量 diff
 	}
 
 	/// <summary>Our own connection lifecycle: lock input + banner while reconnecting, clear on recovery.</summary>
@@ -1791,14 +1489,21 @@ public partial class BattleScene : Control
 			_hudLayer.AddChild(_timerLabel);
 		}
 
+		// 批次C2: 节流 — 显示内容只依赖 (secs, mine),没变就不做任何事(GetView/插值/Text/颜色 override 全部免掉)。
+		// 终局的立即隐藏由 ShowWinOverlay 兜底,这里最迟在下一次秒数跳变时收起。
+		int secs = (int)System.Math.Ceiling(_turnSecondsLeft);
+		bool mine = _turnActiveSeat == _humanSeat;
+		if (secs == _timerShownSecs && mine == _timerShownMine)
+			return;
+		_timerShownSecs = secs;
+		_timerShownMine = mine;
+
 		bool over = _remoteHost?.GetView(_humanSeat).Result != null;
 		if (over)
 		{
 			_timerLabel.Visible = false;
 			return;
 		}
-		int secs = (int)System.Math.Ceiling(_turnSecondsLeft);
-		bool mine = _turnActiveSeat == _humanSeat;
 		_timerLabel.Visible = true;
 		_timerLabel.Text = $"⏱ {(mine ? "你" : "对手")} {secs}s";
 		_timerLabel.AddThemeColorOverride("font_color", secs <= 10 ? BattleTheme.DangerColor : BattleTheme.TextDim);
@@ -1808,7 +1513,7 @@ public partial class BattleScene : Control
 	/// the queue. No-op while one is already running (it absorbs the new arrivals) or before match start.</summary>
 	private void KickPlayback()
 	{
-		if (!_onlineReady || _playing) return;
+		if (!_onlineReady || _director.IsPlaying) return;
 		_ = RunPlaybackOnline();
 	}
 
@@ -1819,58 +1524,10 @@ public partial class BattleScene : Control
 	{
 		_busy = true;
 		RefreshInteractable();
-		await RunPlayback();
+		await _director.RunPlayback();
 		RefreshMulliganUi(); // reflect mulligan progress (my panel → waiting → normal) after each batch
 		if (_host.GetView(_humanSeat).Result == null) { _busy = false; RefreshInteractable(); }
 	}
-
-	/// <summary>The single presentation consumer (plan §10 item 9). Drains the play queue one BEAT at a
-	/// time — an attack and the strikes it lands play as one beat, so a unit's death animates only after
-	/// the blow that killed it — and re-renders from truth at each quiescent point. Playback is paced by
-	/// animation and decoupled from arrival: events that land mid-playback are picked up by the outer
-	/// loop. Idempotent — a re-entrant call returns at once, letting the running consumer own the drain.</summary>
-	private async Task RunPlayback()
-	{
-		if (_playing) return;
-		_playing = true;
-		try
-		{
-			do
-			{
-				while (TryDequeueBeat(out var beat))
-				{
-					foreach (var e in beat) AccumulateStat(e);
-					await AnimateEvents(beat);
-					if (beat.OfType<GameEndedEvent>().FirstOrDefault() is { } ended)
-					{ FullRender(); ShowWinOverlay(ended); return; }
-				}
-				FullRender();
-			} while (!_playQueue.IsEmpty);
-		}
-		finally { _playing = false; }
-	}
-
-	/// <summary>Pull one presentation beat off the queue. Usually a single event; an AttackedEvent also
-	/// takes the strikes it causes (unit/leader damage, deaths) so they play as one unit — the seam the
-	/// later feel work (items 2/3/5: projectile flight, hit-stop, on-land damage) refines. Safe to peek
-	/// the head to decide grouping: there is only ever one consumer, and producers append to the tail.</summary>
-	private bool TryDequeueBeat(out List<GameEvent> beat)
-	{
-		beat = new List<GameEvent>();
-		if (!_playQueue.TryDequeue(out var first))
-			return false;
-		beat.Add(first);
-		if (first is AttackedEvent)
-			while (_playQueue.TryPeek(out var next) && IsStrikeAftermath(next) && _playQueue.TryDequeue(out var e))
-				beat.Add(e);
-		return true;
-	}
-
-	// Events that only ever arise as the resolution of the attack just dequeued, so they fold into its
-	// beat. A normal move, heal or buff is a separate action carrying its own leading event (a card play,
-	// a move command, a leader skill), so it is never mis-grouped onto the preceding attack.
-	private static bool IsStrikeAftermath(GameEvent e) =>
-		e is UnitDamagedEvent or UnitDiedEvent or LeaderDamagedEvent;
 
 	/// <summary>Send a command over the wire. The result batch is animated by the pump; only the
 	/// rejection/error paths touch UI here, marshalled back to the main thread.</summary>
@@ -1937,543 +1594,7 @@ public partial class BattleScene : Control
 		}
 	}
 
-	private async Task AnimateEvents(IReadOnlyList<GameEvent> beat)
-	{
-		// An attack cluster (item 9's beat) plays as a staged strike: the blow lands, THEN the damage,
-		// death and line-break reactions fire (see PlayAttackBeat). Everything else is a single event.
-		if (beat.Count > 0 && beat[0] is AttackedEvent atk)
-		{
-			await PlayAttackBeat(atk, beat);
-			return;
-		}
-		foreach (var e in beat)
-			await PlaySingle(e);
-	}
-
-	private async Task PlaySingle(GameEvent e)
-	{
-		switch (e)
-		{
-			case CardPlayedEvent cp:
-				await ShowOpponentCardReveal(cp);   // item 5: show an opponent's play before it lands
-				if (_cards.TryGet(cp.CardId, out var pd) && pd.Type == CardType.Order)
-				{
-					_sfx.Play("cast");
-					await FlashOnCastEngines(cp.Seat); // 教团 on-cast: light the caster's ally_order_played engines
-				}
-				break;
-			case CardDrawnEvent cd when cd.Seat == ViewSeat:
-				_sfx.Play("draw");
-				break;
-			case UnitDeployedEvent:
-				_sfx.Play("play");
-				await Delay(0.05);
-				break;
-			case UnitMovedEvent m when _standees.TryGetValue(m.UnitEntityId, out var node):
-				_sfx.Play("move");
-				await TweenTo(node, CellScreenPos(m.To) + new Vector2(7, 7), 0.16);
-				break;
-			case UnitDamagedEvent d:
-				await ReactDamage(d, null);          // standalone (battlecry / order / skill) — no lunge origin
-				break;
-			case UnitHealedEvent h when h.Amount > 0 && _standees.TryGetValue(h.UnitEntityId, out var hn):
-				Flash(hn, BattleTheme.HpColor);
-				FloatNumber(Center(hn), $"+{h.Amount}", BattleTheme.HpColor, h.Amount);
-				await Delay(0.12);
-				break;
-			case UnitBuffedEvent b when _standees.TryGetValue(b.UnitEntityId, out var bn):
-				Flash(bn, BattleTheme.Accent);
-				await Delay(0.08);
-				break;
-			case UnitKeywordGrantedEvent kg when kg.Keyword == Keyword.Shield && _standees.TryGetValue(kg.UnitEntityId, out var kn):
-				_sfx.Play("play");
-				Flash(kn, BattleTheme.CostColor);
-				RefreshStandeeStatus(kg.UnitEntityId); // 持盾新增 → 立刻更新卡面指示器
-				await Delay(0.1);
-				break;
-			case PressureTideEvent tide:
-				// 压力潮汐: the bleed is explained here; the follow-up LeaderDamagedEvent animates the HP hit.
-				_sfx.Play("tide");
-				FloatText(new Vector2(BattleTheme.ScreenW / 2f, 430),
-					$"压力潮汐!{(tide.Seat == 0 ? "玩家1" : "玩家2")}未攻入敌方半场 -{tide.Amount}", BattleTheme.DangerColor);
-				await Delay(0.5);
-				break;
-			case LeaderDamagedEvent ld:
-				await ReactLeaderDamage(ld, fromAttack: false); // standalone (tide / fatigue)
-				break;
-			case UnitDiedEvent dd:
-				await ReactDeath(dd);
-				break;
-			case TurnStartedEvent ts when FixedView:
-				await ShowTurnBanner(ts.Seat);       // item 8 (hotseat uses the pass overlay instead)
-				break;
-
-			// ---- docs/21 §1.6/§1.7/§3.1/§3.2 moment beats (board state settles on the FullRender after playback) ----
-			case TrapTriggeredEvent tt:
-				_sfx.Play("cast");
-				FloatText(CellScreenPos(tt.Cell) + new Vector2(BattleTheme.CellW / 2f - 40, BattleTheme.CellH / 2f - 12),
-					tt.Revealed ? "陷阱现形!" : "烬火陷阱", BattleTheme.DangerColor);
-				await Delay(0.22);
-				break;
-			case OrderCounteredEvent:
-				_sfx.Play("cast");
-				FloatText(new Vector2(BattleTheme.ScreenW / 2f - 130, 430), "焰誓反制!指令无效", BattleTheme.Accent);
-				await Delay(0.3);
-				break;
-			case OrderEchoedEvent: // 薪火回响·门德: the recast fires — announce it before its damage beats land
-				_sfx.Play("cast");
-				FloatText(new Vector2(BattleTheme.ScreenW / 2f - 120, 470), "薪火回响·门德!", BattleTheme.CostColor);
-				await Delay(0.26);
-				break;
-			case UnitTransformedEvent utr when _standees.TryGetValue(utr.UnitEntityId, out var utn):
-				if (utr.IntoCardId == "dw_ash_phoenix")
-				{
-					_sfx.Play("phoenix_rebirth");
-					await PlayFxSheet("fx/phoenix_rebirth_sheet.png", Center(utn), new Vector2(330, 300), 0.105);
-					FloatText(Center(utn), "浴火重生!", BattleTheme.AtkColor);
-				}
-				else
-				{
-					_sfx.Play("play");
-					Flash(utn, BattleTheme.Accent);
-					FloatText(Center(utn), "成长!", BattleTheme.HpColor);
-					await Delay(0.28);
-				}
-				break;
-			case SpellWardConsumedEvent ward when _standees.TryGetValue(ward.UnitEntityId, out var warded):
-				_sfx.Play("spell_ward");
-				Flash(warded, BattleTheme.Accent);
-				await PlayFxSheet("fx/spell_ward_sheet.png", Center(warded), new Vector2(270, 240), 0.075);
-				FloatText(Center(warded) + new Vector2(0, -18), "法术护体!", BattleTheme.Accent);
-				break;
-			case StatTransferredEvent st when _standees.TryGetValue(st.ToUnitId, out var stn):
-				Flash(stn, BattleTheme.Accent);
-				await Delay(0.1);
-				break;
-			case SecretPlayedEvent:
-			case SecretRevealedEvent:
-			case SmokeAppliedEvent:
-				_sfx.Play("cast");
-				await Delay(0.08);
-				break;
-			case SpellChargeChangedEvent sc when sc.NewCharge > 0:
-				FloatText(sc.Seat == ViewSeat ? new Vector2(360, 780) : new Vector2(1330, 30), $"蓄能 {sc.NewCharge}", BattleTheme.CostColor);
-				await Delay(0.08);
-				break;
-			default:
-				break;
-		}
-	}
-
-	// ---------- item 2: staged attack (melee lunge / ranged projectile) ----------
-
-	/// <summary>Play one attack beat: melee windup→charge→hit→return, or a ranged projectile that must
-	/// LAND before its damage resolves. The aftermath events (damage / death / leader hit / trample move)
-	/// fire on the contact frame, so a unit dies only after the blow that killed it (plan §10 item 9).</summary>
-	private async Task PlayAttackBeat(AttackedEvent atk, IReadOnlyList<GameEvent> beat)
-	{
-		var attacker = _standees.GetValueOrDefault(atk.AttackerEntityId);
-		Vector2 targetPos = AttackTargetCenter(atk);
-		Vector2 origin = attacker != null ? Center(attacker) : targetPos;
-		// A unit hit ≥ ~2 cells away is a shot; a leader plate sits in the corner (distance unreliable), so
-		// fall back to the attacker's 射程 keyword there.
-		bool ranged = atk.TargetUnitId is int
-			? attacker != null && origin.DistanceTo(targetPos) > 210f
-			: AttackerHasRange(atk.AttackerEntityId);
-		Vector2 home = attacker?.Position ?? Vector2.Zero;
-
-		bool moltenSword = IsMoltenSwordAttacker(atk.AttackerEntityId);
-		if (moltenSword)
-		{
-			_sfx.Play("molten_slam");
-			await PlayFxSheet("fx/molten_slam_sheet.png", targetPos, new Vector2(310, 330), 0.065);
-		}
-		else if (ranged)
-		{
-			_sfx.Play("shoot");
-			await FireProjectile(origin, targetPos);
-		}
-		else if (attacker != null)
-		{
-			await MeleeWindup(attacker, targetPos); // pull back, then charge 40% of the way in
-		}
-
-		// contact frame
-		if (!moltenSword) _sfx.Play("attack");
-		ScreenShake(moltenSword ? 5f : ranged ? 2f : 3f);
-
-		bool attackerDied = false;
-		int hits = 0;
-		foreach (var e in beat.Skip(1))
-			switch (e)
-			{
-				case UnitDamagedEvent d:
-					if (hits++ > 0) await Delay(0.08);  // multi-hit stagger (item 4)
-					await ReactDamage(d, origin);
-					break;
-				case LeaderDamagedEvent ld:
-					await ReactLeaderDamage(ld, fromAttack: true);
-					break;
-				case UnitDiedEvent dd:
-					if (dd.UnitEntityId == atk.AttackerEntityId) attackerDied = true;
-					await ReactDeath(dd);
-					break;
-				case UnitMovedEvent tm when _standees.TryGetValue(tm.UnitEntityId, out var mn):
-					await TweenTo(mn, CellScreenPos(tm.To) + new Vector2(7, 7), 0.14); // 践踏 advance after a kill
-					break;
-			}
-
-		if (!ranged && attacker != null && !attackerDied)
-			await SnapBack(attacker, home);
-	}
-
-	private async Task MeleeWindup(Control node, Vector2 targetCenter)
-	{
-		var home = node.Position;
-		Vector2 dir = targetCenter - Center(node);
-		Vector2 back = dir.LengthSquared() > 1f ? home - dir.Normalized() * 10f : home; // ~0.1s pull-back
-		Vector2 lunge = home + dir * 0.4f;                                              // 40% charge in
-		var t = CreateTween();
-		t.TweenProperty(node, "position", back, 0.10).SetTrans(Tween.TransitionType.Sine);
-		t.TweenProperty(node, "position", lunge, 0.12).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.In);
-		await ToSignal(t, Tween.SignalName.Finished);
-	}
-
-	private async Task SnapBack(Control node, Vector2 home)
-	{
-		var t = CreateTween();
-		t.TweenProperty(node, "position", home, 0.12).SetTrans(Tween.TransitionType.Sine);
-		await ToSignal(t, Tween.SignalName.Finished);
-	}
-
-	// Ranged shot: a glowing bolt flies from attacker to target; damage only resolves once it lands.
-	private async Task FireProjectile(Vector2 from, Vector2 to)
-	{
-		var size = new Vector2(52, 26);
-		var proj = new Control { Size = size, PivotOffset = size / 2f, MouseFilter = MouseFilterEnum.Ignore };
-		proj.Position = from - size / 2f;
-		proj.Rotation = (to - from).Angle(); // the bolt art points right; align it to the flight direction
-		if (BattleTheme.Tex("fx/projectile_bolt.png") is { } bolt)
-		{
-			proj.AddChild(BattleTheme.Art(bolt, Vector2.Zero, size, TextureRect.StretchModeEnum.KeepAspectCentered));
-		}
-		else // placeholder fallback (halo + core)
-		{
-			proj.AddChild(new ColorRect { Color = new Color(BattleTheme.Accent.R, BattleTheme.Accent.G, BattleTheme.Accent.B, 0.35f), Size = size, MouseFilter = MouseFilterEnum.Ignore });
-			proj.AddChild(new ColorRect { Color = BattleTheme.Accent.Lightened(0.4f), Position = new Vector2(size.X * 0.35f, size.Y * 0.25f), Size = size * 0.35f, MouseFilter = MouseFilterEnum.Ignore });
-		}
-		_overlayLayer.AddChild(proj);
-		var t = CreateTween();
-		t.TweenProperty(proj, "position", to - size / 2f, 0.25).SetTrans(Tween.TransitionType.Sine);
-		await ToSignal(t, Tween.SignalName.Finished);
-		proj.QueueFree();
-	}
-
-	/// <summary>Play a 4x2, left-to-right sprite sheet over a board-space point.</summary>
-	private async Task PlayFxSheet(string path, Vector2 center, Vector2 size, double frameSeconds)
-	{
-		if (BattleTheme.Tex(path) is not { } sheet) return;
-		var frame = new TextureRect
-		{
-			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-			MouseFilter = MouseFilterEnum.Ignore,
-			Position = center - size / 2f,
-			Size = size,
-		};
-		_overlayLayer.AddChild(frame);
-		Vector2 textureSize = sheet.GetSize();
-		Vector2 cell = new(textureSize.X / 4f, textureSize.Y / 2f);
-		for (int i = 0; i < 8; i++)
-		{
-			frame.Texture = new AtlasTexture
-			{
-				Atlas = sheet,
-				Region = new Rect2((i % 4) * cell.X, (i / 4) * cell.Y, cell.X, cell.Y),
-			};
-			await Delay(frameSeconds);
-		}
-		frame.QueueFree();
-	}
-
-	// item 3 art: a warm impact spark at the hit point (additive-ish glow).
-	private void HitSpark(Vector2 center)
-	{
-		if (BattleTheme.Tex("fx/hit_spark.png") is not { } tex) return;
-		var size = new Vector2(96, 96);
-		var spark = BattleTheme.Art(tex, center - size / 2f, size, TextureRect.StretchModeEnum.KeepAspectCentered);
-		spark.PivotOffset = size / 2f;
-		spark.Scale = new Vector2(0.5f, 0.5f);
-		spark.Rotation = (GetInstanceId() % 8) * 0.4f; // vary orientation per spawn so repeats don't look stamped
-		_overlayLayer.AddChild(spark);
-		var t = CreateTween();
-		t.TweenProperty(spark, "scale", new Vector2(1.25f, 1.25f), 0.18).SetTrans(Tween.TransitionType.Cubic);
-		t.Parallel().TweenProperty(spark, "modulate:a", 0.0f, 0.18);
-		t.TweenCallback(Callable.From(spark.QueueFree));
-	}
-
-	// item 3 art: 持盾吸收 marker — the shield sigil pops and drifts up, distinct from a real HP loss.
-	private void ShieldPop(Vector2 center)
-	{
-		if (BattleTheme.Tex("fx/shield_glyph.png") is not { } tex)
-		{
-			FloatText(center + new Vector2(0, -8), "盾", BattleTheme.CostColor); // placeholder fallback
-			return;
-		}
-		var size = new Vector2(68, 68);
-		var glyph = BattleTheme.Art(tex, center - size / 2f, size, TextureRect.StretchModeEnum.KeepAspectCentered);
-		glyph.PivotOffset = size / 2f;
-		glyph.Scale = new Vector2(0.4f, 0.4f);
-		var start = glyph.Position;
-		_overlayLayer.AddChild(glyph);
-		var t = CreateTween();
-		t.TweenProperty(glyph, "scale", new Vector2(1.1f, 1.1f), 0.12).SetTrans(Tween.TransitionType.Back);
-		t.TweenProperty(glyph, "position", start + new Vector2(0, -34), 0.4).SetTrans(Tween.TransitionType.Sine);
-		t.Parallel().TweenProperty(glyph, "modulate:a", 0.0f, 0.4);
-		t.TweenCallback(Callable.From(glyph.QueueFree));
-	}
-
-	// ---------- item 3/4/6: hit / death / face-damage reactions (shared by attacks and standalone events) ----------
-
-	// item 3: white flash + knockback away from the blow + hit sfx + damage number. Shield absorption
-	// reads blue with a 「盾」 float, clearly distinct from a real HP loss.
-	private async Task ReactDamage(UnitDamagedEvent d, Vector2? from)
-	{
-		if (!_standees.TryGetValue(d.UnitEntityId, out var node)) return;
-		if (d.ShieldAbsorbed)
-		{
-			_sfx.Play("attack");
-			Flash(node, BattleTheme.CostColor);
-			ShieldPop(Center(node)); // 蓝闪 + 盾纹章,与真实掉血区分
-			RefreshStandeeStatus(d.UnitEntityId); // 持盾被消耗 → 立刻更新卡面指示器
-			if (d.GuardRedirect) FloatBonusTag(Center(node) + new Vector2(0, 20), "守护-0"); // 守护单位被盾挡下
-			await Delay(0.12);
-			return;
-		}
-		// 守护 转移: the spared original target shows 守护-0 (a soft blue blink, no hit); the guardian that soaks
-		// it shows 守护-<实际伤害> with full hit feedback. Mirrors the 架设+1 attribution tag the user asked for.
-		if (d.GuardRedirect)
-		{
-			if (d.Amount > 0)
-			{
-				_sfx.Play("attack");
-				Flash(node, Colors.White);
-				HitSpark(Center(node));
-				Vector2 gdir = from is { } gf && (Center(node) - gf).LengthSquared() > 1f ? (Center(node) - gf).Normalized() : new Vector2(0, 1);
-				await Knockback(node, gdir * 7f);
-			}
-			else
-			{
-				Flash(node, BattleTheme.CostColor);
-			}
-			FloatBonusTag(Center(node) + new Vector2(0, d.Amount > 0 ? 0 : 20), $"守护-{d.Amount}");
-			await Delay(0.1);
-			return;
-		}
-		Flash(node, Colors.White);
-		HitSpark(Center(node));
-		Vector2 dir = from is { } f && (Center(node) - f).LengthSquared() > 1f ? (Center(node) - f).Normalized() : new Vector2(0, 1);
-		await Knockback(node, dir * 7f);
-		if (d.Amount > 0)
-		{
-			FloatNumber(Center(node), $"-{d.Amount}", BattleTheme.DangerColor, d.Amount);
-			// 架设 second clause: EFFECT damage (order/skill/battlecry) deals +1 to bolted-down units — never
-			// attacks. `from is null` is exactly the standalone (non-attack) path, so it distinguishes the two.
-			// Surface WHY the number is 1 higher than the card's printed value.
-			if (from is null && _emplacementUnits.Contains(d.UnitEntityId))
-				FloatBonusTag(Center(node) + new Vector2(0, 20), "架设 +1");
-		}
-	}
-
-	private async Task Knockback(Control node, Vector2 offset)
-	{
-		var home = node.Position;
-		var t = CreateTween();
-		t.TweenProperty(node, "position", home + offset, 0.05);
-		t.TweenProperty(node, "position", home, 0.07).SetTrans(Tween.TransitionType.Sine);
-		await ToSignal(t, Tween.SignalName.Finished);
-	}
-
-	// item 6: face damage. Breaking the ENEMY line (hitting their leader) is the reward beat — heavy shake +
-	// full-screen red edge pulse; damage to your own leader is a lighter warning.
-	private async Task ReactLeaderDamage(LeaderDamagedEvent ld, bool fromAttack)
-	{
-		_sfx.Play("leaderhit");
-		var plate = LeaderPlate(ld.Seat);
-		bool onOpponent = ld.Seat != ViewSeat;
-		Flash(plate, BattleTheme.DangerColor);
-		FloatNumber(Center(plate) + new Vector2(0, 24), $"-{ld.Amount}", BattleTheme.DangerColor, ld.Amount + 2);
-		LeaderShake(plate, onOpponent ? 10f : 7f);
-		if (fromAttack) EdgeFlash(onOpponent ? 0.85f : 0.55f); // 破线 red vignette pulse
-		else ScreenShake(3f);                                  // standalone (tide / fatigue) shakes on its own
-		await Delay(0.2);
-	}
-
-	// item 6: death — crumble (squash + spin + fade); the standee is then cleared by the next FullRender.
-	private async Task ReactDeath(UnitDiedEvent dd)
-	{
-		if (!_standees.TryGetValue(dd.UnitEntityId, out var node)) return;
-		_sfx.Play("death");
-		node.PivotOffset = node.Size / 2f;
-		var t = CreateTween();
-		t.SetParallel(true);
-		t.TweenProperty(node, "scale", new Vector2(1.15f, 0.55f), 0.22).SetTrans(Tween.TransitionType.Back);
-		t.TweenProperty(node, "rotation", 0.5f, 0.22);
-		t.TweenProperty(node, "modulate:a", 0.0f, 0.22);
-		await ToSignal(t, Tween.SignalName.Finished);
-	}
-
-	// ---------- item 6/8: screen-space effects ----------
-
-	private static Vector2 Center(Control c) => c.Position + c.Size / 2f;
-
 	private Control LeaderPlate(int seat) => seat == ViewSeat ? (Control)_selfAvatar! : _oppLeaderBtn;
-
-	private Vector2 AttackTargetCenter(AttackedEvent atk)
-	{
-		if (atk.TargetUnitId is int tid && _standees.TryGetValue(tid, out var tn))
-			return Center(tn);
-		if (atk.TargetLeaderSeat is int seat)
-			return Center(LeaderPlate(seat));
-		return new Vector2(BattleTheme.ScreenW / 2f, BattleTheme.ScreenH / 2f);
-	}
-
-	private bool AttackerHasRange(int entityId) =>
-		_host.GetView(ViewSeat).Units.FirstOrDefault(u => u.EntityId == entityId)?.Keywords
-			.Any(k => k.Keyword == Keyword.Range) ?? false;
-
-	private bool IsMoltenSwordAttacker(int entityId)
-	{
-		var unit = _host.GetView(ViewSeat).Units.FirstOrDefault(u => u.EntityId == entityId);
-		return unit?.CardId == "dw_molten_sword_priest"
-			&& unit.Keywords.Any(k => k.Keyword == Keyword.MoltenSword);
-	}
-
-	// A brief camera-style shake of the whole scene. Kills any prior shake so overlapping hits don't fight.
-	private void ScreenShake(float px)
-	{
-		_shakeTween?.Kill();
-		Position = Vector2.Zero;
-		_shakeTween = CreateTween();
-		for (int i = 0; i < 4; i++)
-		{
-			float f = 1f - i / 4f;
-			_shakeTween.TweenProperty(this, "position", new Vector2((i % 2 == 0 ? px : -px) * f, (i % 2 == 0 ? -px : px) * f), 0.025);
-		}
-		_shakeTween.TweenProperty(this, "position", Vector2.Zero, 0.025);
-	}
-
-	private void LeaderShake(Control plate, float px)
-	{
-		var home = plate.Position;
-		var t = CreateTween();
-		for (int i = 0; i < 5; i++)
-			t.TweenProperty(plate, "position", home + new Vector2(i % 2 == 0 ? px : -px, 0), 0.03);
-		t.TweenProperty(plate, "position", home, 0.03);
-	}
-
-	// Full-screen red edge pulse — a vignette faked with a thick-bordered transparent frame (placeholder).
-	private void EdgeFlash(float intensity)
-	{
-		var frame = new Panel { MouseFilter = MouseFilterEnum.Ignore, Modulate = new Color(1, 1, 1, 0) };
-		frame.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-		var style = new StyleBoxFlat { BgColor = new Color(0, 0, 0, 0), BorderColor = new Color(0.82f, 0.24f, 0.18f, intensity) };
-		style.BorderWidthLeft = style.BorderWidthRight = 120;
-		style.BorderWidthTop = style.BorderWidthBottom = 90;
-		frame.AddThemeStyleboxOverride("panel", style);
-		_overlayLayer.AddChild(frame);
-		var t = CreateTween();
-		t.TweenProperty(frame, "modulate:a", 1.0f, 0.10);
-		t.TweenProperty(frame, "modulate:a", 0.0f, 0.35);
-		t.TweenCallback(Callable.From(frame.QueueFree));
-	}
-
-	// ---------- item 5: opponent card reveal ----------
-
-	/// <summary>When the OPPONENT plays a card, show its face centre-screen (~1.2s, or click to skip) before
-	/// it lands — otherwise a networked opponent's play, an order especially, is invisible to you.</summary>
-	private async Task ShowOpponentCardReveal(CardPlayedEvent cp)
-	{
-		if (cp.Seat == ViewSeat || !_cards.TryGet(cp.CardId, out var def))
-			return;
-
-		var cardSize = new Vector2(360, 515);
-		var root = new Control { MouseFilter = MouseFilterEnum.Stop };
-		root.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-		var dim = new ColorRect { Color = new Color(0, 0, 0, 0.42f), MouseFilter = MouseFilterEnum.Ignore };
-		dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-		root.AddChild(dim);
-
-		var holder = new Control
-		{
-			Position = new Vector2((BattleTheme.ScreenW - cardSize.X) / 2f, (BattleTheme.ScreenH - cardSize.Y) / 2f - 30),
-			Size = cardSize,
-			PivotOffset = cardSize / 2f,
-			Scale = new Vector2(0.82f, 0.82f),
-			MouseFilter = MouseFilterEnum.Ignore,
-		};
-		holder.AddChild(BuildCardVisual(def, cardSize, compact: false, backing: true));
-		root.AddChild(holder);
-
-		var label = BattleTheme.MakeOutlinedLabel($"对手打出  {def.Name}", 30, BattleTheme.TextMain, HorizontalAlignment.Center);
-		label.Position = new Vector2(0, holder.Position.Y - 70);
-		label.Size = new Vector2(BattleTheme.ScreenW, 44);
-		root.AddChild(label);
-
-		_overlayLayer.AddChild(root);
-
-		var skip = new System.Threading.Tasks.TaskCompletionSource();
-		root.GuiInput += e => { if (e is InputEventMouseButton { Pressed: true }) skip.TrySetResult(); };
-
-		var pop = CreateTween();
-		pop.TweenProperty(holder, "scale", Vector2.One, 0.14).SetTrans(Tween.TransitionType.Back);
-
-		await System.Threading.Tasks.Task.WhenAny(Delay(1.2), skip.Task);
-
-		var outT = CreateTween();
-		outT.TweenProperty(root, "modulate:a", 0.0f, 0.14);
-		await ToSignal(outT, Tween.SignalName.Finished);
-		root.QueueFree();
-	}
-
-	// ---------- item 8: turn-switch banner ----------
-
-	// A turn-change banner sweeps in and fades. Fixed-view only — hotseat has the pass overlay already.
-	private async Task ShowTurnBanner(int seat)
-	{
-		_sfx.Play("turnstart");
-		bool mine = seat == ViewSeat;
-		var banner = new Panel { MouseFilter = MouseFilterEnum.Ignore, Size = new Vector2(BattleTheme.ScreenW, 120), Modulate = new Color(1, 1, 1, 0) };
-		banner.Position = new Vector2(0, BattleTheme.ScreenH / 2f - 60);
-		var style = new StyleBoxFlat { BgColor = new Color(0.04f, 0.04f, 0.05f, 0.72f) };
-		style.BorderColor = mine ? BattleTheme.Accent : BattleTheme.SeatColor1;
-		style.BorderWidthTop = style.BorderWidthBottom = 3;
-		banner.AddThemeStyleboxOverride("panel", style);
-		var label = BattleTheme.MakeOutlinedLabel(mine ? "你的回合" : "对手回合", 52,
-			mine ? BattleTheme.Accent : BattleTheme.TextMain, HorizontalAlignment.Center);
-		label.Size = new Vector2(BattleTheme.ScreenW, 120);
-		banner.AddChild(label);
-		_overlayLayer.AddChild(banner);
-
-		var t = CreateTween();
-		t.TweenProperty(banner, "modulate:a", 1.0f, 0.14);
-		t.TweenInterval(0.42);
-		t.TweenProperty(banner, "modulate:a", 0.0f, 0.18);
-		await ToSignal(t, Tween.SignalName.Finished);
-		banner.QueueFree();
-	}
-
-	// 教团 on-cast flash: after an order is cast, pulse each of the caster's ally_order_played engines ember-orange.
-	private async Task FlashOnCastEngines(int seat)
-	{
-		var ember = Color.FromHtml("ff7a3c");
-		bool any = false;
-		foreach (var uv in _host.GetView(ViewSeat).Units.Where(u => u.OwnerSeat == seat))
-			if (_standees.TryGetValue(uv.EntityId, out var node)
-				&& _cards.TryGet(uv.CardId, out var ud) && ud.Effects.Any(x => x.Trigger == "ally_order_played"))
-			{ Flash(node, ember); any = true; }
-		if (any) await Delay(0.14);
-	}
 
 	// ---------- overlays ----------
 
@@ -2491,102 +1612,7 @@ public partial class BattleScene : Control
 
 	// ---------- in-match menu (投降 / 暂停[后续] / 继续 / 查看牌组) ----------
 
-	private void ToggleGameMenu()
-	{
-		_sfx.Play("button");
-		if (_gameMenu is { } m && GodotObject.IsInstanceValid(m)) { CloseGameMenu(); return; }
-		ShowGameMenu();
-	}
-
-	private void CloseGameMenu()
-	{
-		if (_gameMenu is { } m && GodotObject.IsInstanceValid(m)) m.QueueFree();
-		_gameMenu = null;
-	}
-
-	/// <summary>A dim backdrop (click = close) plus a centered panel. Shared by the menu and its confirm/deck views.
-	/// Tracked in <see cref="_gameMenu"/> so Esc / the menu button close whichever is showing.</summary>
-	private Panel NewMenuOverlay(Vector2 panelSize)
-	{
-		CloseGameMenu();
-		var dim = new ColorRect { Color = new Color(0.02f, 0.02f, 0.02f, 0.72f) };
-		dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-		_overlayLayer.AddChild(dim);
-		_gameMenu = dim;
-
-		var back = new Button { Flat = true };
-		back.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-		back.Pressed += CloseGameMenu;
-		dim.AddChild(back);
-
-		var panel = new Panel
-		{
-			Position = new Vector2((BattleTheme.ScreenW - panelSize.X) / 2f, (BattleTheme.ScreenH - panelSize.Y) / 2f),
-			Size = panelSize,
-			MouseFilter = MouseFilterEnum.Stop, // clicks on the panel must not close via the backdrop
-		};
-		// docs/18 §4.2: a leather ledger frame when the art is present, else the flat panel.
-		panel.AddThemeStyleboxOverride("panel", (StyleBox?)BattleTheme.LeatherPanel() ?? BattleTheme.Box(BattleTheme.PanelDark, BattleTheme.Accent, 2, 16));
-		dim.AddChild(panel);
-		return panel;
-	}
-
-	private void ShowGameMenu()
-	{
-		bool over = _host.GetView(ViewSeat).Result != null;
-		// rev3: no title — four buttons, evenly inset within the leather frame's inner field (the frame border
-		// is ~74px; the old 60px inset let plates overlap it).
-		var panel = NewMenuOverlay(new Vector2(480, 460));
-
-		float by = 78f;
-		Button Row(string text, Color color, System.Action onPressed)
-		{
-			var b = BattleTheme.MakeButton(new Vector2(84, by), new Vector2(312, 64), color, BattleTheme.Accent, 2, 12, textured: true);
-			b.Text = text;
-			b.AddThemeFontSizeOverride("font_size", 26);
-			b.Pressed += () => { _sfx.Play("button"); onPressed(); };
-			panel.AddChild(b);
-			by += 80f;
-			return b;
-		}
-
-		Row("继续", BattleTheme.AccentSoft, CloseGameMenu);
-		Row("查看牌组", BattleTheme.PanelDark, ShowDeckList);
-		var surrender = Row("投降", BattleTheme.PanelDark, ConfirmSurrender);
-		surrender.Disabled = over; // nothing to surrender once the match has ended
-		Row("返回菜单", BattleTheme.PanelDark, () =>
-		{
-			if (_online && !over) { ConfirmLeaveOnline(); return; }
-			CloseGameMenu();
-			SceneFx.ChangeScene(this, "res://scenes/menu/Menu.tscn");
-		});
-	}
-
-	/// <summary>返回菜单 mid-online-match: "离开 = 投降 = 看结算". The red 离开 concedes and STAYS in the
-	/// scene — GameEnded flows through the pump to the win overlay, and the player leaves from there like
-	/// any other finished match. No bypass path exists: the match always settles before the menu is
-	/// reachable, so no server-side clock forfeit can chase the player into their next game on the shared
-	/// lobby socket (the "sudden loss next match" bug).</summary>
-	private void ConfirmLeaveOnline()
-	{
-		var panel = NewMenuOverlay(new Vector2(480, 360));
-
-		var q = BattleTheme.MakeOutlinedLabel("还在对局中", 40, BattleTheme.DangerColor, HorizontalAlignment.Center);
-		q.Position = new Vector2(0, 60); q.Size = new Vector2(480, 60);
-		panel.AddChild(q);
-		var sub = BattleTheme.MakeLabel("如果返回将会视为投降输掉对局,是否继续?", 22, BattleTheme.TextDim, HorizontalAlignment.Center);
-		sub.Position = new Vector2(0, 132); sub.Size = new Vector2(480, 36);
-		panel.AddChild(sub);
-
-		var yes = BattleTheme.MakeButton(new Vector2(84, 230), new Vector2(150, 64), BattleTheme.DangerColor, BattleTheme.Accent, 2, 12, textured: true);
-		yes.Text = "离开"; yes.AddThemeFontSizeOverride("font_size", 28);
-		yes.Pressed += () => { _sfx.Play("button"); CloseGameMenu(); LeaveAsConcede(); };
-		panel.AddChild(yes);
-		var no = BattleTheme.MakeButton(new Vector2(246, 230), new Vector2(150, 64), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12, textured: true);
-		no.Text = "取消"; no.AddThemeFontSizeOverride("font_size", 28);
-		no.Pressed += () => { _sfx.Play("button"); ShowGameMenu(); };
-		panel.AddChild(no);
-	}
+	private void ToggleGameMenu() => _menu.Toggle();
 
 	/// <summary>The 离开 action: concede, then wait in place for the settlement overlay (sub-second on a
 	/// live connection — same path as 投降). Dead-socket escape hatch: once reconnect has permanently
@@ -2596,27 +1622,6 @@ public partial class BattleScene : Control
 	{
 		if (_connFailed) { SceneFx.ChangeScene(this, "res://scenes/menu/Menu.tscn"); return; }
 		ConcedeMatch();
-	}
-
-	private void ConfirmSurrender()
-	{
-		var panel = NewMenuOverlay(new Vector2(480, 360));
-
-		var q = BattleTheme.MakeOutlinedLabel("确认投降?", 40, BattleTheme.DangerColor, HorizontalAlignment.Center);
-		q.Position = new Vector2(0, 60); q.Size = new Vector2(480, 60);
-		panel.AddChild(q);
-		var sub = BattleTheme.MakeLabel(FixedView ? "本局将判负" : $"玩家{OfflineConcedeSeat() + 1} 判负", 22, BattleTheme.TextDim, HorizontalAlignment.Center);
-		sub.Position = new Vector2(0, 132); sub.Size = new Vector2(480, 36);
-		panel.AddChild(sub);
-
-		var yes = BattleTheme.MakeButton(new Vector2(84, 230), new Vector2(150, 64), BattleTheme.DangerColor, BattleTheme.Accent, 2, 12, textured: true);
-		yes.Text = "投降"; yes.AddThemeFontSizeOverride("font_size", 28);
-		yes.Pressed += () => { _sfx.Play("button"); CloseGameMenu(); ConcedeMatch(); };
-		panel.AddChild(yes);
-		var no = BattleTheme.MakeButton(new Vector2(246, 230), new Vector2(150, 64), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12, textured: true);
-		no.Text = "取消"; no.AddThemeFontSizeOverride("font_size", 28);
-		no.Pressed += () => { _sfx.Play("button"); ShowGameMenu(); };
-		panel.AddChild(no);
 	}
 
 	/// <summary>Submit a concede for the surrendering seat (online → the human; hotseat → the player at
@@ -2635,66 +1640,9 @@ public partial class BattleScene : Control
 		if (FixedView)
 			return _humanSeat;
 		if (InMulliganPhase())
-			return _mulliganShownSeat >= 0 && MullPending(_mulliganShownSeat) ? _mulliganShownSeat
+			return _mulligan.ShownSeat >= 0 && MullPending(_mulligan.ShownSeat) ? _mulligan.ShownSeat
 				: MullPending(ActiveSeat) ? ActiveSeat : 1 - ActiveSeat;
 		return ActiveSeat;
-	}
-
-	/// <summary>查看牌组: the full deck the local viewer brought this match, grouped by card with copy counts.
-	/// Click a card for its detail popup.</summary>
-	private void ShowDeckList()
-	{
-		// rev4: cards live INSIDE the leather frame's inner field (~74px border) — the old 24px inset let the
-		// grid ride over the frame art (user 图1).
-		var panel = NewMenuOverlay(new Vector2(1200, 900));
-		var title = BattleTheme.MakeTitle("我 的 牌 组", 34, BattleTheme.AtkColor);
-		title.Position = new Vector2(0, 18); title.Size = new Vector2(1200, 48);
-		panel.AddChild(title);
-
-		var cards = _deckCards[ViewSeat];
-		if (cards is null || cards.Count == 0)
-		{
-			var none = BattleTheme.MakeLabel("牌组信息本局不可用", 28, BattleTheme.TextDim, HorizontalAlignment.Center);
-			none.Position = new Vector2(0, 420); none.Size = new Vector2(1200, 44);
-			panel.AddChild(none);
-		}
-		else
-		{
-			var scroll = new ScrollContainer { Position = new Vector2(84, 90), Size = new Vector2(1032, 654) };
-			scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
-			panel.AddChild(scroll);
-			var grid = new GridContainer { Columns = 5, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-			grid.AddThemeConstantOverride("h_separation", 14);
-			grid.AddThemeConstantOverride("v_separation", 14);
-			scroll.AddChild(grid);
-
-			var faceSize = new Vector2(180, 252);
-			foreach (var g in cards.GroupBy(id => id)
-						 .Select(g => (Def: _cards.Get(g.Key), Count: g.Count()))
-						 .OrderBy(x => x.Def.Cost).ThenBy(x => x.Def.Name, System.StringComparer.Ordinal))
-			{
-				var def = g.Def;
-				var holder = new Button { CustomMinimumSize = faceSize, Size = faceSize, Flat = true };
-				holder.AddThemeStyleboxOverride("normal", BattleTheme.Box(new Color(0, 0, 0, 0)));
-				holder.AddChild(CardView.BuildFace(def, faceSize));
-				if (g.Count > 1)
-				{
-					var badge = new Panel { Position = new Vector2(faceSize.X - 46, 4), Size = new Vector2(42, 34), MouseFilter = MouseFilterEnum.Ignore };
-					badge.AddThemeStyleboxOverride("panel", BattleTheme.Box(new Color(0.05f, 0.05f, 0.05f, 0.85f), BattleTheme.Accent, 1, 8));
-					var bl = BattleTheme.MakeOutlinedLabel($"×{g.Count}", 20, BattleTheme.TextMain, HorizontalAlignment.Center);
-					bl.Size = new Vector2(42, 34);
-					badge.AddChild(bl);
-					holder.AddChild(badge);
-				}
-				holder.Pressed += () => { _sfx.Play("button"); CardView.ShowDetailPopup(this, def); };
-				grid.AddChild(holder);
-			}
-		}
-
-		var close = BattleTheme.MakeButton(new Vector2(500, 760), new Vector2(200, 56), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12, textured: true);
-		close.Text = "返回"; close.AddThemeFontSizeOverride("font_size", 26);
-		close.Pressed += () => { _sfx.Play("button"); ShowGameMenu(); };
-		panel.AddChild(close);
 	}
 
 	// ---------- 起手重抽 (mulligan, docs/11 §6) ----------
@@ -2709,27 +1657,20 @@ public partial class BattleScene : Control
 	private bool MullPending(int seat) =>
 		seat == 0 ? _host.GetView(0).MulliganPending : _host.GetView(0).OpponentMulliganPending;
 
-	private void CloseMulligan()
-	{
-		if (_mulliganPanel is { } p && GodotObject.IsInstanceValid(p)) p.QueueFree();
-		_mulliganPanel = null;
-		_mulliganTimerLabel = null; // owned by the panel; freed with it
-	}
+	/// <summary>Server re-announced the mulligan clock (match_started / resync after a reconnect) —
+	/// forwarded to the panel, which owns the countdown label.</summary>
+	private void OnMulliganTimer(int secs) => _mulligan.UpdateTimer(secs);
 
-	/// <summary>Server re-announced the mulligan clock (match_started / resync after a reconnect):
-	/// adopt its count so the local 1s tick can't drift.</summary>
-	private void OnMulliganTimer(int secs)
-	{
-		_mulliganTimerSecs = secs;
-		if (_mulliganTimerLabel is { } l && GodotObject.IsInstanceValid(l)) l.Text = $"限时 {secs} 秒";
-	}
+	/// <summary>Selection-panel title: fixed-view modes hide the seat, hotseat names the player.</summary>
+	private string MulliganTitle(int seat) =>
+		_vsAi || _online ? "起 手 换 牌" : (seat == 0 ? "玩家1 · 起手换牌" : "玩家2 · 起手换牌");
 
 	// --- offline (hotseat / vs-AI) ---
 
 	private void BeginMulliganOffline()
 	{
 		_handLayer.Visible = false;
-		_mulliganShownSeat = -1;
+		_mulligan.ShownSeat = -1;
 		AdvanceMulliganOffline();
 	}
 
@@ -2749,25 +1690,30 @@ public partial class BattleScene : Control
 		int seat = _vsAi ? _humanSeat : (MullPending(ActiveSeat) ? ActiveSeat : 1 - ActiveSeat);
 		if (!MullPending(seat)) { EndMulliganOffline(); return; }
 
-		if (!_vsAi && _mulliganShownSeat >= 0 && _mulliganShownSeat != seat)
+		if (!_vsAi && _mulligan.ShownSeat >= 0 && _mulligan.ShownSeat != seat)
 		{
 			ShowMulliganPassOverlay(seat); // hotseat: hand the device to the other player first
 			return;
 		}
-		_mulliganShownSeat = seat;
-		ShowMulliganPanel(seat, null, ids => { _ = SubmitMulliganOffline(seat, ids); });
+		_mulligan.ShownSeat = seat;
+		ShowMulliganPanelOffline(seat);
 	}
+
+	/// <summary>Open the shared selection panel for an offline seat (its hand read off the host).</summary>
+	private void ShowMulliganPanelOffline(int seat) =>
+		_mulligan.ShowSelect(_host.GetView(seat).Self.Hand, MulliganTitle(seat), null,
+			ids => { _ = SubmitMulliganOffline(seat, ids); });
 
 	private async Task SubmitMulliganOffline(int seat, IReadOnlyList<int> replaced)
 	{
-		CloseMulligan();
+		_mulligan.Close();
 		await Apply(new MulliganCommand { Seat = seat, ReplacedEntityIds = replaced.ToList() });
 		AdvanceMulliganOffline();
 	}
 
 	private void EndMulliganOffline()
 	{
-		CloseMulligan();
+		_mulligan.Close();
 		_handLayer.Visible = true;
 		FullRender();
 		if (_vsAi)
@@ -2782,254 +1728,39 @@ public partial class BattleScene : Control
 
 	private void ShowMulliganPassOverlay(int seat)
 	{
-		CloseMulligan();
-		_handLayer.Visible = false;
-		var panel = BattleTheme.MakeButton(Vector2.Zero, new Vector2(BattleTheme.ScreenW, BattleTheme.ScreenH), new Color(0.03f, 0.03f, 0.03f, 0.95f), radius: 0);
-		var msg = BattleTheme.MakeLabel($"轮到 {SeatDisplayName(seat)} 换牌\n\n点击继续", 44, BattleTheme.TextMain, HorizontalAlignment.Center);
-		msg.Position = new Vector2(0, 420); msg.Size = new Vector2(BattleTheme.ScreenW, 240);
-		panel.AddChild(msg);
-		panel.Pressed += () =>
+		_mulligan.ShowPassOverlay(SeatDisplayName(seat), () =>
 		{
-			_mulliganShownSeat = seat;
-			ShowMulliganPanel(seat, null, ids => { _ = SubmitMulliganOffline(seat, ids); });
-		};
-		_overlayLayer.AddChild(panel);
-		_mulliganPanel = panel; // ShowMulliganPanel's CloseMulligan retires it
+			_mulligan.ShownSeat = seat;
+			ShowMulliganPanelOffline(seat);
+		});
 	}
 
 	// --- online ---
 
-	/// <summary>Reflect the current mulligan state online: show my selection panel while I owe a mulligan,
-	/// a waiting notice once I've submitted, and tear the overlay down when the phase closes.</summary>
+	/// <summary>Reflect the current mulligan state online — the panel owns the mode machine; the scene
+	/// supplies the view, the submit path and the post-phase re-render.</summary>
 	private void RefreshMulliganUi()
 	{
 		if (!_online) return;
-		var view = _host.GetView(_humanSeat);
-
-		if (view.Result != null || (!view.MulliganPending && !view.OpponentMulliganPending))
-		{
-			if (_mulliganMode != 0) { _mulliganMode = 0; CloseMulligan(); _handLayer.Visible = true; FullRender(); }
-			return;
-		}
-
-		if (view.MulliganPending)
-		{
-			if (_mulliganMode == 1) return; // already selecting — don't clobber the player's picks
-			_mulliganMode = 1;
-			ShowMulliganPanel(_humanSeat, _remoteHost?.MulliganSecondsLeft, ids =>
-			{
-				_mulliganMode = 2;
-				ShowMulliganWaiting();
-				SubmitOnline(new MulliganCommand { Seat = _humanSeat, ReplacedEntityIds = ids });
-			});
-		}
-		else if (_mulliganMode != 2)
-		{
-			_mulliganMode = 2;
-			ShowMulliganWaiting();
-		}
-	}
-
-	private void ShowMulliganWaiting()
-	{
-		CloseMulligan();
-		_handLayer.Visible = false;
-		var dim = new ColorRect { Color = new Color(0.02f, 0.02f, 0.02f, 0.9f) };
-		dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-		_overlayLayer.AddChild(dim);
-		_mulliganPanel = dim;
-		var msg = BattleTheme.MakeOutlinedLabel("已确认 · 等待对手换牌…", 40, BattleTheme.Accent, HorizontalAlignment.Center);
-		msg.Position = new Vector2(0, 470); msg.Size = new Vector2(BattleTheme.ScreenW, 60);
-		dim.AddChild(msg);
-	}
-
-	// --- shared panel ---
-
-	/// <summary>The 起手重抽 selection panel: the seat's opening hand as toggleable cards (tap = mark for
-	/// replacement) plus a confirm. <paramref name="onConfirm"/> receives the chosen entity ids.</summary>
-	private void ShowMulliganPanel(int seat, int? secondsLeft, System.Action<List<int>> onConfirm)
-	{
-		CloseMulligan();
-		_handLayer.Visible = false;
-
-		var hand = _host.GetView(seat).Self.Hand;
-		var selected = new HashSet<int>();
-
-		var dim = new ColorRect { Color = new Color(0.02f, 0.02f, 0.02f, 0.92f) };
-		dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-		_overlayLayer.AddChild(dim);
-		_mulliganPanel = dim;
-
-		string who = _vsAi || _online ? "起 手 换 牌" : (seat == 0 ? "玩家1 · 起手换牌" : "玩家2 · 起手换牌");
-		var title = BattleTheme.MakeTitle(who, 52, BattleTheme.TextMain, HorizontalAlignment.Center);
-		title.Position = new Vector2(0, 80); title.Size = new Vector2(BattleTheme.ScreenW, 64);
-		dim.AddChild(title);
-		var sub = BattleTheme.MakeLabel("点击要换掉的牌,然后确认(仅一次机会)", 26, BattleTheme.TextDim, HorizontalAlignment.Center);
-		sub.Position = new Vector2(0, 160); sub.Size = new Vector2(BattleTheme.ScreenW, 40);
-		dim.AddChild(sub);
-		if (secondsLeft is { } s)
-		{
-			var label = BattleTheme.MakeOutlinedLabel($"限时 {s} 秒", 24, BattleTheme.Accent, HorizontalAlignment.Center);
-			label.Position = new Vector2(0, 206); label.Size = new Vector2(BattleTheme.ScreenW, 34);
-			dim.AddChild(label);
-			_mulliganTimerLabel = label;
-			_mulliganTimerSecs = s;
-			// Local 1s tick; the server clock stays authoritative (expiry auto-submits keep-all server-side,
-			// and MulliganTimerReceived re-syncs the count after a reconnect).
-			var tick = new Godot.Timer { WaitTime = 1.0, Autostart = true };
-			tick.Timeout += () =>
-			{
-				_mulliganTimerSecs = Mathf.Max(0, _mulliganTimerSecs - 1);
-				if (GodotObject.IsInstanceValid(label)) label.Text = $"限时 {_mulliganTimerSecs} 秒";
-				if (_mulliganTimerSecs == 0) tick.Stop();
-			};
-			dim.AddChild(tick); // freed with the panel — the countdown dies with it
-		}
-
-		var faceSize = new Vector2(206, 288);
-		int n = hand.Count;
-		const float gap = 22f;
-		float totalW = n * faceSize.X + (n - 1) * gap;
-		float startX = Mathf.Max(20f, (BattleTheme.ScreenW - totalW) / 2f);
-		const float y = 300f;
-
-		// rev5: back to the teal plate — gold read as out-of-place here (user feedback), and the side icon
-		// made the label look off-center.
-		var confirm = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2 - 200, 664), new Vector2(400, 84), BattleTheme.AccentSoft, BattleTheme.Accent, 2, 12, textured: true);
-		confirm.AddThemeFontSizeOverride("font_size", 30);
-		void UpdateConfirm() => confirm.Text = selected.Count == 0 ? "确认 · 全部保留" : $"确认 · 换 {selected.Count} 张";
-		UpdateConfirm();
-
-		for (int i = 0; i < n; i++)
-		{
-			int id = hand[i].EntityId;
-			var def = _cards.Get(hand[i].CardId);
-			var holder = new Button { Position = new Vector2(startX + i * (faceSize.X + gap), y), Size = faceSize, Flat = true };
-			holder.AddThemeStyleboxOverride("normal", BattleTheme.Box(new Color(0, 0, 0, 0)));
-			holder.AddChild(CardView.BuildFace(def, faceSize));
-
-			var mark = new Panel { Size = faceSize, MouseFilter = MouseFilterEnum.Ignore, Visible = false };
-			mark.AddThemeStyleboxOverride("panel", BattleTheme.Box(new Color(0.7f, 0.2f, 0.15f, 0.42f), BattleTheme.DangerColor, 4, 10));
-			var glyph = BattleTheme.MakeOutlinedLabel("换", 64, Colors.White, HorizontalAlignment.Center);
-			glyph.Size = faceSize;
-			mark.AddChild(glyph);
-			holder.AddChild(mark);
-
-			holder.Pressed += () =>
-			{
-				if (!selected.Add(id)) selected.Remove(id);
-				mark.Visible = selected.Contains(id);
-				UpdateConfirm();
-			};
-			dim.AddChild(holder);
-		}
-
-		confirm.Pressed += () => { _sfx.Play("button"); onConfirm(selected.ToList()); };
-		dim.AddChild(confirm);
+		_mulligan.RefreshOnline(_host.GetView(_humanSeat), _remoteHost?.MulliganSecondsLeft,
+			ids => SubmitOnline(new MulliganCommand { Seat = _humanSeat, ReplacedEntityIds = ids }),
+			FullRender);
 	}
 
 	private void ShowWinOverlay(GameEndedEvent ended)
 	{
-		var panel = new ColorRect { Color = new Color(0.02f, 0.02f, 0.02f, 0.9f) };
-		panel.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-		_overlayLayer.AddChild(panel);
-
-		string who;
-		Color tint;
-		if (ended.WinnerSeat < 0) { who = "平局"; tint = BattleTheme.TextMain; }
-		else if (FixedView) { bool win = ended.WinnerSeat == _humanSeat; who = win ? "胜 利" : "败 北"; tint = win ? BattleTheme.Accent : BattleTheme.DangerColor; }
-		else { who = $"{LeaderName(_host.GetView(ended.WinnerSeat).Self.LeaderId)} 获胜"; tint = BattleTheme.Accent; }
-
-		// item 7: victory / defeat sting, in sync with the result screen. Hotseat always celebrates a winner.
-		_sfx.Play(ended.WinnerSeat >= 0 && (!FixedView || ended.WinnerSeat == _humanSeat) ? "victory" : "defeat");
-
-		// Result illustration behind the text (dimmed); a draw keeps the plain panel.
-		bool defeat = FixedView && ended.WinnerSeat >= 0 && ended.WinnerSeat != _humanSeat;
-		if (ended.WinnerSeat >= 0 &&
-			BattleTheme.Tex(defeat ? "screens/result_defeat.png" : "screens/result_victory.png") is { } resultTex)
-		{
-			var illus = BattleTheme.Art(resultTex, Vector2.Zero, new Vector2(BattleTheme.ScreenW, BattleTheme.ScreenH));
-			illus.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-			illus.Modulate = new Color(0.62f, 0.62f, 0.62f);
-			panel.AddChild(illus);
-		}
-
-		var msg = BattleTheme.MakeTitle(who, 88, tint, HorizontalAlignment.Center);
-		msg.Position = new Vector2(0, 232);
-		msg.Size = new Vector2(BattleTheme.ScreenW, 120);
-		panel.AddChild(msg);
-
-		// Match stats: rounds, line-breaks (推过底线打脸), leader damage taken.
+		if (_timerLabel != null) _timerLabel.Visible = false; // 批次C2: 倒计时节流后由这里保证终局立即收起
 		int rounds = (_host.GetView(0).TurnNumber + 1) / 2;
-		int a = FixedView ? _humanSeat : 0, b = 1 - a;
-		string Side(int seat) => FixedView ? (seat == _humanSeat ? "你" : "对手") : (seat == 0 ? "玩家1" : "玩家2");
-
-		void StatLine(string text, float y, int size, Color color)
-		{
-			var l = BattleTheme.MakeOutlinedLabel(text, size, color, HorizontalAlignment.Center);
-			l.Position = new Vector2(0, y);
-			l.Size = new Vector2(BattleTheme.ScreenW, 40);
-			panel.AddChild(l);
-		}
-		StatLine($"本 局 {rounds} 回 合", 380, 30, BattleTheme.TextMain);
-		StatLine($"破线打脸    {Side(a)} {_lineBreaks[a]} 次        {Side(b)} {_lineBreaks[b]} 次", 432, 26, BattleTheme.Accent);
-		StatLine($"领袖受创    {Side(a)} {_leaderDmg[a]}        {Side(b)} {_leaderDmg[b]}", 474, 26, BattleTheme.TextDim);
-
-		// Ranked ELO line (C3): shown for online matches once rating_change is in. If the delta already
-		// arrived (common — playback pacing lags the wire), animate now; otherwise OnRatingChange fills it.
-		if (_online)
-		{
-			_ratingLabel = BattleTheme.MakeOutlinedLabel("", 34, BattleTheme.Accent, HorizontalAlignment.Center);
-			_ratingLabel.Position = new Vector2(0, 520);
-			_ratingLabel.Size = new Vector2(BattleTheme.ScreenW, 44);
-			panel.AddChild(_ratingLabel);
-			if (_ratingChange is { } rc) AnimateRating(_ratingLabel, rc);
-		}
-
-		// Rematch reloads the scene locally; online can't (it would reconnect / create a new room —
-		// same-room rematch is N3), so online shows only "return to menu", centered.
-		if (!_online)
-		{
-			var again = BattleTheme.MakeButton(new Vector2(BattleTheme.ScreenW / 2 - 320, 570), new Vector2(280, 80), BattleTheme.AtkColor, BattleTheme.Accent, 2, 12, textured: true);
-			again.Text = "再来一局";
-			again.AddThemeFontSizeOverride("font_size", 26);
-			again.Pressed += () => { _sfx.Play("button"); SceneFx.Reload(this); };
-			panel.AddChild(again);
-		}
-
-		var menuX = _online ? BattleTheme.ScreenW / 2 - 140 : BattleTheme.ScreenW / 2 + 40;
-		var menu = BattleTheme.MakeButton(new Vector2(menuX, 570), new Vector2(280, 80), BattleTheme.PanelDark, BattleTheme.Accent, 2, 12, textured: true);
-		menu.Text = "返回菜单";
-		menu.AddThemeFontSizeOverride("font_size", 26);
-		menu.Pressed += () => { _sfx.Play("button"); SceneFx.ChangeScene(this, "res://scenes/menu/Menu.tscn"); };
-		panel.AddChild(menu);
+		_matchEnd.Show(ended, FixedView, _humanSeat,
+			seat => LeaderName(_host.GetView(seat).Self.LeaderId), // hotseat winner line only — never called on a draw
+			rounds, _lineBreaks, _leaderDmg,
+			onRematch: () => SceneFx.Reload(this),
+			onExitToMenu: () => SceneFx.ChangeScene(this, "res://scenes/menu/Menu.tscn"));
 	}
 
-	/// <summary>rating_change from the shared Session (WS thread already marshalled here). Stash it, and if the
-	/// result screen is already up, animate the line in — otherwise ShowWinOverlay picks it up on creation.</summary>
-	private void OnRatingChange(RatingChange rc)
-	{
-		_ratingChange = rc;
-		if (_ratingLabel is { } lbl && GodotObject.IsInstanceValid(lbl))
-			AnimateRating(lbl, rc);
-	}
-
-	/// <summary>Count the rating up/down from Old to New over ~0.7s, color-coded by the sign of the delta.</summary>
-	private void AnimateRating(Label label, RatingChange rc)
-	{
-		int delta = rc.New - rc.Old;
-		string sign = delta >= 0 ? "+" : "";
-		label.AddThemeColorOverride("font_color", delta >= 0 ? BattleTheme.HpColor : BattleTheme.DangerColor);
-		label.Modulate = new Color(1, 1, 1, 0);
-		var fade = CreateTween();
-		fade.TweenProperty(label, "modulate:a", 1f, 0.3f);
-		var count = CreateTween();
-		count.TweenMethod(Callable.From<float>(v =>
-		{
-			if (GodotObject.IsInstanceValid(label))
-				label.Text = $"排位评分  {Mathf.RoundToInt(v)}    {sign}{delta}";
-		}), (float)rc.Old, (float)rc.New, 0.7f).SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
-	}
+	/// <summary>rating_change from the shared Session (WS thread already marshalled here) — the panel
+	/// stashes/animates it whether the result screen is up yet or not.</summary>
+	private void OnRatingChange(RatingChange rc) => _matchEnd.OnRatingChange(rc);
 
 	private void AccumulateStat(GameEvent e)
 	{
@@ -3039,6 +1770,22 @@ public partial class BattleScene : Control
 			case LeaderDamagedEvent ld: _leaderDmg[ld.Seat] += ld.Amount; break;          // covers combat + fatigue + tide
 		}
 	}
+
+	// ---------- IPlaybackHost (docs/22 批次E1): the minimal surface PlaybackDirector reads ----------
+	// Explicit implementations so the scene's own members stay private; each is a one-line forward.
+
+	int IPlaybackHost.ViewSeat => ViewSeat;
+	bool IPlaybackHost.FixedView => FixedView;
+	PlayerView IPlaybackHost.View => _host.GetView(ViewSeat);
+	Control? IPlaybackHost.Standee(int entityId) => _standees.GetValueOrDefault(entityId);
+	Vector2 IPlaybackHost.CellScreenPos(Cell c) => CellScreenPos(c);
+	Control IPlaybackHost.LeaderPlate(int seat) => LeaderPlate(seat);
+	bool IPlaybackHost.IsEmplacement(int entityId) => _emplacementUnits.Contains(entityId);
+	void IPlaybackHost.FloatText(Vector2 center, string text, Color color) => FloatText(center, text, color);
+	void IPlaybackHost.RefreshStandeeStatus(int entityId) => RefreshStandeeStatus(entityId);
+	void IPlaybackHost.AccumulateStat(GameEvent e) => AccumulateStat(e);
+	void IPlaybackHost.FullRender() => FullRender();
+	void IPlaybackHost.ShowWinOverlay(GameEndedEvent ended) => ShowWinOverlay(ended);
 
 	// ---------- card inspector (click a piece) ----------
 
@@ -3053,102 +1800,10 @@ public partial class BattleScene : Control
 			child.QueueFree();
 		_detailPanel.Visible = true;
 
-		const float pad = 16f;
-		float innerW = DetailW - pad * 2;
-		var faction = FactionColor(def.Faction);
-
-		// Card art (BattleTheme.Art keeps the ExpandMode-before-Size order — a raw initializer
-		// here once let the texture's min size blow the image out of the panel).
-		const float artH = 264f;
-		var artPath = $"{BattleTheme.ArtRoot}/cards/{def.Id}.png";
-		if (ResourceLoader.Exists(artPath))
-		{
-			_detailPanel.AddChild(CardView.ArtWindow(GD.Load<Texture2D>(artPath), def.Id, new Vector2(pad, pad), new Vector2(innerW, artH)));
-		}
-		else
-		{
-			_detailPanel.AddChild(new ColorRect { Color = faction.Darkened(0.2f), Position = new Vector2(pad, pad), Size = new Vector2(innerW, artH), MouseFilter = MouseFilterEnum.Ignore });
-			var ph = BattleTheme.MakeOutlinedLabel(def.Name, 34, new Color(1, 1, 1, 0.85f), HorizontalAlignment.Center);
-			ph.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
-			ph.Position = new Vector2(pad, pad);
-			ph.Size = new Vector2(innerW, artH);
-			_detailPanel.AddChild(ph);
-		}
-
-		// Name over the art's lower edge, on a soft dark strip.
-		var nameStrip = new ColorRect { Color = new Color(0.05f, 0.045f, 0.04f, 0.62f), Position = new Vector2(pad, pad + artH - 46), Size = new Vector2(innerW, 46), MouseFilter = MouseFilterEnum.Ignore };
-		_detailPanel.AddChild(nameStrip);
-		var nameL = BattleTheme.MakeOutlinedLabel(def.Name, 26, BattleTheme.TextMain);
-		nameL.Position = new Vector2(pad + 14, pad + artH - 44);
-		nameL.Size = new Vector2(innerW * 0.6f, 42);
-		_detailPanel.AddChild(nameL);
-		var metaL = BattleTheme.MakeOutlinedLabel($"{RarityName(def.Rarity)} · {FactionName(def.Faction)} · 随从", 14, BattleTheme.TextDim, HorizontalAlignment.Right);
-		metaL.Position = new Vector2(pad + innerW * 0.5f - 14, pad + artH - 42);
-		metaL.Size = new Vector2(innerW * 0.5f, 38);
-		_detailPanel.AddChild(metaL);
-
-		// Stats row: the same gems as the cards, with captions.
-		float y = pad + artH + 14;
-		var stats = new (string Num, string Caption, Color Color, Texture2D? Gem)[]
-		{
-			(def.Cost.ToString(), "辉尘", BattleTheme.CostColor, _gemCost),
-			(u.Atk.ToString(), "攻击", BattleTheme.AtkColor, _gemAtk),
-			(u.CurrentHp.ToString(), $"生命 {u.CurrentHp}/{u.MaxHp}", u.CurrentHp < u.MaxHp ? BattleTheme.DangerColor : BattleTheme.HpColor, _gemHp),
-		};
-		float sx = pad + 6;
-		foreach (var (num, caption, color, gemTex) in stats)
-		{
-			_detailPanel.AddChild(Pip(num, color, new Vector2(sx, y), gemTex, 46));
-			var cap = BattleTheme.MakeLabel(caption, 17, BattleTheme.TextMain);
-			cap.Position = new Vector2(sx + 54, y + 11);
-			cap.Size = new Vector2(110, 24);
-			_detailPanel.AddChild(cap);
-			sx += 158;
-		}
-		y += 46 + 16;
-
-		// Rules text on the same dark plate style as the hand cards.
-		if (!string.IsNullOrWhiteSpace(CardTextFormatting.GetBbcode(def.Id, BattleTheme.BodyText(def.Text))))
-		{
-			string bodyText = CardTextFormatting.GetBbcode(def.Id, BattleTheme.BodyText(def.Text));
-			float plateH = 26f + 26f * Mathf.Ceil(CardTextFormatting.PlainText(bodyText).Length / 26f);
-			var plate = new Panel { Position = new Vector2(pad, y), Size = new Vector2(innerW, plateH), MouseFilter = MouseFilterEnum.Ignore };
-			plate.AddThemeStyleboxOverride("panel", BattleTheme.Box(
-				new Color(0.07f, 0.06f, 0.05f, 0.7f), new Color(0.62f, 0.5f, 0.3f, 0.45f), 1, 8));
-			_detailPanel.AddChild(plate);
-			var body = CardTextFormatting.MakeRichLabel(def.Id, BattleTheme.BodyText(def.Text), 17,
-				new Color(0.93f, 0.89f, 0.8f));
-			body.VerticalAlignment = VerticalAlignment.Center;
-			body.ClipContents = true;
-			body.Position = new Vector2(pad + 12, y + 2);
-			body.Size = new Vector2(innerW - 24, plateH - 4);
-			_detailPanel.AddChild(body);
-			y += plateH + 12;
-		}
-
-		foreach (var k in u.Keywords)
-		{
-			var kwl = BattleTheme.MakeLabel($"【{KeywordDisplayName(k)}】{BattleTheme.BodyText(KeywordDesc(k.Keyword))}", 15, BattleTheme.Accent);
-			kwl.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
-			kwl.VerticalAlignment = VerticalAlignment.Top;
-			kwl.ClipContents = true;
-			kwl.Position = new Vector2(pad + 4, y);
-			kwl.Size = new Vector2(innerW - 8, 44);
-			_detailPanel.AddChild(kwl);
-			y += 48;
-		}
-
-		// Faction lore pinned to the bottom — skipped when the content above needs the room.
-		if (y < DetailH - 76)
-		{
-			var lore = BattleTheme.MakeLabel(FactionLore(def.Faction), 13, BattleTheme.TextDim);
-			lore.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
-			lore.VerticalAlignment = VerticalAlignment.Bottom;
-			lore.ClipContents = true;
-			lore.Position = new Vector2(pad, DetailH - 66);
-			lore.Size = new Vector2(innerW, 52);
-			_detailPanel.AddChild(lore);
-		}
+		// Shared layout lives in CardView; this panel only differs in geometry and shows the unit's
+		// LIVE stats (生命 X/Y, red when damaged) and effective keywords instead of the printed ones.
+		CardView.FillDetail(_detailPanel, def, new Vector2(DetailW, DetailH), pad: 16f, artH: 264f, statStep: 158f,
+			live: new CardView.LiveUnitStats(u.Atk, u.CurrentHp, u.MaxHp), keywords: u.Keywords);
 
 		// Close button added last so it sits on top of the art and is always clickable.
 		var close = BattleTheme.MakeButton(new Vector2(DetailW - 46, 10), new Vector2(36, 36), BattleTheme.PanelDark, BattleTheme.TextDim, 1, 8);
@@ -3160,33 +1815,9 @@ public partial class BattleScene : Control
 
 	private void HideDetail() => _detailPanel.Visible = false;
 
-	private static string RarityName(Rarity r) => r switch
-	{
-		Rarity.Common => "普通",
-		Rarity.Rare => "稀有",
-		Rarity.Epic => "史诗",
-		Rarity.Legendary => "传说",
-		_ => "衍生",
-	};
-
-	private static string FactionName(string faction) => faction switch
-	{
-		"iron_vow" => "铁誓军团",
-		"wildpack" => "荒野游群",
-		"duskweaver" => "黄昏教团",
-		"undervault" => "掘世匠会",
-		_ => "中立",
-	};
-
-	/// <summary>Short faction tag for the hotseat 交接提示 (e.g. 铁誓 / 游群 / 教团 / 匠会 / 中立).</summary>
-	private static string FactionMark(string faction) => faction switch
-	{
-		"iron_vow" => "铁誓",
-		"wildpack" => "游群",
-		"duskweaver" => "教团",
-		"undervault" => "匠会",
-		_ => "中立",
-	};
+	/// <summary>Short faction tag for the hotseat 交接提示 (e.g. 铁誓 / 游群 / 教团 / 匠会 / 中立).
+	/// docs/22 批次D4: the values live in res://data/faction_catalog.tres; CardView holds the accessor.</summary>
+	private static string FactionMark(string faction) => CardView.FactionMark(faction);
 
 	private string LeaderFaction(string leaderId) => _leaders.TryGet(leaderId, out var l) ? l.Faction : "neutral";
 
@@ -3198,87 +1829,7 @@ public partial class BattleScene : Control
 		return string.IsNullOrEmpty(mark) ? $"玩家{seat + 1}" : $"玩家{seat + 1}({mark})";
 	}
 
-	private static string FactionLore(string faction) => faction switch
-	{
-		"iron_vow" => "铁誓军团 —— 誓约骑士与堡垒工程师,断层战争中最后的正规军。以墙为盾,寸土不让。",
-		"wildpack" => "荒野游群 —— 兽人与掠猎兽骑手,在断层荒原上以速度为生存法则。风过之处,防线洞开。",
-		"duskweaver" => "黄昏教团 —— 焚火祭司与灰烬信徒,以格、行、列为祭坛的法术连锁者。误伤友军是代价,也是燃料。",
-		"undervault" => "掘世匠会 —— 掘地矮人与蒸汽工程师,把阵型钉死成答案。架起炮台,隔墙点名。",
-		_ => "中立 —— 游荡在断层各段防线之间的雇佣兵、民兵与工匠,为辉尘而战。",
-	};
-
-	private static string KeywordDisplayName(KeywordSpec k) => k.Keyword switch
-	{
-		Keyword.Swift => $"疾行 {k.Value}",
-		Keyword.Range => $"射程 {k.Value}",
-		_ => KeywordDesc0(k.Keyword),
-	};
-
-	private static string KeywordDesc0(Keyword k) => k switch
-	{
-		Keyword.Charge => "冲锋",
-		Keyword.Assault => "突袭",
-		Keyword.Taunt => "嘲讽",
-		Keyword.HoldFast => "坚守",
-		Keyword.Trample => "践踏",
-		Keyword.CheapShot => "偷袭",
-		Keyword.Shield => "持盾",
-		Keyword.Garrison => "驻防",
-		Keyword.Leap => "跃障",
-		Keyword.PackTactics => "围猎",
-		Keyword.Hidden => "潜行",
-		Keyword.Emplacement => "架设",
-		Keyword.Pierce => "贯穿",
-		Keyword.Blessing => "福泽",
-		Keyword.Guardian => "守护",
-		Keyword.Rooted => "定身",
-		Keyword.MoltenSword => "熔岩巨剑",
-		Keyword.KindleImmune => "免疫薪炎",
-		Keyword.SpellWard => "法术护体",
-		_ => k.ToString(),
-	};
-
-	private static string KeywordDesc(Keyword k) => k switch
-	{
-		Keyword.Charge => "部署当回合即可移动与攻击。",
-		Keyword.Assault => "部署当回合可攻击,但不能移动。",
-		Keyword.Swift => "每回合可移动的格数提升。",
-		Keyword.Range => "可攻击 N 步(横纵相加)内的任意敌人,越过其他随从;仅当目标能反击到你(在其射程/相邻内)时才吃反击。",
-		Keyword.Taunt => "与其相邻的敌方随从必须优先攻击它。",
-		Keyword.HoldFast => "本回合未移动时,受到的伤害 -1。",
-		Keyword.Trample => "近战攻击时,对目标周围相邻的所有单位(含友方)也造成等量伤害。",
-		Keyword.CheapShot => "近战攻击不受反击。",
-		Keyword.Shield => "免疫下一次受到的伤害。",
-		Keyword.Garrison => "位于己方底线行时 +1/+1。",
-		Keyword.Leap => "移动时可跨过一个随从,直线跳跃 2 格。",
-		Keyword.PackTactics => "近战攻击一个与你另一友方相邻的敌人时,伤害 +2。",
-		Keyword.Hidden => "潜行:不能被敌方指令/战吼选中(范围/AOE 仍会命中);攻击后现形。",
-		Keyword.Emplacement => "架设:不能移动;受到指令/技能/战吼等效果伤害 +1(普通攻击不加)。",
-		Keyword.Pierce => "贯穿:远程攻击时,同时对目标正后方一格的随从(不分敌我)造成等额伤害。",
-		Keyword.Blessing => "福泽:与其相邻的友方随从受到的伤害 -1(不含自身,可与坚守叠加)。",
-		Keyword.Guardian => "守护:与其相邻的友方随从将要受到的伤害,转移到它身上承受(享受它自身的减伤)。",
-		Keyword.Rooted => "定身:本回合不能移动(跃障 / 额外移动力也无效),但仍可攻击与反击。",
-		Keyword.MoltenSword => "熔岩巨剑:装备后 +3 攻击、射程 2、贯穿(永久)。",
-		Keyword.KindleImmune => "免疫薪炎:免疫薪炎(spell.kindle)伤害;但被薪炎命中仍会加速自身成长。",
-		Keyword.SpellWard => "法术护体:抵挡下一次敌方指令/战吼效果(伤害归零 / 指向失效),之后消耗。",
-		_ => "",
-	};
-
 	// ---------- tiny animation helpers ----------
-
-	private async Task TweenTo(Control node, Vector2 target, double dur)
-	{
-		var t = CreateTween();
-		t.TweenProperty(node, "position", target, dur).SetTrans(Tween.TransitionType.Sine);
-		await ToSignal(t, Tween.SignalName.Finished);
-	}
-
-	private void Flash(Control node, Color color)
-	{
-		var t = CreateTween();
-		node.Modulate = color;
-		t.TweenProperty(node, "modulate", Colors.White, 0.25);
-	}
 
 	// A centred floating label (shield "盾", the 压力潮汐 line). `center` is the point to center on.
 	private void FloatText(Vector2 center, string text, Color color)
@@ -3295,163 +1846,11 @@ public partial class BattleScene : Control
 		t.Chain().TweenCallback(Callable.From(label.QueueFree));
 	}
 
-	// item 4: a damage/heal number — pops in, floats up then settles (gravity), bigger for bigger hits.
-	private void FloatNumber(Vector2 center, string text, Color color, int amount)
-	{
-		int size = Mathf.Clamp(28 + amount * 4, 28, 60);
-		var label = BattleTheme.MakeOutlinedLabel(text, size, color, HorizontalAlignment.Center);
-		label.Size = new Vector2(140, size + 16);
-		label.Position = center - label.Size / 2f;
-		label.PivotOffset = label.Size / 2f;
-		label.Scale = new Vector2(0.5f, 0.5f);
-		_overlayLayer.AddChild(label);
-		var p0 = label.Position;
-		var t = CreateTween();
-		t.TweenProperty(label, "scale", new Vector2(1.15f, 1.15f), 0.10).SetTrans(Tween.TransitionType.Back);
-		t.Parallel().TweenProperty(label, "position", p0 + new Vector2(0, -24), 0.10);
-		t.TweenProperty(label, "scale", Vector2.One, 0.06);
-		t.TweenProperty(label, "position", p0 + new Vector2(0, -10), 0.35).SetTrans(Tween.TransitionType.Sine); // settle
-		t.Parallel().TweenProperty(label, "modulate:a", 0.0f, 0.35);
-		t.TweenCallback(Callable.From(label.QueueFree));
-	}
-
-	// A small attribution tag beside a damage number (e.g. "架设 +1"), explaining a bonus the card face
-	// doesn't print. Amber (fire) reads apart from the red damage number; offset right so they don't overlap.
-	private void FloatBonusTag(Vector2 center, string text)
-	{
-		var label = BattleTheme.MakeOutlinedLabel(text, 20, BattleTheme.AtkColor, HorizontalAlignment.Center);
-		label.Size = new Vector2(150, 30);
-		label.Position = center - label.Size / 2f + new Vector2(52, 4);
-		_overlayLayer.AddChild(label);
-		var p0 = label.Position;
-		var t = CreateTween();
-		t.TweenProperty(label, "position", p0 + new Vector2(0, -28), 0.55).SetTrans(Tween.TransitionType.Sine);
-		t.Parallel().TweenProperty(label, "modulate:a", 0.0f, 0.55);
-		t.TweenCallback(Callable.From(label.QueueFree));
-	}
-
 	private async Task Delay(double sec) => await ToSignal(GetTree().CreateTimer(sec), Godot.Timer.SignalName.Timeout);
 
-	// ---------- command target helpers ----------
+	// ---------- targeting host: echo bar UI (decision logic lives in TargetingController) ----------
 
-	private static Cell? CellOf(Command c) => c switch
-	{
-		PlayCardCommand p => p.TargetCell,
-		MoveUnitCommand m => m.To,
-		UseLeaderSkillCommand s => s.TargetCell,
-		_ => null,
-	};
-
-	private static int? UnitOf(Command c) => c switch
-	{
-		PlayCardCommand p => p.TargetUnitId,
-		UseLeaderSkillCommand s => s.TargetUnitId,
-		AttackCommand a when !a.TargetLeader => a.TargetUnitId,
-		_ => null,
-	};
-
-	// docs/21 §1.2/§1.8: the extra command dimensions a 引导·N / 焰鞭 play carries.
-	private static int? ChannelerOf(Command c) => (c as PlayCardCommand)?.ChannelerUnitId;
-	private static int? SecondaryOf(Command c) => (c as PlayCardCommand)?.SecondaryTargetUnitId;
-
-	/// <summary>After cell+target are pinned, a 引导·N order still needs its 引导者, and 焰鞭's friendly mode a
-	/// distinct 二段目标. Highlights the remaining distinct choices and waits for a click. Returns true when it
-	/// took over (an extra pick is pending); false when there is nothing left to disambiguate.</summary>
-	private bool PromptExtraPick()
-	{
-		if (_candidates.Count <= 1)
-			return false;
-
-		var channelers = _candidates.Select(ChannelerOf).Where(x => x != null).Select(x => x!.Value).Distinct().ToList();
-		if (channelers.Count > 1)
-		{
-			_extraPick = ExtraPick.Channeler;
-			ClearHighlights();
-			foreach (var id in channelers) HighlightUnitColor(id, BattleTheme.CostColor); // teal = 引导
-			LogPick("引导者", BattleTheme.CostColor, "选择一个友方随从引导（费用/伤害随引导者变化）。");
-			RefreshSelectionUi();
-			return true;
-		}
-
-		var secondaries = _candidates.Select(SecondaryOf).Where(x => x != null).Select(x => x!.Value).Distinct().ToList();
-		if (secondaries.Count > 1)
-		{
-			_extraPick = ExtraPick.Secondary;
-			ClearHighlights();
-			foreach (var id in secondaries) HighlightUnitColor(id, BattleTheme.HpColor);
-			LogPick("接受目标", BattleTheme.HpColor, "选择接收属性的另一个友方随从。");
-			RefreshSelectionUi();
-			return true;
-		}
-
-		// 薪火回响·门德 (docs/21 §3.1): the turn's first 薪炎 order can be RECAST at a target you re-aim, or 空放.
-		// The candidate set carries both an EchoRecast=false baseline and one variant per re-aim target.
-		var recasts = _candidates.Where(c => c is PlayCardCommand { EchoRecast: true }).ToList();
-		bool canDecline = _candidates.Any(c => c is PlayCardCommand { EchoRecast: false });
-		if (recasts.Count > 0 && canDecline)
-		{
-			_extraPick = ExtraPick.Echo;
-			ClearHighlights();
-			var echoUnits = recasts.Select(EchoUnitOf).Where(x => x != null).Select(x => x!.Value).Distinct().ToList();
-			var echoCells = recasts.Select(EchoCellOf).Where(x => x != null).Select(x => x!.Value).Distinct().ToList();
-			foreach (var id in echoUnits) HighlightUnitColor(id, BattleTheme.DangerColor); // red = 复述目标
-			foreach (var cell in echoCells) HighlightCell(cell);
-			bool global = echoUnits.Count == 0 && echoCells.Count == 0; // 燎原/燔火: board-wide, no aim
-			ShowEchoBar(global);
-			if (global)
-				Log("薪火回响·门德：再次施放这道薪炎指令，或点「空放」放弃。");
-			else
-				LogPick("作用目标", BattleTheme.DangerColor, "选择一个复述目标，或点「空放」放弃。");
-			RefreshSelectionUi();
-			return true;
-		}
-		return false;
-	}
-
-	// docs/21 §3.1: the 门德 recast dimensions — only the EchoRecast=true variants carry a re-aim.
-	private static int? EchoUnitOf(Command c) => c is PlayCardCommand { EchoRecast: true } p ? p.EchoTargetUnitId : null;
-	private static Cell? EchoCellOf(Command c) => c is PlayCardCommand { EchoRecast: true } p ? p.EchoTargetCell : null;
-
-	/// <summary>A unit click during the 门德 recast pick: keep only the recast variant aimed at that unit and submit.
-	/// A cell-aimed echo (row/column/十字 order) has no unit variant, so fall back to the standee's cell.</summary>
-	private void PickEchoUnit(int entityId)
-	{
-		var filtered = _candidates.Where(c => EchoUnitOf(c) == entityId).ToList();
-		if (filtered.Count > 0) { CloseEchoBar(); _extraPick = ExtraPick.None; Submit(filtered[0]); return; }
-		var u = _host.GetView(ViewSeat).Units.FirstOrDefault(x => x.EntityId == entityId);
-		if (u != null && _candidates.Any(c => EchoCellOf(c) is { } cc && cc == u.Cell)) { PickEchoCell(u.Cell); return; }
-		Log("请点选高亮的复述目标,或点「空放」。");
-	}
-
-	private void PickEchoCell(Cell cell)
-	{
-		var filtered = _candidates.Where(c => EchoCellOf(c) is { } cc && cc.Col == cell.Col && cc.Row == cell.Row).ToList();
-		if (filtered.Count == 0) { Log("请点选高亮的复述目标,或点「空放」。"); return; }
-		CloseEchoBar();
-		_extraPick = ExtraPick.None;
-		Submit(filtered[0]);
-	}
-
-	/// <summary>空放/取消: submit the EchoRecast=false baseline — the order resolves once, no recast.</summary>
-	private void DeclineEcho()
-	{
-		var baseline = _candidates.FirstOrDefault(c => c is PlayCardCommand { EchoRecast: false });
-		if (baseline is null) { CloseEchoBar(); ClearSelection(); return; }
-		CloseEchoBar();
-		_extraPick = ExtraPick.None;
-		Submit(baseline);
-	}
-
-	/// <summary>再次施放 (board-wide orders only): submit the sole EchoRecast=true variant.</summary>
-	private void ConfirmGlobalEcho()
-	{
-		var recast = _candidates.FirstOrDefault(c => c is PlayCardCommand { EchoRecast: true });
-		if (recast is null) { DeclineEcho(); return; }
-		CloseEchoBar();
-		_extraPick = ExtraPick.None;
-		Submit(recast);
-	}
-
+	/// <summary>薪火回响·门德: the 空放/再次施放 button bar — pure UI; the buttons call back into the controller.</summary>
 	private void ShowEchoBar(bool global)
 	{
 		CloseEchoBar();
@@ -3459,14 +1858,14 @@ public partial class BattleScene : Control
 		var declineBtn = BattleTheme.MakeButton(new Vector2(1600, 660), new Vector2(260, 74), BattleTheme.PanelDark, BattleTheme.DangerColor, 2, 12, textured: true);
 		declineBtn.Text = "空放 / 取消复述";
 		declineBtn.AddThemeFontSizeOverride("font_size", 22);
-		declineBtn.Pressed += DeclineEcho;
+		declineBtn.Pressed += _targeting.DeclineEcho;
 		bar.AddChild(declineBtn);
 		if (global)
 		{
 			var castBtn = BattleTheme.MakeButton(new Vector2(1600, 578), new Vector2(260, 74), BattleTheme.PanelDark, BattleTheme.CostColor, 2, 12, textured: true);
 			castBtn.Text = "再次施放";
 			castBtn.AddThemeFontSizeOverride("font_size", 22);
-			castBtn.Pressed += ConfirmGlobalEcho;
+			castBtn.Pressed += _targeting.ConfirmGlobalEcho;
 			bar.AddChild(castBtn);
 		}
 		_echoBar = bar;
@@ -3477,18 +1876,6 @@ public partial class BattleScene : Control
 	{
 		if (_echoBar is { } bar && IsInstanceValid(bar)) bar.QueueFree();
 		_echoBar = null;
-	}
-
-	/// <summary>A click during a pending 引导者 / 二段目标 pick: keep only the candidates whose extra dimension
-	/// matches the clicked unit, then submit (or prompt the next dimension).</summary>
-	private void PickExtra(Func<Command, int?> dim, int entityId)
-	{
-		var filtered = _candidates.Where(c => dim(c) == entityId).ToList();
-		if (filtered.Count == 0) { Log("请点选高亮的随从。"); return; }
-		_candidates = filtered;
-		_extraPick = ExtraPick.None;
-		if (filtered.Count == 1) { Submit(filtered[0]); return; }
-		PromptExtraPick(); // e.g. 引导者 chosen → now the 二段目标
 	}
 
 	// ---------- small view helpers ----------
@@ -3522,15 +1909,6 @@ public partial class BattleScene : Control
 
 	private string LeaderSkillText(string leaderId) =>
 		_leaders.TryGet(leaderId, out var l) && l.SkillEffects.Count > 0 ? $"{l.SkillName}\n{l.SkillCost}费" : "";
-
-	private static Color FactionColor(string faction) => faction switch
-	{
-		"iron_vow" => BattleTheme.SeatColor0,
-		"wildpack" => BattleTheme.SeatColor1,
-		"duskweaver" => Color.FromHtml("8b5fa6"), // dusk purple (教团)
-		"undervault" => Color.FromHtml("b5883f"), // brass (匠会)
-		_ => BattleTheme.TextDim,
-	};
 
 	// By SCREEN row: the viewer's deploy zone is always the bottom row, the enemy's the top.
 	private static Color CellBaseColor(int screenRow) =>
@@ -3574,8 +1952,9 @@ public partial class BattleScene : Control
 	//
 	// The catalog (res://data/status_catalog.tres, editable in the Inspector via StatusDef/StatusCatalog) drives
 	// WHICH statuses render and how they look. To add a keyword-driven status you now edit the .tres, not this
-	// file — no code change. Only the three Computed corner numbers below (成长 / 引导增伤 / 引导减费) still derive
-	// their value in C#, because they read live unit / card state.
+	// file — no code change. The three Computed corner numbers (成长 / 引导增伤 / 引导减费) come pre-computed
+	// on UnitView (docs/22 D5: ChannelDeepen / ChannelDiscount / GrowthTurnsLeft) — the client no longer
+	// re-derives them from card effects.
 
 	private enum StatusKind { Buff, Debuff }
 
@@ -3585,15 +1964,17 @@ public partial class BattleScene : Control
 	private readonly record struct StatusBadge(string Glyph, StatusKind Kind, Texture2D? Icon = null, string? Corner = null);
 
 	private const string StatusStripName = "__status_strip";
+	private const string PipAtkName = "__pip_atk";   // 批次C2: 立牌增量更新用的具名子节点
+	private const string PipHpName = "__pip_hp";
+	private const string KwLabelName = "__kw";
 
 	/// <summary>The statuses to show for a unit, evaluated from the editable catalog against the unit's LIVE view
 	/// state (so 坚守 shows only while it is actually reducing damage). Buffs land on the left, debuffs on the
 	/// right, each column ordered by StatusDef.Order.</summary>
 	private List<StatusBadge> StandeeStatuses(UnitView u)
 	{
-		_cards.TryGet(u.CardId, out var def);
 		return _statusCatalog.Statuses
-			.Select(d => (d, ok: StatusVisible(d, u, def, out string? corner), corner))
+			.Select(d => (d, ok: StatusVisible(d, u, out string? corner), corner))
 			.Where(t => t.ok)
 			.OrderBy(t => t.d.Order)
 			.Select(t => new StatusBadge(
@@ -3605,7 +1986,7 @@ public partial class BattleScene : Control
 	}
 
 	/// <summary>Whether one catalog entry applies to this unit right now, and its corner number if any.</summary>
-	private bool StatusVisible(StatusDef d, UnitView u, CardDefinition? def, out string? corner)
+	private static bool StatusVisible(StatusDef d, UnitView u, out string? corner)
 	{
 		corner = null;
 		switch (d.Trigger)
@@ -3613,28 +1994,26 @@ public partial class BattleScene : Control
 			case StatusTrigger.Keyword:      return u.Keywords.Any(s => s.Keyword == d.BoundKeyword);
 			case StatusTrigger.ShieldLive:   return u.ShieldActive;                                          // 持盾 (live flag, consumed mid-anim)
 			case StatusTrigger.HoldFastLive: return u.Keywords.Any(s => s.Keyword == Keyword.HoldFast) && !u.MovedThisRound; // 坚守 only while in effect
-			case StatusTrigger.Computed:     return ComputedStatus(d.Id, u, def, out corner);
+			case StatusTrigger.Computed:     return ComputedStatus(d.Id, u, out corner);
 			default:                         return false;
 		}
 	}
 
-	/// <summary>The three statuses whose corner NUMBER is derived from live unit / card state (docs/21 §1.2).</summary>
-	private static bool ComputedStatus(string id, UnitView u, CardDefinition? def, out string? corner)
+	/// <summary>The three statuses whose corner NUMBER is engine-computed on UnitView (docs/22 D5) — the client
+	/// just reads ChannelDeepen / ChannelDiscount / GrowthTurnsLeft instead of re-deriving from card effects.</summary>
+	private static bool ComputedStatus(string id, UnitView u, out string? corner)
 	{
 		corner = null;
-		if (def is null) return false;
 		switch (id)
 		{
 			case "growth":
-				if (def.Growth is { } g) { corner = Math.Max(0, g.Turns - u.GrowthProgress).ToString(); return true; }
+				if (u.GrowthTurnsLeft is { } turnsLeft) { corner = turnsLeft.ToString(); return true; }
 				return false;
 			case "channel_deepen":
-				int deepen = def.Effects.Where(e => e.Trigger == "channel" && e.Action == "deepen").Sum(e => e.Amount);
-				if (deepen > 0) { corner = deepen.ToString(); return true; }                                 // 焰术学徒/熔岩巨灵:引导增伤 N
+				if (u.ChannelDeepen > 0) { corner = u.ChannelDeepen.ToString(); return true; }               // 焰术学徒/熔岩巨灵:引导增伤 N
 				return false;
 			case "channel_discount":
-				int discount = def.Effects.Where(e => e.Trigger == "channel" && e.Action == "discount").Sum(e => e.Amount);
-				if (discount > 0) { corner = discount.ToString(); return true; }                             // 晚祷领唱:引导减费 N
+				if (u.ChannelDiscount > 0) { corner = u.ChannelDiscount.ToString(); return true; }           // 晚祷领唱:引导减费 N
 				return false;
 			default:
 				return false;
@@ -3646,6 +2025,11 @@ public partial class BattleScene : Control
 	/// mid-animation (a 持盾 grant/consume) as well as during a full render.</summary>
 	private static void SetStandeeStatuses(Control standee, List<StatusBadge> badges)
 	{
+		// 批次C2: 徽标集未变则跳过重建(签名覆盖 glyph/阴阳面/角标数字;live 路径 RefreshStandeeStatus 也走这里)。
+		string sig = string.Join('|', badges.Select(b => $"{b.Glyph}:{(int)b.Kind}:{b.Corner}"));
+		if (standee.HasMeta("statusSig") && (string)standee.GetMeta("statusSig") == sig) return;
+		standee.SetMeta("statusSig", sig);
+
 		if (standee.GetNodeOrNull(StatusStripName) is { } old) { standee.RemoveChild(old); old.QueueFree(); }
 		if (badges.Count == 0)
 			return;
@@ -3707,31 +2091,29 @@ public partial class BattleScene : Control
 			SetStandeeStatuses(node, StandeeStatuses(uv));
 	}
 
-	private bool CandidatesDealDamage()
+	private bool CandidatesDealDamage(IReadOnlyList<Command> candidates)
 	{
-		if (_candidates.FirstOrDefault() is not PlayCardCommand p) return false;
+		if (candidates.FirstOrDefault() is not PlayCardCommand p) return false;
 		var hand = _host.GetView(ActiveSeat).Self.Hand.FirstOrDefault(h => h.EntityId == p.CardEntityId);
-		return hand != null && _cards.Get(hand.CardId).Effects.Any(e =>
-			e.Trigger is "play" or "battlecry" && e.Action is "damage" or "sear" or "damage_scatter");
+		return hand != null && _cards.Get(hand.CardId).DealsDamageOnPlay; // Rules-side semantic (docs/22 D5)
 	}
 
-	private bool CandidatesAreFriendlyReceivers()
+	private bool CandidatesAreFriendlyReceivers(IReadOnlyList<Command> candidates)
 	{
-		var targetIds = _candidates.Select(UnitOf).Where(id => id != null).Select(id => id!.Value).Distinct().ToList();
+		var targetIds = candidates.Select(TargetingController.UnitOf).Where(id => id != null).Select(id => id!.Value).Distinct().ToList();
 		if (targetIds.Count == 0) return false;
 		var units = _host.GetView(ActiveSeat).Units;
 		if (targetIds.Any(id => units.FirstOrDefault(u => u.EntityId == id)?.OwnerSeat != ActiveSeat)) return false;
 
-		if (_candidates.FirstOrDefault() is UseLeaderSkillCommand)
+		if (candidates.FirstOrDefault() is UseLeaderSkillCommand)
 			return _leaders.TryGet(_selfLeaderId, out var leader) && leader.SkillEffects.Any(IsReceiverEffect);
-		if (_candidates.FirstOrDefault() is not PlayCardCommand p) return false;
+		if (candidates.FirstOrDefault() is not PlayCardCommand p) return false;
 		var hand = _host.GetView(ActiveSeat).Self.Hand.FirstOrDefault(h => h.EntityId == p.CardEntityId);
 		return hand != null && _cards.Get(hand.CardId).Effects.Any(IsReceiverEffect);
 	}
 
 	private static bool IsReceiverEffect(EffectSpec e) =>
-		e.Trigger is "play" or "battlecry" or "leader_skill"
-		&& e.Action is "buff" or "heal" or "grant_keyword" or "move_bonus" or "boost_range";
+		e.Trigger is "play" or "battlecry" or "leader_skill" && e.IsFriendlyReceiver; // Rules-side semantic (docs/22 D5)
 
 	private void Log(string message) => _logLabel.Text = $"[center]{message}[/center]";
 

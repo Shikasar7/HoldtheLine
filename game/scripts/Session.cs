@@ -182,6 +182,20 @@ public static class Session
 
     public static Task SendAsync(ClientMessage message) => Client?.SendAsync(message) ?? Task.CompletedTask;
 
+    /// <summary>Send a match-establishing request (join_queue / create_room / join_room) with its Seq
+    /// pre-registered on the armed match host — so an ErrorMsg reply to THIS request (and only this one)
+    /// faults <see cref="RemoteGameHost.WaitForMatchAsync"/>. Registration happens before the frame goes
+    /// out, mirroring the _pending pattern, so the reply can't beat it.</summary>
+    public static async Task SendMatchRequestAsync(ClientMessage message)
+    {
+        var client = Client;
+        if (client is null)
+            return;
+        int seq = client.NextSeq();
+        Remote?.TagMatchRequest(seq);
+        await client.SendWithSeqAsync(message, seq);
+    }
+
     /// <summary>register (docs/12 B1): bind username+password to the current identity. Returns null on
     /// success, else the server error code (mapped to copy by the account panel) or a local error.</summary>
     public static Task<string?> RegisterAsync(string username, string password) =>
@@ -197,7 +211,32 @@ public static class Session
     /// GameConfig/Prefs, so this method does NOT touch that state itself (avoids an off-main-thread write to
     /// the shared _hello and duplicate, un-trimmed stores). The server ignores hello.Name on restore, so the
     /// cached hello needs no update. Returns null on success, else the server code ("invalid_name") / a local error.</summary>
-    public static async Task<string?> SetNameAsync(string name)
+    public static Task<string?> SetNameAsync(string name) =>
+        RequestAsync(new SetName { Name = name }, static (m, seq) => m switch
+        {
+            Profile p when p.Seq == seq => RequestOk,
+            ErrorMsg e when e.Seq == seq => e.Code,
+            _ => null,
+        });
+
+    // Send an auth request and await its correlated reply (AuthOk → null; ErrorMsg → its Code).
+    private static Task<string?> AuthAsync(ClientMessage msg) =>
+        RequestAsync(msg, static (m, seq) => m switch
+        {
+            AuthOk ok when ok.Seq == seq => RequestOk,
+            ErrorMsg e when e.Seq == seq => e.Code,
+            _ => null,
+        });
+
+    /// <summary>Success sentinel for <see cref="RequestAsync"/> matchers — never a real server error code
+    /// (server codes are plain ASCII identifiers, '\0' can't appear in one).</summary>
+    private const string RequestOk = "\0ok";
+
+    /// <summary>Seq-correlated request/reply boilerplate: pre-allocate a Seq, wire the reply handler
+    /// BEFORE the frame goes out (so the reply can't beat it), send, and await the matcher's verdict with
+    /// an 8-second timeout. <paramref name="match"/> maps (message, our seq) to: null = not ours, keep
+    /// waiting; <see cref="RequestOk"/> = success (caller sees null); anything else = the error code.</summary>
+    private static async Task<string?> RequestAsync(ClientMessage msg, Func<ServerMessage, int, string?> match)
     {
         var client = Client;
         if (client is null)
@@ -207,34 +246,8 @@ public static class Session
         var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
         void Handler(ServerMessage m)
         {
-            if (m is Profile p && p.Seq == seq) tcs.TrySetResult(null);
-            else if (m is ErrorMsg e && e.Seq == seq) tcs.TrySetResult(e.Code);
-        }
-        client.MessageReceived += Handler;
-        try
-        {
-            await client.SendWithSeqAsync(new SetName { Name = name }, seq);
-            return await tcs.Task.WaitAsync(TimeSpan.FromSeconds(8));
-        }
-        catch (TimeoutException) { return "服务器无响应"; }
-        catch (Exception ex) { return ex.Message; }
-        finally { client.MessageReceived -= Handler; }
-    }
-
-    // Send an auth request and await its correlated reply (AuthOk → null; ErrorMsg → its Code). Uses a
-    // pre-allocated seq so the reply can't beat the handler being wired up.
-    private static async Task<string?> AuthAsync(ClientMessage msg)
-    {
-        var client = Client;
-        if (client is null)
-            return "未连接";
-
-        int seq = client.NextSeq();
-        var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        void Handler(ServerMessage m)
-        {
-            if (m is AuthOk ok && ok.Seq == seq) tcs.TrySetResult(null);
-            else if (m is ErrorMsg e && e.Seq == seq) tcs.TrySetResult(e.Code);
+            if (match(m, seq) is { } verdict)
+                tcs.TrySetResult(verdict == RequestOk ? null : verdict);
         }
         client.MessageReceived += Handler;
         try

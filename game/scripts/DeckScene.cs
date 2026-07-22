@@ -420,52 +420,18 @@ public partial class DeckScene : Control
     private void ShowPreview(CardDefinition def, Control anchor)
     {
         HidePreview();
+        // Enlarged face + full-rules plate + keyword lines all come from CardView; only the
+        // beside-the-tile anchor math is deck-editor-specific.
         var cardSize = new Vector2(300, 420);
-        string full = BattleTheme.BodyText(def.Text);
-
-        // A plate under the card carries the FULL rules text (the framed face truncates) + one line per keyword.
-        float textH = full.Length > 0 ? 20f + 24f * Mathf.Ceil(full.Length / 16f) : 0f;
-        float kwH = def.Keywords.Count * 46f;
-        float plateH = textH + kwH > 0 ? 16f + textH + kwH : 0f;
-        float totalH = cardSize.Y + (plateH > 0 ? plateH + 8f : 0f);
+        var root = CardView.BuildHoverPreview(def, cardSize, withKeywords: true);
 
         var rect = anchor.GetGlobalRect();
         float x = rect.End.X + 12f;
         if (x + cardSize.X > BattleTheme.ScreenW - 10f) x = rect.Position.X - cardSize.X - 12f;
         x = Mathf.Clamp(x, 10f, BattleTheme.ScreenW - cardSize.X - 10f);
-        float y = Mathf.Clamp(rect.Position.Y - 60f, 10f, BattleTheme.ScreenH - totalH - 10f);
+        float y = Mathf.Clamp(rect.Position.Y - 60f, 10f, BattleTheme.ScreenH - root.Size.Y - 10f);
+        root.Position = new Vector2(x, y);
 
-        var root = new Control { Position = new Vector2(x, y), Size = new Vector2(cardSize.X, totalH), MouseFilter = MouseFilterEnum.Ignore };
-        root.AddChild(CardView.BuildFace(def, cardSize));
-
-        if (plateH > 0)
-        {
-            var plate = new Panel { Position = new Vector2(0, cardSize.Y + 8f), Size = new Vector2(cardSize.X, plateH), MouseFilter = MouseFilterEnum.Ignore };
-            plate.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.PanelDark, CardView.FactionColor(def.Faction), 2, 10));
-            root.AddChild(plate);
-
-            float yy = cardSize.Y + 8f + 8f;
-            if (full.Length > 0)
-            {
-                var t = BattleTheme.MakeLabel(full, 17, BattleTheme.TextMain, HorizontalAlignment.Center);
-                t.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
-                t.VerticalAlignment = VerticalAlignment.Top;
-                t.Position = new Vector2(12, yy);
-                t.Size = new Vector2(cardSize.X - 24, textH);
-                root.AddChild(t);
-                yy += textH;
-            }
-            foreach (var k in def.Keywords)
-            {
-                var kl = BattleTheme.MakeLabel($"【{CardView.KeywordName(k)}】{BattleTheme.BodyText(CardView.KeywordDesc(k.Keyword))}", 14, BattleTheme.Accent);
-                kl.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
-                kl.VerticalAlignment = VerticalAlignment.Top;
-                kl.Position = new Vector2(10, yy);
-                kl.Size = new Vector2(cardSize.X - 20, 46);
-                root.AddChild(kl);
-                yy += 46f;
-            }
-        }
         AddChild(root);
         _preview = root;
     }

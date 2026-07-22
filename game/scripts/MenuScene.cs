@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using HoldTheLine.Net;
+using HoldTheLine.Net.Client;
 using HoldTheLine.Net.Protocol;
 using HoldTheLine.Rules;
 using HoldTheLine.Rules.Ai;
@@ -66,6 +67,7 @@ public partial class MenuScene : Control
         AddVersionLabel();
         AddUpdateBanner();
         HookUpdateChecks();
+        CheckDataIntegrity();
 
         // docs/16 login flow: nickname is a persisted display name now (was re-typed every connect).
         if (!string.IsNullOrWhiteSpace(Prefs.Nickname)) GameConfig.Nickname = Prefs.Nickname;
@@ -80,6 +82,29 @@ public partial class MenuScene : Control
             ShowLoginPage();
         else if (!Session.Connected)
             _ = Session.ConnectAsync(GameConfig.ServerUrl, GameConfig.Nickname);
+    }
+
+    /// <summary>Startup data self-check: run the three data loads once and surface any per-file failures
+    /// (damaged / unreadable JSON) in a dialog instead of letting a later scene half-build and freeze.
+    /// The loaders themselves already skip bad files, so play continues with whatever data is intact.</summary>
+    private void CheckDataIntegrity()
+    {
+        GameData.TakeLoadErrors(); // drop stale records from earlier loads
+        GameData.LoadCards();
+        GameData.LoadLeaders();
+        GameData.LoadDecks();
+        var errors = GameData.TakeLoadErrors();
+        if (errors.Count == 0)
+            return;
+
+        var dialog = new AcceptDialog
+        {
+            Title = "游戏数据损坏",
+            DialogText = "以下数据文件损坏或缺失,相关卡牌/卡组将不可用。\n建议重新安装游戏:\n\n"
+                + string.Join("\n", errors.Take(8)) + (errors.Count > 8 ? $"\n… 共 {errors.Count} 处" : ""),
+        };
+        AddChild(dialog);
+        dialog.PopupCentered();
     }
 
     /// <summary>The persistent (initially hidden) update banner. Added here — before any overlay — so
@@ -396,10 +421,11 @@ public partial class MenuScene : Control
 
     private static readonly (string Id, string Label, Color Color)[] DeckOptions =
     [
-        ("iron_wall", "铁壁 · 铁誓", BattleTheme.SeatColor0),
-        ("wildpack_hunt", "狂猎 · 游群", BattleTheme.SeatColor1),
-        ("duskweaver_vesper", "晚祷 · 教团", Color.FromHtml("8b5fa6")),
-        ("undervault_sunline", "贯日 · 匠会", Color.FromHtml("b5883f")),
+        // docs/22 批次D4: tints come from res://data/faction_catalog.tres via FactionTint (was inline hex).
+        ("iron_wall", "铁壁 · 铁誓", FactionTint("iron_vow")),
+        ("wildpack_hunt", "狂猎 · 游群", FactionTint("wildpack")),
+        ("duskweaver_vesper", "晚祷 · 教团", FactionTint("duskweaver")),
+        ("undervault_sunline", "贯日 · 匠会", FactionTint("undervault")),
     ];
 
     /// <summary>Entry from the main menu: straight to the lobby if the session is up, else connect first.</summary>
@@ -515,9 +541,28 @@ public partial class MenuScene : Control
                 status.Text = $"已等待 {q.WaitedSeconds}s   ·   正在寻找对手";
         }).CallDeferred();
 
+        // A mid-queue drop is silently reconnected by the client, but the server already removed us from
+        // the queue when the old socket died (ClientConnection.RunAsync finally → _queue.Leave) — so on a
+        // restored link we must RE-JOIN, or the panel would show "匹配中…" forever while nobody is queued.
+        void OnState(ConnectionState s) => Callable.From(async () =>
+        {
+            if (s == ConnectionState.Connected)
+            {
+                try { await Session.SendMatchRequestAsync(new JoinQueue { DeckId = _lobbyDeck }); } catch { /* next state change drives recovery */ }
+                if (GodotObject.IsInstanceValid(status))
+                    status.Text = "连接已恢复,已重新加入队列…";
+            }
+            else if (s == ConnectionState.Reconnecting && GodotObject.IsInstanceValid(status))
+                status.Text = "连接中断,正在重连…";
+        }).CallDeferred();
+
+        // E4: the flow object owns both subscriptions; null until we actually subscribe below (the cancel
+        // button can fire earlier — while EnsureLobbyLinkAsync is still reconnecting — and ?. is then a no-op,
+        // matching the old hand-rolled -= which was harmless before +=).
+        LobbyFlow? flow = null;
         p.AddChild(Btn("取消", new Vector2(Cx, 540), new Vector2(600, 64), async () =>
         {
-            Session.QueueStatusReceived -= OnStatus;
+            flow?.Dispose(); // detach NOW, before the await — a status/state event must not repaint a dead panel
             try { await Session.SendAsync(new LeaveQueue()); } catch { /* socket may be down; back out anyway */ }
             ShowLobby();
         }));
@@ -529,19 +574,21 @@ public partial class MenuScene : Control
 
         Session.ArmMatchHost();
         var remote = Session.Remote!;
-        Session.QueueStatusReceived += OnStatus;
+        flow = new LobbyFlow(onQueueStatus: OnStatus, onStateChanged: OnState);
 
         try
         {
-            await Session.SendAsync(new JoinQueue { DeckId = _lobbyDeck });
+            await Session.SendMatchRequestAsync(new JoinQueue { DeckId = _lobbyDeck });
             await remote.WaitForMatchAsync();
-            Session.QueueStatusReceived -= OnStatus;
             Callable.From(GoToBattleOnline).CallDeferred();
         }
         catch (System.Exception ex)
         {
-            Session.QueueStatusReceived -= OnStatus;
             SetStatusDeferred(status, $"匹配失败:{FriendlyNetError(ex)}");
+        }
+        finally
+        {
+            flow.Dispose(); // idempotent — a second Dispose after the cancel button's is a no-op
         }
     }
 
@@ -568,15 +615,14 @@ public partial class MenuScene : Control
         Session.ArmMatchHost();
         var remote = Session.Remote!;
         void OnCreated(RoomCreated rc) => SetStatusDeferred(status, $"房间号  {rc.Code}   ·   等待朋友加入…");
-        Session.RoomCreatedOk += OnCreated;
+        using var flow = new LobbyFlow(onRoomCreated: OnCreated); // E4: every exit below unsubscribes
         try
         {
-            await Session.SendAsync(new CreateRoom { DeckId = _lobbyDeck });
+            await Session.SendMatchRequestAsync(new CreateRoom { DeckId = _lobbyDeck });
             await remote.WaitForMatchAsync();
-            Session.RoomCreatedOk -= OnCreated;
             Callable.From(GoToBattleOnline).CallDeferred();
         }
-        catch (System.Exception ex) { Session.RoomCreatedOk -= OnCreated; SetStatusDeferred(status, $"失败:{FriendlyNetError(ex)}"); }
+        catch (System.Exception ex) { SetStatusDeferred(status, $"失败:{FriendlyNetError(ex)}"); }
     }
 
     private async void JoinRoomCode(string code, Label status)
@@ -586,15 +632,14 @@ public partial class MenuScene : Control
         Session.ArmMatchHost();
         var remote = Session.Remote!;
         void OnErr(ErrorMsg e) => SetStatusDeferred(status, $"错误:{e.Code}");
-        Session.Errored += OnErr;
+        using var flow = new LobbyFlow(onErrored: OnErr); // E4: every exit below unsubscribes
         try
         {
-            await Session.SendAsync(new JoinRoom { Code = code.Trim().ToUpperInvariant(), DeckId = _lobbyDeck });
+            await Session.SendMatchRequestAsync(new JoinRoom { Code = code.Trim().ToUpperInvariant(), DeckId = _lobbyDeck });
             await remote.WaitForMatchAsync();
-            Session.Errored -= OnErr;
             Callable.From(GoToBattleOnline).CallDeferred();
         }
-        catch (System.Exception ex) { Session.Errored -= OnErr; SetStatusDeferred(status, $"失败:{FriendlyNetError(ex)}"); }
+        catch (System.Exception ex) { SetStatusDeferred(status, $"失败:{FriendlyNetError(ex)}"); }
     }
 
     /// <summary>Before a lobby action that sends on the shared socket: if the persistent lobby connection
@@ -1128,14 +1173,11 @@ public partial class MenuScene : Control
         p.AddChild(Btn("取消", new Vector2(Cx + 310, 540), new Vector2(290, 64), ShowDeckManager));
     }
 
-    private static Color FactionTint(string faction) => faction switch
-    {
-        "iron_vow" => BattleTheme.SeatColor0,
-        "wildpack" => BattleTheme.SeatColor1,
-        "duskweaver" => Color.FromHtml("8b5fa6"),
-        "undervault" => Color.FromHtml("b5883f"),
-        _ => BattleTheme.AccentSoft,
-    };
+    /// <summary>Deck-row tint from the faction catalog (docs/22 批次D4). Unlike the card face, the old switch
+    /// here tinted neutral (and unknown) decks with the menu's AccentSoft rather than the faction grey —
+    /// keep that: only a non-neutral catalog hit uses its PrimaryColor.</summary>
+    private static Color FactionTint(string faction) =>
+        FactionCatalog.Get(faction) is { } f && f.Id != "neutral" ? f.PrimaryColor : BattleTheme.AccentSoft;
 
     // ---------- ladder (M3 C3): Top-N + my rank ----------
 

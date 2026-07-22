@@ -347,7 +347,7 @@ public partial class CardArtEditor : Control
     {
         foreach (Node child in _faceHost.GetChildren()) child.QueueFree();
         _faceHost.AddChild(CardView.BuildFace(_selected, FaceSize));
-        var frameTex = BattleTheme.Tex($"ui/frame_{_selected.Faction}.png") ?? BattleTheme.Tex("ui/frame_neutral.png");
+        var frameTex = CardView.FrameTexture(_selected.Faction);
         if (frameTex != null)
         {
             var bounds = CardView.FrameWindowBounds(frameTex);
@@ -447,12 +447,6 @@ public partial class CardArtEditor : Control
         return b;
     }
 
-    private static string FactionMark(string faction) => faction switch
-    {
-        "iron_vow" => "铁誓",
-        "wildpack" => "游群",
-        "duskweaver" => "教团",
-        "undervault" => "匠会",
-        _ => "中立",
-    };
+    // docs/22 批次D4: faction metadata lives in res://data/faction_catalog.tres; CardView holds the accessor.
+    private static string FactionMark(string faction) => CardView.FactionMark(faction);
 }

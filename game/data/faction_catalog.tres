@@ -1,0 +1,53 @@
+[gd_resource type="Resource" script_class="FactionCatalog" format=3]
+
+[ext_resource type="Script" path="res://scripts/FactionDef.cs" id="1_fdef"]
+[ext_resource type="Script" path="res://scripts/FactionCatalog.cs" id="2_fcat"]
+
+[sub_resource type="Resource" id="Resource_ironvow"]
+script = ExtResource("1_fdef")
+Id = "iron_vow"
+DisplayName = "铁誓军团"
+ShortMark = "铁誓"
+Lore = "铁誓军团 —— 誓约骑士与堡垒工程师,断层战争中最后的正规军。以墙为盾,寸土不让。"
+PrimaryColor = Color(0.352941, 0.52549, 0.690196, 1)
+FrameTexture = "frame_iron_vow.png"
+
+[sub_resource type="Resource" id="Resource_wildpack"]
+script = ExtResource("1_fdef")
+Id = "wildpack"
+DisplayName = "荒野游群"
+ShortMark = "游群"
+Lore = "荒野游群 —— 兽人与掠猎兽骑手,在断层荒原上以速度为生存法则。风过之处,防线洞开。"
+PrimaryColor = Color(0.690196, 0.415686, 0.290196, 1)
+FrameTexture = "frame_wildpack.png"
+
+[sub_resource type="Resource" id="Resource_duskweaver"]
+script = ExtResource("1_fdef")
+Id = "duskweaver"
+DisplayName = "黄昏教团"
+ShortMark = "教团"
+Lore = "黄昏教团 —— 焚火祭司与灰烬信徒,以格、行、列为祭坛的法术连锁者。误伤友军是代价,也是燃料。"
+PrimaryColor = Color(0.545098, 0.372549, 0.65098, 1)
+FrameTexture = "frame_duskweaver.png"
+
+[sub_resource type="Resource" id="Resource_undervault"]
+script = ExtResource("1_fdef")
+Id = "undervault"
+DisplayName = "掘世匠会"
+ShortMark = "匠会"
+Lore = "掘世匠会 —— 掘地矮人与蒸汽工程师,把阵型钉死成答案。架起炮台,隔墙点名。"
+PrimaryColor = Color(0.709804, 0.533333, 0.247059, 1)
+FrameTexture = "frame_undervault.png"
+
+[sub_resource type="Resource" id="Resource_neutral"]
+script = ExtResource("1_fdef")
+Id = "neutral"
+DisplayName = "中立"
+ShortMark = "中立"
+Lore = "中立 —— 游荡在断层各段防线之间的雇佣兵、民兵与工匠,为辉尘而战。"
+PrimaryColor = Color(0.603922, 0.572549, 0.513726, 1)
+FrameTexture = "frame_neutral.png"
+
+[resource]
+script = ExtResource("2_fcat")
+Factions = Array[ExtResource("1_fdef")]([SubResource("Resource_ironvow"), SubResource("Resource_wildpack"), SubResource("Resource_duskweaver"), SubResource("Resource_undervault"), SubResource("Resource_neutral")])

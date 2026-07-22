@@ -1,0 +1,136 @@
+[gd_resource type="Resource" script_class="KeywordCatalog" format=3]
+
+[ext_resource type="Script" path="res://scripts/KeywordDef.cs" id="1_kdef"]
+[ext_resource type="Script" path="res://scripts/KeywordCatalog.cs" id="2_kcat"]
+
+[sub_resource type="Resource" id="Resource_charge"]
+script = ExtResource("1_kdef")
+KeywordName = "Charge"
+DisplayName = "冲锋"
+Description = "部署当回合即可移动与攻击。"
+
+[sub_resource type="Resource" id="Resource_assault"]
+script = ExtResource("1_kdef")
+KeywordName = "Assault"
+DisplayName = "突袭"
+Description = "部署当回合可攻击,但不能移动。"
+
+[sub_resource type="Resource" id="Resource_swift"]
+script = ExtResource("1_kdef")
+KeywordName = "Swift"
+DisplayName = "疾行"
+Description = "每回合可移动的格数提升。"
+HasValue = true
+
+[sub_resource type="Resource" id="Resource_range"]
+script = ExtResource("1_kdef")
+KeywordName = "Range"
+DisplayName = "射程"
+Description = "可攻击 N 步(横纵相加)内的任意敌人,越过其他随从;仅当目标能反击到你(在其射程/相邻内)时才吃反击。"
+HasValue = true
+
+[sub_resource type="Resource" id="Resource_taunt"]
+script = ExtResource("1_kdef")
+KeywordName = "Taunt"
+DisplayName = "嘲讽"
+Description = "与其相邻的敌方随从必须优先攻击它。"
+
+[sub_resource type="Resource" id="Resource_holdfast"]
+script = ExtResource("1_kdef")
+KeywordName = "HoldFast"
+DisplayName = "坚守"
+Description = "本回合未移动时,受到的伤害 -1。"
+
+[sub_resource type="Resource" id="Resource_trample"]
+script = ExtResource("1_kdef")
+KeywordName = "Trample"
+DisplayName = "践踏"
+Description = "近战攻击时,对目标周围相邻的所有单位(含友方)也造成等量伤害。"
+
+[sub_resource type="Resource" id="Resource_cheapshot"]
+script = ExtResource("1_kdef")
+KeywordName = "CheapShot"
+DisplayName = "偷袭"
+Description = "近战攻击不受反击。"
+
+[sub_resource type="Resource" id="Resource_shield"]
+script = ExtResource("1_kdef")
+KeywordName = "Shield"
+DisplayName = "持盾"
+Description = "免疫下一次受到的伤害。"
+
+[sub_resource type="Resource" id="Resource_garrison"]
+script = ExtResource("1_kdef")
+KeywordName = "Garrison"
+DisplayName = "驻防"
+Description = "位于己方底线行时 +1/+1。"
+
+[sub_resource type="Resource" id="Resource_leap"]
+script = ExtResource("1_kdef")
+KeywordName = "Leap"
+DisplayName = "跃障"
+Description = "移动时可跨过一个随从,直线跳跃 2 格。"
+
+[sub_resource type="Resource" id="Resource_packtactics"]
+script = ExtResource("1_kdef")
+KeywordName = "PackTactics"
+DisplayName = "围猎"
+Description = "近战攻击一个与你另一友方相邻的敌人时,伤害 +2。"
+
+[sub_resource type="Resource" id="Resource_hidden"]
+script = ExtResource("1_kdef")
+KeywordName = "Hidden"
+DisplayName = "潜行"
+Description = "潜行:不能被敌方指令/战吼选中(范围/AOE 仍会命中);攻击后现形。"
+
+[sub_resource type="Resource" id="Resource_emplacement"]
+script = ExtResource("1_kdef")
+KeywordName = "Emplacement"
+DisplayName = "架设"
+Description = "架设:不能移动;受到指令/技能/战吼等效果伤害 +1(普通攻击不加)。"
+
+[sub_resource type="Resource" id="Resource_pierce"]
+script = ExtResource("1_kdef")
+KeywordName = "Pierce"
+DisplayName = "贯穿"
+Description = "贯穿:远程攻击时,同时对目标正后方一格的随从(不分敌我)造成等额伤害。"
+
+[sub_resource type="Resource" id="Resource_blessing"]
+script = ExtResource("1_kdef")
+KeywordName = "Blessing"
+DisplayName = "福泽"
+Description = "福泽:与其相邻的友方随从受到的伤害 -1(不含自身,可与坚守叠加)。"
+
+[sub_resource type="Resource" id="Resource_guardian"]
+script = ExtResource("1_kdef")
+KeywordName = "Guardian"
+DisplayName = "守护"
+Description = "守护:与其相邻的友方随从将要受到的伤害,转移到它身上承受(享受它自身的减伤)。"
+
+[sub_resource type="Resource" id="Resource_rooted"]
+script = ExtResource("1_kdef")
+KeywordName = "Rooted"
+DisplayName = "定身"
+Description = "定身:本回合不能移动(跃障 / 额外移动力也无效),但仍可攻击与反击。"
+
+[sub_resource type="Resource" id="Resource_moltensword"]
+script = ExtResource("1_kdef")
+KeywordName = "MoltenSword"
+DisplayName = "熔岩巨剑"
+Description = "熔岩巨剑:装备后 +3 攻击、射程 2、贯穿(永久)。"
+
+[sub_resource type="Resource" id="Resource_kindleimmune"]
+script = ExtResource("1_kdef")
+KeywordName = "KindleImmune"
+DisplayName = "免疫薪炎"
+Description = "免疫薪炎:免疫薪炎(spell.kindle)伤害;但被薪炎命中仍会加速自身成长。"
+
+[sub_resource type="Resource" id="Resource_spellward"]
+script = ExtResource("1_kdef")
+KeywordName = "SpellWard"
+DisplayName = "法术护体"
+Description = "法术护体:抵挡下一次敌方指令/战吼效果(伤害归零 / 指向失效),之后消耗。"
+
+[resource]
+script = ExtResource("2_kcat")
+Keywords = Array[ExtResource("1_kdef")]([SubResource("Resource_charge"), SubResource("Resource_assault"), SubResource("Resource_swift"), SubResource("Resource_range"), SubResource("Resource_taunt"), SubResource("Resource_holdfast"), SubResource("Resource_trample"), SubResource("Resource_cheapshot"), SubResource("Resource_shield"), SubResource("Resource_garrison"), SubResource("Resource_leap"), SubResource("Resource_packtactics"), SubResource("Resource_hidden"), SubResource("Resource_emplacement"), SubResource("Resource_pierce"), SubResource("Resource_blessing"), SubResource("Resource_guardian"), SubResource("Resource_rooted"), SubResource("Resource_moltensword"), SubResource("Resource_kindleimmune"), SubResource("Resource_spellward")])

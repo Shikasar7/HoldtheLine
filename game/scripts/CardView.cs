@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 using HoldTheLine.Rules.Cards;
 
@@ -40,8 +41,10 @@ public static class CardView
 
     // ---------- framed card face (mirrors the battle scene's hand-card look) ----------
 
-    /// <summary>Full card face: art, faction frame, cost/atk/hp gems, type badge, name, rules text.</summary>
-    public static Control BuildFace(CardDefinition def, Vector2 size, bool backing = true)
+    /// <summary>Full card face: art, faction frame, cost/atk/hp gems, type badge, name, rules text.
+    /// <paramref name="compact"/>=false slightly shrinks the body font and grows the text plate
+    /// (两行完整显示) for large standalone faces such as the opponent-card reveal.</summary>
+    public static Control BuildFace(CardDefinition def, Vector2 size, bool backing = true, bool compact = true)
     {
         float w = size.X, h = size.Y;
         bool isOrder = def.Type != CardType.Unit;
@@ -59,10 +62,10 @@ public static class CardView
 
         int gem = Mathf.RoundToInt(h * 0.155f);
         int nameSize = Mathf.RoundToInt(h * 0.062f);
-        int bodySize = Mathf.RoundToInt(h * 0.048f);
+        int bodySize = Mathf.RoundToInt(h * (compact ? 0.048f : 0.042f)); // 预览字号略缩,换取放下全文
 
         var art = BattleTheme.Tex($"cards/{def.Id}.png");
-        var frame = BattleTheme.Tex($"ui/frame_{def.Faction}.png") ?? BattleTheme.Tex("ui/frame_neutral.png");
+        var frame = FrameTexture(def.Faction);
         if (art != null && frame != null)
         {
             // Frame art window measured on the generated frames: x 16.5%~84%, y 15.2%~68.8%.
@@ -79,7 +82,7 @@ public static class CardView
             if (!string.IsNullOrWhiteSpace(CardTextFormatting.GetBbcode(def.Id, BattleTheme.BodyText(def.Text))))
             {
                 var platePos = new Vector2(w * 0.14f, h * 0.715f);
-                var plateSize = new Vector2(w * 0.72f, h * 0.19f);
+                var plateSize = new Vector2(w * 0.72f, h * (compact ? 0.19f : 0.215f)); // 两行完整显示
                 var plate = new Panel { Position = platePos, Size = plateSize, MouseFilter = Control.MouseFilterEnum.Ignore };
                 plate.AddThemeStyleboxOverride("panel", BattleTheme.Box(
                     new Color(0.07f, 0.06f, 0.05f, 0.78f), new Color(0.62f, 0.5f, 0.3f, 0.55f), 1, 8));
@@ -147,6 +150,74 @@ public static class CardView
         return holder;
     }
 
+    // ---------- hover preview (enlarged face + full-rules plate) ----------
+
+    /// <summary>Enlarged card face with a full-rules plate below it (the frames' own text panels are too
+    /// small for long texts), optionally followed by one explanation line per keyword. Returns the whole
+    /// root Control (MouseFilter.Ignore); the caller only positions it. Shared by the battle hand's hover
+    /// preview and the deck editor's tile preview.</summary>
+    public static Control BuildHoverPreview(CardDefinition def, Vector2 faceSize, bool withKeywords)
+    {
+        bool isOrder = def.Type != CardType.Unit;
+        string fullText = CardTextFormatting.GetBbcode(def.Id, BattleTheme.BodyText(def.Text));
+        // Plate: 36px tag header + 24px per wrapped rules line (+8px bottom pad folded into the formula).
+        float textH = fullText.Length > 0
+            ? 76f + 24f * Mathf.Ceil(CardTextFormatting.PlainText(fullText).Length / 15f)
+            : 0f;
+        var kws = new List<KeywordSpec>();
+        if (withKeywords)
+            foreach (var k in def.Keywords)
+                if (KeywordName(k).Length > 0)
+                    kws.Add(k);
+        float kwH = kws.Count * 46f;
+        float plateH = textH > 0 ? textH + kwH : (kwH > 0 ? 44f + kwH : 0f);
+        float totalH = faceSize.Y + (plateH > 0 ? plateH + 8f : 0f);
+
+        var root = new Control
+        {
+            Size = new Vector2(faceSize.X, totalH),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        root.AddChild(BuildFace(def, faceSize));
+
+        if (plateH > 0)
+        {
+            var plate = new Panel { Position = new Vector2(0, faceSize.Y + 8f), Size = new Vector2(faceSize.X, plateH), MouseFilter = Control.MouseFilterEnum.Ignore };
+            plate.AddThemeStyleboxOverride("panel", BattleTheme.Box(BattleTheme.PanelDark,
+                isOrder ? BattleTheme.Accent : FactionColor(def.Faction), 2, 10));
+
+            var tag = BattleTheme.MakeOutlinedLabel(isOrder ? "指令" : "随从", 16,
+                isOrder ? BattleTheme.Accent : BattleTheme.TextDim, HorizontalAlignment.Center);
+            tag.Position = new Vector2(12, 8);
+            tag.Size = new Vector2(faceSize.X - 24, 22);
+            plate.AddChild(tag);
+
+            if (fullText.Length > 0)
+            {
+                var text = CardTextFormatting.MakeRichLabel(def.Id, BattleTheme.BodyText(def.Text), 19,
+                    BattleTheme.TextMain);
+                text.VerticalAlignment = VerticalAlignment.Top;
+                text.Position = new Vector2(14, 36);
+                text.Size = new Vector2(faceSize.X - 28, textH - 44);
+                plate.AddChild(text);
+            }
+
+            float yy = fullText.Length > 0 ? textH - 8f : 36f;
+            foreach (var k in kws)
+            {
+                var kl = BattleTheme.MakeLabel($"【{KeywordName(k)}】{BattleTheme.BodyText(KeywordDesc(k.Keyword))}", 14, BattleTheme.Accent);
+                kl.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+                kl.VerticalAlignment = VerticalAlignment.Top;
+                kl.Position = new Vector2(10, yy);
+                kl.Size = new Vector2(faceSize.X - 20, 46);
+                plate.AddChild(kl);
+                yy += 46f;
+            }
+            root.AddChild(plate);
+        }
+        return root;
+    }
+
     // ---------- detail popup (full "详细卡牌介绍") ----------
 
     private const float PanelW = 560f;
@@ -182,17 +253,28 @@ public static class CardView
         panel.AddChild(close);
     }
 
+    /// <summary>Live in-match numbers for a unit's detail view: attack and current/max HP replace the printed
+    /// stats (生命 shows X/Y and turns red when damaged).</summary>
+    public readonly record struct LiveUnitStats(int Atk, int CurrentHp, int MaxHp);
+
     /// <summary>Lay the card detail into <paramref name="panel"/> (its own local coordinates). Shared by the
     /// popup above and any host that wants to embed the detail directly.</summary>
-    public static void FillDetail(Panel panel, CardDefinition def)
+    public static void FillDetail(Panel panel, CardDefinition def) =>
+        FillDetail(panel, def, new Vector2(PanelW, PanelH), pad: 18f, artH: 288f, statStep: 172f);
+
+    /// <summary>Geometry-parameterized variant for hosts whose panel differs from the default popup
+    /// (e.g. the battle scene's click-a-piece inspector). <paramref name="live"/> substitutes a unit's
+    /// in-match stats for the printed ones; <paramref name="keywords"/> substitutes its effective (live)
+    /// keyword list for the card's printed one.</summary>
+    public static void FillDetail(Panel panel, CardDefinition def, Vector2 size, float pad, float artH, float statStep,
+        LiveUnitStats? live = null, IReadOnlyList<KeywordSpec>? keywords = null)
     {
         bool isOrder = def.Type != CardType.Unit;
-        const float pad = 18f;
-        float innerW = PanelW - pad * 2;
+        float panelH = size.Y;
+        float innerW = size.X - pad * 2;
         var faction = FactionColor(def.Faction);
 
         // Card art uses the same per-card framing as the face, adapted to this window's aspect.
-        const float artH = 288f;
         if (BattleTheme.Tex($"cards/{def.Id}.png") is { } artTex)
             panel.AddChild(ArtWindow(artTex, def.Id, new Vector2(pad, pad), new Vector2(innerW, artH)));
         else
@@ -217,15 +299,19 @@ public static class CardView
         metaL.Size = new Vector2(innerW * 0.56f, 38);
         panel.AddChild(metaL);
 
-        // Stats row.
+        // Stats row: printed numbers, or the unit's live ones (生命 X/Y, red when damaged) when supplied.
         float y = pad + artH + 14;
+        var hpStat = live is { } lv
+            ? (Num: lv.CurrentHp.ToString(), Caption: $"生命 {lv.CurrentHp}/{lv.MaxHp}",
+               Color: lv.CurrentHp < lv.MaxHp ? BattleTheme.DangerColor : BattleTheme.HpColor, Gem: BattleTheme.Tex("ui/gem_hp.png"))
+            : (Num: def.Hp.ToString(), Caption: "生命", Color: BattleTheme.HpColor, Gem: BattleTheme.Tex("ui/gem_hp.png"));
         var stats = isOrder
             ? new (string Num, string Caption, Color Color, Texture2D? Gem)[] { (def.Cost.ToString(), "辉尘", BattleTheme.CostColor, BattleTheme.Tex("ui/gem_cost.png")) }
             : new (string Num, string Caption, Color Color, Texture2D? Gem)[]
             {
                 (def.Cost.ToString(), "辉尘", BattleTheme.CostColor, BattleTheme.Tex("ui/gem_cost.png")),
-                (def.Atk.ToString(), "攻击", BattleTheme.AtkColor, BattleTheme.Tex("ui/gem_atk.png")),
-                (def.Hp.ToString(), "生命", BattleTheme.HpColor, BattleTheme.Tex("ui/gem_hp.png")),
+                ((live?.Atk ?? def.Atk).ToString(), "攻击", BattleTheme.AtkColor, BattleTheme.Tex("ui/gem_atk.png")),
+                hpStat,
             };
         float sx = pad + 6;
         foreach (var (num, caption, color, gemTex) in stats)
@@ -235,7 +321,7 @@ public static class CardView
             cap.Position = new Vector2(sx + 54, y + 11);
             cap.Size = new Vector2(110, 24);
             panel.AddChild(cap);
-            sx += 172;
+            sx += statStep;
         }
         y += 46 + 16;
 
@@ -258,8 +344,8 @@ public static class CardView
             y += plateH + 12;
         }
 
-        // Keyword explanations.
-        foreach (var k in def.Keywords)
+        // Keyword explanations (a unit's effective in-match keywords when supplied, else the printed ones).
+        foreach (var k in keywords ?? def.Keywords)
         {
             if (KeywordName(k).Length == 0) continue; // skip internal/unnamed keywords (no raw enum text)
             var kwl = BattleTheme.MakeLabel($"【{KeywordName(k)}】{BattleTheme.BodyText(KeywordDesc(k.Keyword))}", 15, BattleTheme.Accent);
@@ -273,37 +359,41 @@ public static class CardView
         }
 
         // Faction lore pinned to the bottom — skipped when the content above needs the room.
-        if (y < PanelH - 80)
+        if (y < panelH - 80)
         {
             var lore = BattleTheme.MakeLabel(FactionLore(def.Faction), 13, BattleTheme.TextDim);
             lore.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
             lore.VerticalAlignment = VerticalAlignment.Bottom;
             lore.ClipContents = true;
-            lore.Position = new Vector2(pad, PanelH - 70);
+            lore.Position = new Vector2(pad, panelH - 70);
             lore.Size = new Vector2(innerW, 56);
             panel.AddChild(lore);
         }
     }
 
     // ---------- shared card-data display strings (the canonical copy for editor + battle surfaces) ----------
+    // docs/22 批次D4: the actual values live in res://data/faction_catalog.tres / keyword_catalog.tres
+    // (editable in the Inspector, code-built fallback); these accessors keep their old signatures and only
+    // do the lookup. Unknown factions fall back to the neutral entry, unknown keywords to empty strings —
+    // exactly what the old switch defaults produced.
 
-    public static Color FactionColor(string faction) => faction switch
-    {
-        "iron_vow" => BattleTheme.SeatColor0,
-        "wildpack" => BattleTheme.SeatColor1,
-        "duskweaver" => Color.FromHtml("8b5fa6"),
-        "undervault" => Color.FromHtml("b5883f"),
-        _ => BattleTheme.TextDim,
-    };
+    public static Color FactionColor(string faction) =>
+        FactionCatalog.GetOrNeutral(faction)?.PrimaryColor ?? BattleTheme.TextDim;
 
-    public static string FactionName(string faction) => faction switch
+    public static string FactionName(string faction) =>
+        FactionCatalog.GetOrNeutral(faction)?.DisplayName ?? "中立";
+
+    /// <summary>Two-character faction tag (铁誓 / 游群 / …) for compact surfaces — hotseat 交接提示, editor lists.</summary>
+    public static string FactionMark(string faction) =>
+        FactionCatalog.GetOrNeutral(faction)?.ShortMark ?? "中立";
+
+    /// <summary>The faction's card frame texture (catalog-driven), falling back to the neutral frame file.</summary>
+    public static Texture2D? FrameTexture(string faction)
     {
-        "iron_vow" => "铁誓军团",
-        "wildpack" => "荒野游群",
-        "duskweaver" => "黄昏教团",
-        "undervault" => "掘世匠会",
-        _ => "中立",
-    };
+        var def = FactionCatalog.GetOrNeutral(faction);
+        var tex = def is null ? null : BattleTheme.Tex($"ui/{def.FrameTexture}");
+        return tex ?? BattleTheme.Tex("ui/frame_neutral.png");
+    }
 
     public static string TypeName(CardType type) => type switch
     {
@@ -321,69 +411,18 @@ public static class CardView
         _ => "衍生",
     };
 
-    public static string FactionLore(string faction) => faction switch
-    {
-        "iron_vow" => "铁誓军团 —— 誓约骑士与堡垒工程师,断层战争中最后的正规军。以墙为盾,寸土不让。",
-        "wildpack" => "荒野游群 —— 兽人与掠猎兽骑手,在断层荒原上以速度为生存法则。风过之处,防线洞开。",
-        "duskweaver" => "黄昏教团 —— 焚火祭司与灰烬信徒,以格、行、列为祭坛的法术连锁者。误伤友军是代价,也是燃料。",
-        "undervault" => "掘世匠会 —— 掘地矮人与蒸汽工程师,把阵型钉死成答案。架起炮台,隔墙点名。",
-        _ => "中立 —— 游荡在断层各段防线之间的雇佣兵、民兵与工匠,为辉尘而战。",
-    };
+    public static string FactionLore(string faction) =>
+        FactionCatalog.GetOrNeutral(faction)?.Lore ?? "";
 
-    public static string KeywordName(KeywordSpec k) => k.Keyword switch
+    /// <summary>Display name for a keyword spec; value-carrying keywords (疾行 / 射程) append their number —
+    /// the catalog stores only the base name, this concatenation stays in code.</summary>
+    public static string KeywordName(KeywordSpec k)
     {
-        Keyword.Swift => $"疾行 {k.Value}",
-        Keyword.Range => $"射程 {k.Value}",
-        _ => KeywordName0(k.Keyword),
-    };
+        var def = KeywordCatalog.Get(k.Keyword);
+        if (def is null)
+            return ""; // unknown/internal keyword: show nothing rather than a raw enum name
+        return def.HasValue ? $"{def.DisplayName} {k.Value}" : def.DisplayName;
+    }
 
-    private static string KeywordName0(Keyword k) => k switch
-    {
-        Keyword.Charge => "冲锋",
-        Keyword.Assault => "突袭",
-        Keyword.Taunt => "嘲讽",
-        Keyword.HoldFast => "坚守",
-        Keyword.Trample => "践踏",
-        Keyword.CheapShot => "偷袭",
-        Keyword.Shield => "持盾",
-        Keyword.Garrison => "驻防",
-        Keyword.Leap => "跃障",
-        Keyword.PackTactics => "围猎",
-        Keyword.Hidden => "潜行",
-        Keyword.Emplacement => "架设",
-        Keyword.Pierce => "贯穿",
-        Keyword.Blessing => "福泽",
-        Keyword.Guardian => "守护",
-        Keyword.Rooted => "定身",
-        Keyword.MoltenSword => "熔岩巨剑",
-        Keyword.KindleImmune => "免疫薪炎",
-        Keyword.SpellWard => "法术护体",
-        _ => "", // unknown/internal keyword: show nothing rather than a raw enum name
-    };
-
-    public static string KeywordDesc(Keyword k) => k switch
-    {
-        Keyword.Charge => "部署当回合即可移动与攻击。",
-        Keyword.Assault => "部署当回合可攻击,但不能移动。",
-        Keyword.Swift => "每回合可移动的格数提升。",
-        Keyword.Range => "可攻击 N 步(横纵相加)内的任意敌人,越过其他随从;仅当目标能反击到你(在其射程/相邻内)时才吃反击。",
-        Keyword.Taunt => "与其相邻的敌方随从必须优先攻击它。",
-        Keyword.HoldFast => "本回合未移动时,受到的伤害 -1。",
-        Keyword.Trample => "近战攻击时,对目标周围相邻的所有单位(含友方)也造成等量伤害。",
-        Keyword.CheapShot => "近战攻击不受反击。",
-        Keyword.Shield => "免疫下一次受到的伤害。",
-        Keyword.Garrison => "位于己方底线行时 +1/+1。",
-        Keyword.Leap => "移动时可跨过一个随从,直线跳跃 2 格。",
-        Keyword.PackTactics => "近战攻击一个与你另一友方相邻的敌人时,伤害 +2。",
-        Keyword.Hidden => "潜行:不能被敌方指令/战吼选中(范围/AOE 仍会命中);攻击后现形。",
-        Keyword.Emplacement => "架设:不能移动;受到指令/技能/战吼等效果伤害 +1(普通攻击不加)。",
-        Keyword.Pierce => "贯穿:远程攻击时,同时对目标正后方一格的随从(不分敌我)造成等额伤害。",
-        Keyword.Blessing => "福泽:与其相邻的友方随从受到的伤害 -1(不含自身,可与坚守叠加)。",
-        Keyword.Guardian => "守护:与其相邻的友方随从将要受到的伤害,转移到它身上承受(享受它自身的减伤)。",
-        Keyword.Rooted => "定身:本回合不能移动(跃障 / 额外移动力也无效),但仍可攻击与反击。",
-        Keyword.MoltenSword => "熔岩巨剑:装备后 +3 攻击、射程 2、贯穿(永久)。",
-        Keyword.KindleImmune => "免疫薪炎:免疫薪炎(spell.kindle)伤害;但被薪炎命中仍会加速自身成长。",
-        Keyword.SpellWard => "法术护体:抵挡下一次敌方指令/战吼效果(伤害归零 / 指向失效),之后消耗。",
-        _ => "",
-    };
+    public static string KeywordDesc(Keyword k) => KeywordCatalog.Get(k)?.Description ?? "";
 }
