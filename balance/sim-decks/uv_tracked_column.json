@@ -1,0 +1,23 @@
+{
+  "_name": "匠会·机动纵队 — 履带炮台随重装纵队推线,吸血+燎原续航清场",
+  "leader": "leader_uv_brom",
+  "cards": [
+    "uv_cog_apprentice", "uv_cog_apprentice",
+    "uv_scattergunner", "uv_scattergunner",
+    "uv_gun_crew", "uv_gun_crew", "uv_gun_crew",
+    "uv_repair_sapper", "uv_repair_sapper",
+    "uv_gear_foreman", "uv_gear_foreman",
+    "uv_armored_hauler", "uv_armored_hauler", "uv_armored_hauler",
+    "uv_ironclad",
+    "uv_fortress_crawler",
+    "uv_mod_tracked_chassis", "uv_mod_tracked_chassis",
+    "uv_mod_long_barrel", "uv_mod_long_barrel",
+    "uv_mod_heavy_bore", "uv_mod_heavy_bore",
+    "uv_mod_siphon_core",
+    "uv_mod_blast_shell",
+    "uv_mod_autoloader",
+    "uv_deploy_sentries",
+    "uv_emergency_repair", "uv_emergency_repair",
+    "uv_field_rebuild", "uv_field_rebuild"
+  ]
+}

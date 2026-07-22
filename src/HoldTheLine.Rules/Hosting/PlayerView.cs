@@ -54,6 +54,8 @@ public sealed record PlayerView
                 SpellCharge = self.SpellCharge,
                 Secrets = self.Secrets.Select(s => s.CardId).ToList(), // own secrets are visible to their caster
                 Hand = self.Hand.Select(c => new CardInHandView { EntityId = c.EntityId, CardId = c.CardId }).ToList(),
+                InstalledHistory = self.InstalledHistory.ToList(), // docs/20 §2.1: 战地重构 取材, self-visible
+                PendingModules = self.PendingModules.ToList(),      // docs/20 §S7: 保险舱 待继承, self-visible
             },
             Opponent = new OpponentView
             {
@@ -101,6 +103,10 @@ public sealed record SelfView
     /// <summary>Card ids of your own face-down 秘密 (docs/21 §1.7) — visible to their caster.</summary>
     public IReadOnlyList<string> Secrets { get; init; } = [];
     public required IReadOnlyList<CardInHandView> Hand { get; init; }
+    /// <summary>掘世匠会 已装配历史池 (docs/20 §2.1) — 战地重构 的取材来源, only its owner sees it. Old snapshots → empty.</summary>
+    public IReadOnlyList<string> InstalledHistory { get; init; } = [];
+    /// <summary>保险舱 待继承模块 (docs/20 §S7) — auto-installed on the seat's next turret, owner-visible. Old → empty.</summary>
+    public IReadOnlyList<string> PendingModules { get; init; } = [];
 }
 
 public sealed record OpponentView
@@ -154,6 +160,12 @@ public sealed record UnitView
     /// (or an old snapshot) — the client shows the countdown badge only when this is non-null.</summary>
     public int? GrowthTurnsLeft { get; init; }
 
+    /// <summary>掘世匠会 炮台在装模块 (docs/20 §2) — the turret's current loadout, PUBLIC (both seats see it). Null on
+    /// every non-turret unit, so the client's装配面板 shows only when this is non-null. Old snapshots → null.</summary>
+    public IReadOnlyList<string>? Modules { get; init; }
+    /// <summary>影子炮台 (docs/20 §S15) — the client renders it半透明暗色 tint. False on every ordinary unit / 本体炮台.</summary>
+    public bool IsShadow { get; init; }
+
     public static UnitView From(UnitInstance u) => From(u, null);
 
     public static UnitView From(UnitInstance u, CardDatabase? db) => new()
@@ -174,6 +186,8 @@ public sealed record UnitView
         ChannelDeepen = db is null ? 0 : Engine.EffectEngine.ChannelEffectAmount(db, u, "deepen"),
         ChannelDiscount = db is null ? 0 : Engine.EffectEngine.ChannelEffectAmount(db, u, "discount"),
         GrowthTurnsLeft = db?.Get(u.CardId).Growth is { } g ? Math.Max(0, g.Turns - u.GrowthProgress) : null,
+        Modules = u.Turret?.Modules.ToList(),   // docs/20: 炮台在装模块 (public loadout); null on non-turrets
+        IsShadow = u.Turret?.IsShadow ?? false,
     };
 
     /// <summary>The unit's keywords AS SEEN by the client: permanent grants PLUS still-active temporary grants

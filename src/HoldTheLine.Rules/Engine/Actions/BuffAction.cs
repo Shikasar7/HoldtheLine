@@ -13,20 +13,10 @@ internal sealed class BuffAction : EffectActionBase
     public override void Execute(ResolutionContext ctx, UnitInstance? source, int ownerSeat, EffectSpec spec,
         IReadOnlyList<UnitInstance> targets, Cell? targetCell, int amount, int? secondaryTargetUnitId)
     {
+        // ctx.BuffUnit routes a 炮台 buff into its External layer + recompute (survives module swaps, docs/20 §S4)
+        // and mutates every other unit's panel directly; it emits the UnitBuffedEvent.
         foreach (var t in targets)
-        {
-            t.Atk += spec.Atk;
-            t.MaxHp += spec.Hp;
-            t.CurrentHp += spec.Hp;
-            ctx.Emit(new Events.UnitBuffedEvent
-            {
-                UnitEntityId = t.EntityId,
-                AtkDelta = spec.Atk,
-                HpDelta = spec.Hp,
-                NewAtk = t.Atk,
-                NewHp = t.CurrentHp,
-            });
-        }
+            ctx.BuffUnit(t, spec.Atk, spec.Hp);
     }
 
     public override double Score(EffectScoreArgs a)
@@ -54,6 +44,8 @@ internal sealed class BuffAction : EffectActionBase
                 return s.Units.Count(u => u.OwnerSeat == seat && GreedyAi.InCol(u, a.TargetCell)) * (e.Atk + e.Hp) * 1.5;
             case "all_ally_emplacements": // 匠会 阵地 payoff: value scales with turrets already bolted down.
                 return s.Units.Count(u => u.OwnerSeat == seat && u.HasKeyword(Keyword.Emplacement)) * (e.Atk + e.Hp) * 1.5;
+            case "friendly_turret": // docs/20: 齿轮工长/护炮班组 buff the turret — worth it only when one is in play.
+                return s.Units.Any(u => u.OwnerSeat == seat && u.Turret is { IsShadow: false }) ? (e.Atk + e.Hp) * 2 : 0;
             default:
                 return 1;
         }

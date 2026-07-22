@@ -49,6 +49,13 @@ public sealed record PlayCardCommand : Command
     /// <summary>The re-aimed 门德 recast cell (docs/21 §3.1): a new cell/row/column origin for an area kindle order.
     /// Ignored unless <see cref="EchoRecast"/> is true. Additive/nullable.</summary>
     public Cell? EchoTargetCell { get; init; }
+    /// <summary>掘世匠会 顶替 (docs/20 §S2): when installing a module onto a full (5/5) turret, the card id of the
+    /// in-装 module to scrap for room. Null = install into a free slot (rejected if the turret is full). Read only
+    /// for an Equipment play. Additive/nullable: pre-docs/20 logs deserialize to null.</summary>
+    public string? ReplacedModuleCardId { get; init; }
+    /// <summary>掘世匠会 镜像工坊 (docs/20 §S9b): the card id of the in-装 module an order acts on — the module 镜像
+    /// copies. Read only for the 镜像工坊 order. Additive/nullable.</summary>
+    public string? TargetModuleCardId { get; init; }
 }
 
 /// <summary>One orthogonal step. Swift N units issue N of these per turn.</summary>

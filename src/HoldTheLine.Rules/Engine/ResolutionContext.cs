@@ -91,9 +91,25 @@ internal sealed class ResolutionContext
                 Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = 0, NewHp = target.CurrentHp, ShieldAbsorbed = true, GuardRedirect = guardRedirected });
                 break;
             case DamageOutcomeKind.HpLoss:
-                target.CurrentHp -= step.Amount;
+                ApplyHpLoss(target, step.Amount);
                 Emit(new UnitDamagedEvent { UnitEntityId = target.EntityId, Amount = step.Amount, NewHp = target.CurrentHp, GuardRedirect = guardRedirected });
                 break;
+        }
+    }
+
+    /// <summary>Subtracts HP. For the 炮台 (docs/20 §4) it accrues 已受伤害 and re-derives CurrentHp WITHOUT the
+    /// module-recompute floor — combat/effect damage can push it to 0 and kill (S6), unlike a 顶替 换装 (which
+    /// floors at 1 in RecomputeTurret). Every other unit loses HP directly.</summary>
+    private static void ApplyHpLoss(UnitInstance target, int amount)
+    {
+        if (target.Turret is { } t)
+        {
+            t.DamageTaken += amount;
+            target.CurrentHp = target.MaxHp - t.DamageTaken;
+        }
+        else
+        {
+            target.CurrentHp -= amount;
         }
     }
 
@@ -146,6 +162,241 @@ internal sealed class ResolutionContext
         CheckGameEnd();
     }
 
+    // ---- 掘世匠会 炮台派生分层 (docs/20 §4) ----
+
+    public const int TurretRangeCap = 4;   // 射程封顶 (docs/20 §2.1)
+    public const int TurretModuleCap = 5;  // 装配上限 (docs/20 §2.1 / §0.3-10)
+
+    /// <summary>Re-derives a turret's whole panel from its layers (docs/20 §4): 基础(uv_turret_core 卡面, U0 校准
+    /// 的数据源) + Σ在装模块 + 外部累积层. Rewrites Atk/MaxHp/Keywords and re-derives CurrentHp = max(1, MaxHp −
+    /// DamageTaken) — the module/外部 recompute FLOOR (装配永不杀炮台、无换装洗伤, S3). Combat damage never comes
+    /// through here (it writes DamageTaken via ApplyHpLoss, uncapped). No-op on a non-turret. Idempotent — call
+    /// after any layer change.</summary>
+    public void RecomputeTurret(UnitInstance unit)
+    {
+        if (unit.Turret is not { } t)
+            return;
+
+        var core = Db.Get(TurretState.CoreCardId); // 基础面板走卡表 — U0 数值校准只动 JSON,不动引擎
+        int baseRange = core.Keywords.FirstOrDefault(k => k.Keyword == Keyword.Range)?.Value ?? 2;
+        int atk = core.Atk + t.ExternalAtk;
+        int hp = core.Hp + t.ExternalHp;
+        int rangeBonus = 0, move = 0;
+        bool immobile = false;
+        var switches = new List<KeywordSpec>();
+
+        foreach (var id in t.Modules)
+        {
+            if (Db.Get(id).Module is not { } mod)
+                continue;
+            atk += mod.Atk;                                  // 数值类按件累加 (镜像叠加)
+            hp += mod.Hp;
+            rangeBonus += mod.Range;
+            move += mod.Move;
+            immobile |= mod.Immobile;
+            foreach (var kw in mod.GrantKeywords)            // 开关类按"是否存在" (镜像不叠加)
+                if (!switches.Any(s => s.Keyword == kw))
+                    switches.Add(new KeywordSpec(kw));
+        }
+
+        var keywords = new List<KeywordSpec> { new(Keyword.Range, Math.Min(TurretRangeCap, baseRange + rangeBonus)) };
+        if (immobile)
+        {
+            // 架设平台 (S10): 授予 架设(不能移动)+坚守; 履带惰性 ("不能移动"优先, 不给 Swift).
+            keywords.Add(new KeywordSpec(Keyword.Emplacement));
+            keywords.Add(new KeywordSpec(Keyword.HoldFast));
+        }
+        else if (move > 0)
+        {
+            keywords.Add(new KeywordSpec(Keyword.Swift, 1 + move)); // 裸炮移速 1, 每履带 +1 (镜像→3, S9b)
+        }
+        keywords.AddRange(switches);
+        keywords.AddRange(t.ExternalKeywords);               // 外部永久授予 ∪ 模块层
+
+        unit.Atk = atk;
+        unit.MaxHp = hp;
+        unit.Keywords = keywords;                            // TempGrants (重新部署/迟缓) untouched — survives recompute
+        unit.CurrentHp = Math.Max(1, hp - t.DamageTaken);
+    }
+
+    /// <summary>铸炮 (docs/20 §1.1): places a fresh 工造炮台 on <paramref name="cell"/> for <paramref name="seat"/>
+    /// with 召唤失调. Uniqueness/emptiness/home-row is checked by the resolver before this runs. Auto-installs any
+    /// 保险舱 待继承 modules (S7) up to the cap, recomputes the derived panel, and emits the deploy.</summary>
+    public void PlaceTurret(int seat, Cell cell)
+    {
+        var unit = new UnitInstance
+        {
+            EntityId = State.TakeEntityId(),
+            CardId = TurretState.CoreCardId,
+            OwnerSeat = seat,
+            Cell = cell,
+            DeployedOnTurn = State.TurnNumber, // 召唤失调 (docs/20 §1.2)
+            Turret = new TurretState(),
+        };
+
+        // 保险舱 待继承 (S7): the previous turret's saved modules install onto the new one, then the slot clears.
+        var pending = State.Player(seat).PendingModules;
+        bool inherited = pending.Count > 0;
+        foreach (var id in pending)
+        {
+            if (unit.Turret.Modules.Count >= TurretModuleCap)
+                break;
+            unit.Turret.Modules.Add(id);
+            AddInstalledHistory(seat, id);
+        }
+        pending.Clear();
+
+        RecomputeTurret(unit); // DamageTaken=0 → 满血落成
+        State.Units.Add(unit);
+        Emit(new UnitDeployedEvent
+        {
+            Seat = seat, UnitEntityId = unit.EntityId, CardId = unit.CardId,
+            Cell = cell, Atk = unit.Atk, Hp = unit.CurrentHp,
+        });
+        if (inherited)
+            Emit(new TurretModulesInheritedEvent { Seat = seat, UnitEntityId = unit.EntityId, ModuleCardIds = unit.Turret.Modules.ToList() });
+        TriggerTrapOnEntry(unit); // 烬火陷阱: 含铸炮落点 (docs/21 §1.7)
+    }
+
+    /// <summary>Low-level 装配 (docs/20 §2): adds <paramref name="moduleId"/> to the turret (scrapping
+    /// <paramref name="replacedCardId"/> first for a 顶替 — the scrapped件 stays in the history pool), records the
+    /// new module in the history pool, recomputes the derived panel, and emits ModuleInstalledEvent. Every caller
+    /// (直装 / 顶替 / 镜像 / 重构) owns its own legality — this just applies the change.</summary>
+    public void InstallModuleOnTurret(UnitInstance turret, string moduleId, string? replacedCardId, bool mirrored)
+    {
+        var t = turret.Turret!;
+        if (replacedCardId is not null)
+            t.Modules.Remove(replacedCardId); // 报废: leaves the turret but stays in the history pool
+        t.Modules.Add(moduleId);
+        AddInstalledHistory(turret.OwnerSeat, moduleId);
+        RecomputeTurret(turret);
+        Emit(new ModuleInstalledEvent
+        {
+            Seat = turret.OwnerSeat, UnitEntityId = turret.EntityId, ModuleCardId = moduleId,
+            ReplacedCardId = replacedCardId,
+            NewAtk = turret.Atk, NewMaxHp = turret.MaxHp, NewCurrentHp = turret.CurrentHp,
+            Mirrored = mirrored,
+        });
+    }
+
+    /// <summary>Records <paramref name="moduleId"/> in the seat's 已装配历史池 (set semantics — deduped by id, S9b).</summary>
+    public void AddInstalledHistory(int seat, string moduleId)
+    {
+        var hist = State.Player(seat).InstalledHistory;
+        if (!hist.Contains(moduleId))
+            hist.Add(moduleId);
+    }
+
+    /// <summary>The friendly (non-shadow) 工造炮台 of <paramref name="seat"/>, or null. 唯一性保证至多一座; 影子炮台
+    /// (IsShadow) is excluded — modules/镜像/重构/保险舱 all key on the real turret (docs/20 §S15).</summary>
+    public UnitInstance? FriendlyTurret(int seat) =>
+        State.Units.FirstOrDefault(u => u.OwnerSeat == seat && u.Turret is { IsShadow: false });
+
+    /// <summary>Applies a permanent Atk/Hp buff. For the 炮台 it accrues into the External layer and recomputes
+    /// (survives module swaps, docs/20 §S4); every other unit's panel is mutated directly. Emits UnitBuffedEvent.</summary>
+    public void BuffUnit(UnitInstance target, int atk, int hp)
+    {
+        if (target.Turret is { } t)
+        {
+            t.ExternalAtk += atk;
+            t.ExternalHp += hp;
+            RecomputeTurret(target); // MaxHp↑ lifts CurrentHp too (floored to 1)
+        }
+        else
+        {
+            target.Atk += atk;
+            target.MaxHp += hp;
+            target.CurrentHp += hp;
+        }
+        Emit(new UnitBuffedEvent
+        {
+            UnitEntityId = target.EntityId,
+            AtkDelta = atk, HpDelta = hp,
+            NewAtk = target.Atk, NewHp = target.CurrentHp,
+        });
+    }
+
+    public const string FailsafePodCardId = "uv_mod_failsafe_pod";
+
+    /// <summary>自毁保险舱 触发 (docs/20 §S7): saves up to 2 RANDOM of the turret's OTHER in-装 modules to the seat's
+    /// 待继承 单槽 (match Rng), then 作废 — the pod leaves the history pool so 战地重构 can never fish it back.
+    /// 边界 a: fewer than 2 others → saves what there is; 0 → empty (still 作废). Called from the death sweep.</summary>
+    private void FireFailsafePod(int seat, TurretState turret)
+    {
+        var others = turret.Modules.Where(id => id != FailsafePodCardId).ToList();
+        var saved = new List<string>();
+        for (int i = 0; i < 2 && others.Count > 0; i++)
+        {
+            int idx = State.Rng.NextInt(others.Count);
+            saved.Add(others[idx]);
+            others.RemoveAt(idx);
+        }
+        var player = State.Player(seat);
+        player.PendingModules = saved;                     // 待继承 单槽 (S7 边界c: 一炮一舱)
+        player.InstalledHistory.Remove(FailsafePodCardId); // 作废: leaves the history pool
+        Emit(new TurretFailsafeEvent { Seat = seat, SavedModuleCardIds = saved });
+    }
+
+    /// <summary>影子炮台 (维尔达, docs/20 §S15): a runtime SNAPSHOT of <paramref name="source"/> turret — same modules
+    /// (so RecomputeTurret yields the same panel) + external layers, 满血, 突袭 (Assault). Not unique (IsShadow),
+    /// can't be module/镜像/重构/保险舱-targeted, and vanishes at its owner's turn end. Does not enter the history pool.</summary>
+    public void SummonShadowTurret(int seat, UnitInstance source, Cell cell)
+    {
+        var st = source.Turret!;
+        var unit = new UnitInstance
+        {
+            EntityId = State.TakeEntityId(),
+            CardId = TurretState.CoreCardId,
+            OwnerSeat = seat,
+            Cell = cell,
+            DeployedOnTurn = State.TurnNumber,
+            Turret = new TurretState
+            {
+                Modules = new List<string>(st.Modules),
+                ExternalAtk = st.ExternalAtk,
+                ExternalHp = st.ExternalHp,
+                ExternalKeywords = new List<KeywordSpec>(st.ExternalKeywords) { new(Keyword.Assault) }, // 突袭
+                DamageTaken = 0,        // 满血落地
+                IsShadow = true,
+            },
+        };
+        RecomputeTurret(unit);          // derives the same panel + folds in 突袭
+        State.Units.Add(unit);
+        Emit(new UnitDeployedEvent
+        {
+            Seat = seat, UnitEntityId = unit.EntityId, CardId = unit.CardId,
+            Cell = cell, Atk = unit.Atk, Hp = unit.CurrentHp,
+        });
+        TriggerTrapOnEntry(unit);
+    }
+
+    /// <summary>影子炮台 消失 (docs/20 §S15): removes <paramref name="seat"/>'s shadow turrets at that seat's turn end.
+    /// Direct removal — no deathrattle, no history, no 保险舱 (亡语类模块对影子惰性), no death sweep.</summary>
+    public void ExpireShadowTurrets(int seat)
+    {
+        foreach (var s in State.Units.Where(u => u.OwnerSeat == seat && u.Turret is { IsShadow: true }).ToList())
+        {
+            State.Units.Remove(s);
+            Emit(new ShadowTurretExpiredEvent { Seat = seat, UnitEntityId = s.EntityId });
+        }
+    }
+
+    /// <summary>战地重构 (docs/20 §S8): install up to <paramref name="count"/> RANDOM modules from <paramref
+    /// name="pool"/> (history not currently in装) onto the turret, bounded by its free slots (match Rng →
+    /// replay-deterministic). Legality (turret in场, non-empty pool, free slot) is checked by the resolver.</summary>
+    public void FieldRebuild(UnitInstance turret, List<string> pool, int count)
+    {
+        var t = turret.Turret!;
+        var bag = new List<string>(pool);
+        for (int i = 0; i < count && bag.Count > 0 && t.Modules.Count < TurretModuleCap; i++)
+        {
+            int idx = State.Rng.NextInt(bag.Count);
+            string id = bag[idx];
+            bag.RemoveAt(idx);
+            InstallModuleOnTurret(turret, id, replacedCardId: null, mirrored: false);
+        }
+    }
+
     // ---- deaths ----
 
     /// <summary>
@@ -174,6 +425,12 @@ internal sealed class ResolutionContext
                 var def = Db.Get(unit.CardId);
                 EffectEngine.RunTrigger(this, unit, unit.OwnerSeat, def.Effects, "deathrattle", targetUnitId: null);
             }
+
+            // 自毁保险舱 (docs/20 §S7): a destroyed REAL turret carrying a 保险舱 saves 2 random other modules for the
+            // seat's next turret, then 作废 (leaves the history pool). 影子炮台 (IsShadow) modules are inert here (S15).
+            foreach (var unit in dead)
+                if (unit.Turret is { IsShadow: false } t && t.Modules.Contains(FailsafePodCardId))
+                    FireFailsafePod(unit.OwnerSeat, t);
 
             // 归魂 (docs/21 §1.4): during its owner's turn, each friendly death in this sweep feeds that seat's
             // surviving 归魂 units 1 辉尘, capped per unit per turn. Deathrattle-chained deaths surface in the
@@ -433,7 +690,16 @@ internal sealed class ResolutionContext
     public void HealUnit(UnitInstance target, int amount)
     {
         int before = target.CurrentHp;
-        target.CurrentHp = Math.Min(target.MaxHp, target.CurrentHp + Math.Max(0, amount));
+        if (target.Turret is { } t)
+        {
+            // 炮台 (docs/20 §4): healing pays down 已受伤害 (吸血/抢修), re-derives CurrentHp (floored to 1).
+            t.DamageTaken = Math.Max(0, t.DamageTaken - Math.Max(0, amount));
+            target.CurrentHp = Math.Max(1, target.MaxHp - t.DamageTaken);
+        }
+        else
+        {
+            target.CurrentHp = Math.Min(target.MaxHp, target.CurrentHp + Math.Max(0, amount));
+        }
         Emit(new UnitHealedEvent { UnitEntityId = target.EntityId, Amount = target.CurrentHp - before, NewHp = target.CurrentHp });
     }
 
@@ -468,7 +734,15 @@ internal sealed class ResolutionContext
     {
         if (duration == "permanent")
         {
-            if (!target.Keywords.Any(s => s.Keyword == keyword && s.Value == value))
+            if (target.Turret is { } t)
+            {
+                // 炮台 (docs/20 §4): a permanent grant accrues into the External keyword layer so it survives the
+                // module recompute (which rewrites unit.Keywords). TempGrants stay on the unit and survive as-is.
+                if (!t.ExternalKeywords.Any(s => s.Keyword == keyword && s.Value == value))
+                    t.ExternalKeywords.Add(new KeywordSpec(keyword, value));
+                RecomputeTurret(target);
+            }
+            else if (!target.Keywords.Any(s => s.Keyword == keyword && s.Value == value))
                 target.Keywords.Add(new KeywordSpec(keyword, value));
         }
         else

@@ -34,9 +34,11 @@ internal static class DamageMath
     /// <summary>架设 second clause (docs/06 §4): a bolted-down unit cannot dodge incoming barrages — it takes
     /// +1 from EFFECT damage (orders, leader skills, battlecries, traps, secrets; never from attacks). The single
     /// source of truth for the +1: <see cref="ResolutionContext.DamageUnit"/> applies it via its effectDamage
-    /// flag, and the trap-trigger event mirrors the same number for its Damage field.</summary>
+    /// flag, and the trap-trigger event mirrors the same number for its Damage field.
+    /// EXEMPTION (docs/20 §1.2/§5): the 掘世匠会 工造炮台/影子炮台 never takes the 架设 +1 — even while an 架设平台
+    /// module bolts it down — but ordinary 架设 randoms (哨戒炮 …) still do.</summary>
     public static int EffectAmountAgainst(UnitInstance victim, int amount) =>
-        amount + (victim.HasKeyword(Keyword.Emplacement) ? 1 : 0);
+        amount + (victim.HasKeyword(Keyword.Emplacement) && !victim.IsTurret ? 1 : 0);
 
     /// <summary>One unit's own step of the pipeline (架设 +1 must already be folded into <paramref name="amount"/>).
     /// Pure — the caller applies the result. 成长加速 mutation is intentionally NOT here: the solver runs it

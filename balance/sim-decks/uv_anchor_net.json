@@ -1,0 +1,20 @@
+{
+  "_name": "匠会·锚定火网 — 架设平台锚死后场,快装+贯日成型接管,重装班组踩潮汐",
+  "leader": "leader_uv_brom",
+  "cards": [
+    "uv_cog_apprentice", "uv_cog_apprentice",
+    "uv_spike_barrier", "uv_spike_barrier", "uv_spike_barrier",
+    "uv_gun_crew", "uv_gun_crew", "uv_gun_crew", "uv_gun_crew",
+    "uv_scattergunner", "uv_scattergunner",
+    "uv_gear_foreman", "uv_gear_foreman", "uv_gear_foreman",
+    "uv_salvage_crew", "uv_salvage_crew", "uv_salvage_crew",
+    "uv_armored_hauler", "uv_armored_hauler",
+    "uv_ironclad",
+    "uv_mod_anchor_platform", "uv_mod_anchor_platform",
+    "uv_mod_long_barrel", "uv_mod_long_barrel",
+    "uv_mod_heavy_bore", "uv_mod_heavy_bore",
+    "uv_mod_autoloader",
+    "uv_mod_grand_cannon",
+    "uv_emergency_repair", "uv_emergency_repair"
+  ]
+}

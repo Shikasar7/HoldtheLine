@@ -267,6 +267,11 @@ internal static class EffectEngine
                     .Where(u => u.OwnerSeat == ownerSeat && u.HasKeyword(Keyword.Emplacement))
                     .ToList();
 
+            case "friendly_turret":
+                // docs/20: the seat's real 工造炮台 (0 or 1 — 唯一; 影子炮台 excluded). Fizzles with no turret
+                // (like all_ally_emplacements with none), so 护炮班组/齿轮工长 lands and its buff simply does nothing.
+                return ctx.FriendlyTurret(ownerSeat) is { } turret ? [turret] : [];
+
             default:
                 throw new InvalidOperationException($"Unknown effect target '{target}'.");
         }

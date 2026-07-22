@@ -65,6 +65,10 @@ public static class CommandEnumerator
                 case CardType.Order:
                     candidates.AddRange(OrderTargets(state, seat, card.EntityId, def, db));
                     break;
+
+                case CardType.Equipment:
+                    candidates.AddRange(InstallTargets(state, seat, card.EntityId, def));
+                    break;
             }
         }
 
@@ -112,8 +116,34 @@ public static class CommandEnumerator
         return maxDiscount > 0 ? Math.Max(1, def.Cost - maxDiscount) : def.Cost;
     }
 
+    /// <summary>掘世匠会 装配 candidates (docs/20 §2): playable only with a friendly turret in play and the module
+    /// not already installed (同名唯一). A free slot → a bare install; a full turret → one 顶替 candidate per distinct
+    /// in-装 module to scrap. The resolver is the final arbiter (it re-checks all of this).</summary>
+    private static IEnumerable<Command> InstallTargets(GameState state, int seat, int cardEntityId, CardDefinition def)
+    {
+        var turret = state.Units.FirstOrDefault(u => u.OwnerSeat == seat && u.Turret is { IsShadow: false });
+        if (turret?.Turret is not { } t || t.Modules.Contains(def.Id))
+            yield break;
+        if (t.Modules.Count < ResolutionContext.TurretModuleCap)
+            yield return new PlayCardCommand { Seat = seat, CardEntityId = cardEntityId };
+        else
+            foreach (var scrap in t.Modules.Distinct())
+                yield return new PlayCardCommand { Seat = seat, CardEntityId = cardEntityId, ReplacedModuleCardId = scrap };
+    }
+
     private static IEnumerable<Command> OrderTargets(GameState state, int seat, int cardEntityId, CardDefinition def, CardDatabase db)
     {
+        // 镜像工坊 (docs/20 §S9b): one candidate per distinct in-装 module of the friendly turret — each carries the
+        // TargetModuleCardId the resolver reads to pick the copy source. No turret / empty loadout → no candidate.
+        if (def.Effects.Any(e => e.Trigger == "play" && e.Action == "mirror_module"))
+        {
+            var mirrorTurret = state.Units.FirstOrDefault(u => u.OwnerSeat == seat && u.Turret is { IsShadow: false });
+            return mirrorTurret?.Turret is { } mt
+                ? mt.Modules.Distinct().Select(mid => (Command)new PlayCardCommand
+                    { Seat = seat, CardEntityId = cardEntityId, TargetModuleCardId = mid })
+                : Enumerable.Empty<Command>();
+        }
+
         bool needsUnit = def.Effects.Any(e => e.Trigger == "play" && e.NeedsUnitTarget);
         bool needsCell = def.Effects.Any(e => e.Trigger == "play" && e.NeedsCellTarget);
         bool isChannel = def.Effects.Any(e => e.Trigger == "play" && e.IsChannel);

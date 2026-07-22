@@ -1,0 +1,22 @@
+{
+  "_name": "匠会·镜像贯日 — 抽牌拉满,重铸炮膛×镜像×贯日堆出单炮斩杀线",
+  "leader": "leader_uv_brom",
+  "cards": [
+    "uv_cog_apprentice", "uv_cog_apprentice",
+    "uv_spike_barrier", "uv_spike_barrier",
+    "uv_gun_crew", "uv_gun_crew", "uv_gun_crew",
+    "uv_scattergunner", "uv_scattergunner",
+    "uv_gear_foreman", "uv_gear_foreman",
+    "uv_salvage_crew", "uv_salvage_crew", "uv_salvage_crew",
+    "uv_armored_hauler", "uv_armored_hauler",
+    "uv_mod_long_barrel", "uv_mod_long_barrel",
+    "uv_mod_heavy_bore", "uv_mod_heavy_bore", "uv_mod_heavy_bore",
+    "uv_mod_anchor_platform", "uv_mod_anchor_platform",
+    "uv_mod_rifled_bore",
+    "uv_mod_autoloader",
+    "uv_mod_grand_cannon",
+    "uv_mirror_works", "uv_mirror_works",
+    "uv_field_rebuild",
+    "uv_emergency_repair"
+  ]
+}

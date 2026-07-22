@@ -1,16 +1,16 @@
 [
   {
     "id": "undervault_sunline",
-    "name": "贯日阵列",
+    "name": "铸炮阵列",
     "faction": "undervault",
     "leader": "leader_uv_brom",
     "cards": [
       {
         "id": "uv_cog_apprentice",
-        "count": 1
+        "count": 2
       },
       {
-        "id": "uv_barricade_frame",
+        "id": "uv_spike_barrier",
         "count": 3
       },
       {
@@ -18,27 +18,19 @@
         "count": 2
       },
       {
-        "id": "uv_bolt_turret",
+        "id": "uv_gun_crew",
+        "count": 4
+      },
+      {
+        "id": "uv_gear_foreman",
         "count": 3
       },
       {
-        "id": "uv_repair_sapper",
-        "count": 2
+        "id": "uv_salvage_crew",
+        "count": 3
       },
       {
-        "id": "uv_line_engineer",
-        "count": 2
-      },
-      {
-        "id": "uv_flak_battery",
-        "count": 2
-      },
-      {
-        "id": "uv_precision_cannon",
-        "count": 2
-      },
-      {
-        "id": "uv_siege_platform",
+        "id": "uv_armored_hauler",
         "count": 2
       },
       {
@@ -46,32 +38,24 @@
         "count": 1
       },
       {
-        "id": "uv_grand_cannon",
-        "count": 1
+        "id": "uv_mod_anchor_platform",
+        "count": 2
       },
       {
-        "id": "uv_calibrate",
+        "id": "uv_mod_long_barrel",
         "count": 2
+      },
+      {
+        "id": "uv_mod_heavy_bore",
+        "count": 3
+      },
+      {
+        "id": "uv_mod_frag_shell",
+        "count": 1
       },
       {
         "id": "uv_emergency_repair",
-        "count": 1
-      },
-      {
-        "id": "uv_deploy_sentries",
         "count": 2
-      },
-      {
-        "id": "uv_fire_lattice",
-        "count": 2
-      },
-      {
-        "id": "uv_entrench_line",
-        "count": 1
-      },
-      {
-        "id": "uv_gear_foreman",
-        "count": 1
       }
     ]
   }

@@ -106,6 +106,8 @@ public sealed record EffectSpec
           "adjacent_allies", "adjacent_enemies",
           "column_enemies", "row_enemies", "column_allies", "cell_cross_all", "unit_cross_all",
           "allies_home_row", "all_allies", "all_ally_emplacements", "all_enemies",
+          // docs/20: the seat's real 工造炮台 (0 or 1 units, no prompt) — 护炮班组/齿轮工长 buff it implicitly.
+          "friendly_turret",
           // docs/21 §1.6: a single chosen cell carried by the command (place_smoke/place_trap read it, no units).
           "cell" };
 

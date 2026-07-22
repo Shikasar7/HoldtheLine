@@ -25,6 +25,46 @@ public sealed class TempKeywordGrant
     public TempKeywordGrant Clone() => new() { Spec = Spec, Expiry = Expiry, GrantedBySeat = GrantedBySeat };
 }
 
+/// <summary>
+/// 掘世匠会 工造炮台/影子炮台 的派生分层状态 (docs/20 §4). Non-null ONLY on a turret — every other
+/// unit leaves it null and behaves exactly as before. The panel Atk/MaxHp/CurrentHp/Keywords are DERIVED
+/// from these layers by <see cref="Engine.ResolutionContext.RecomputeTurret"/> (base 1/1, 射程 2); only the
+/// turret's WRITE paths (装/卸模块, 外部 buff, 受伤) branch on it, so "只炮台特殊" (docs/20 §0.3-16).
+/// Old snapshots without this field deserialize to null → an ordinary unit.
+/// </summary>
+public sealed class TurretState
+{
+    /// <summary>工造炮台/影子炮台的卡 id. 全卡池"炮台"专指它 — 模块指向、架设效果伤豁免、唯一性都键这个 id.</summary>
+    public const string CoreCardId = "uv_turret_core";
+
+    /// <summary>在装模块的卡 id. 多重集语义: 镜像工坊可造同 id 第二件, 数值层按件累加 (S9b). 开关类按"是否存在".</summary>
+    public List<string> Modules { get; set; } = new();
+
+    /// <summary>外部永久 buff 累积层 (齿轮工长 +1/+1、护炮班组亡语 +0/+2). 装/卸模块永不触碰它 (S4).</summary>
+    public int ExternalAtk { get; set; }
+    public int ExternalHp { get; set; }
+
+    /// <summary>外部永久授予的关键词 (与模块层取并集). 现无来源卡, 前瞻保留 (S5).</summary>
+    public List<KeywordSpec> ExternalKeywords { get; set; } = new();
+
+    /// <summary>已受伤害, 独立记录 (S3). 当前血 = max(1, 上限血 − DamageTaken) 仅在模块/外部重算时封底 1
+    /// (装配永不杀炮台、无换装洗伤); 战斗/效果伤害直接累加, 不封底, 可致死 (S6).</summary>
+    public int DamageTaken { get; set; }
+
+    /// <summary>影子炮台标记 (维尔达战吼, S15): 回合末消失、不占唯一名额、亡语类效果对它惰性. 本体 = false.</summary>
+    public bool IsShadow { get; set; }
+
+    public TurretState Clone() => new()
+    {
+        Modules = new List<string>(Modules),
+        ExternalAtk = ExternalAtk,
+        ExternalHp = ExternalHp,
+        ExternalKeywords = new List<KeywordSpec>(ExternalKeywords), // specs are immutable records
+        DamageTaken = DamageTaken,
+        IsShadow = IsShadow,
+    };
+}
+
 public sealed class UnitInstance
 {
     public int EntityId { get; set; }
@@ -76,6 +116,13 @@ public sealed class UnitInstance
     /// <summary>Time-limited keyword grants (pounce, 筑垒, …); expire at turn boundaries.</summary>
     public List<TempKeywordGrant> TempGrants { get; set; } = new();
 
+    /// <summary>掘世匠会 炮台派生分层状态 (docs/20 §4). Non-null ONLY on 工造炮台/影子炮台; null on every
+    /// ordinary unit. See <see cref="TurretState"/>.</summary>
+    public TurretState? Turret { get; set; }
+
+    /// <summary>Whether this unit is a 工造炮台/影子炮台 (its panel is derived, docs/20 §4).</summary>
+    public bool IsTurret => Turret is not null;
+
     public bool HasKeyword(Keyword k) =>
         Keywords.Any(s => s.Keyword == k) || TempGrants.Any(g => g.Spec.Keyword == k);
 
@@ -117,6 +164,7 @@ public sealed class UnitInstance
         GrowthProgress = GrowthProgress,
         Keywords = new List<KeywordSpec>(Keywords),      // specs are immutable records
         TempGrants = TempGrants.Select(g => g.Clone()).ToList(),
+        Turret = Turret?.Clone(),
     };
 }
 
@@ -191,6 +239,18 @@ public sealed class PlayerState
     /// 门德 only echoes the FIRST). Reset at the seat's turn start.</summary>
     public bool FirstKindleOrderDone { get; set; }
 
+    /// <summary>已装配历史池 (docs/20 §2.1 规则4): the set of module card ids this seat has EVER installed on a
+    /// turret (集合语义, 按 id 去重). A module enters on install and never leaves on 顶替/炮台被毁 — the sole
+    /// exception is a 保险舱 that has TRIGGERED its deathrattle (作废). 战地重构 draws its material from here.
+    /// Insertion-ordered List (not a HashSet) so a match-Rng pick over it replays deterministically. Old
+    /// snapshots without this field deserialize to empty.</summary>
+    public List<string> InstalledHistory { get; set; } = new();
+
+    /// <summary>保险舱待继承单槽 (docs/20 §S7): module ids a triggered 自毁保险舱 saved for the seat's NEXT turret —
+    /// auto-installed (and cleared) when that turret is placed. At most one pending set at a time (一炮一舱).
+    /// Old snapshots without this field deserialize to empty.</summary>
+    public List<string> PendingModules { get; set; } = new();
+
     /// <summary>Field-by-field copy — keep in lockstep with the fields above (CloneParityTests guards).</summary>
     public PlayerState Clone() => new()
     {
@@ -207,6 +267,8 @@ public sealed class PlayerState
         SpellCharge = SpellCharge,
         Secrets = Secrets.Select(s => s.Clone()).ToList(),
         FirstKindleOrderDone = FirstKindleOrderDone,
+        InstalledHistory = new List<string>(InstalledHistory),
+        PendingModules = new List<string>(PendingModules),
     };
 }
 

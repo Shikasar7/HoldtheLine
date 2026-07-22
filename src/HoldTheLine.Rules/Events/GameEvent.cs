@@ -48,6 +48,11 @@ namespace HoldTheLine.Rules.Events;
 [JsonDerivedType(typeof(SpellWardConsumedEvent), "spell_ward_consumed")]
 [JsonDerivedType(typeof(MulliganResolvedEvent), "mulligan_resolved")]
 [JsonDerivedType(typeof(MulliganCompletedEvent), "mulligan_completed")]
+// 掘世匠会 炮台/模块 (docs/20). Additive event types — protocol bumps with the RulesVersion this ships in.
+[JsonDerivedType(typeof(ModuleInstalledEvent), "module_installed")]
+[JsonDerivedType(typeof(TurretModulesInheritedEvent), "turret_modules_inherited")]
+[JsonDerivedType(typeof(TurretFailsafeEvent), "turret_failsafe")]
+[JsonDerivedType(typeof(ShadowTurretExpiredEvent), "shadow_turret_expired")]
 [JsonDerivedType(typeof(GameEndedEvent), "game_ended")]
 public abstract record GameEvent
 {
@@ -374,6 +379,47 @@ public sealed record MulliganResolvedEvent : GameEvent
 
 /// <summary>Both seats finished their mulligan; the coin (if any) and the first turn follow. No payload.</summary>
 public sealed record MulliganCompletedEvent : GameEvent;
+
+/// <summary>掘世匠会 装配 (docs/20 §2): a module was installed on the 工造炮台. <see cref="ReplacedCardId"/> is the
+/// in-装 module scrapped to make room (null = installed into a free slot). Carries the turret's recomputed panel
+/// so the client can refresh without a full snapshot. Public — the turret's loadout is visible to both seats.</summary>
+public sealed record ModuleInstalledEvent : GameEvent
+{
+    public required int Seat { get; init; }
+    public required int UnitEntityId { get; init; }
+    public required string ModuleCardId { get; init; }
+    /// <summary>The in-装 module scrapped for the 顶替 (docs/20 §S2); null when installed into a free slot.</summary>
+    public string? ReplacedCardId { get; init; }
+    public required int NewAtk { get; init; }
+    public required int NewMaxHp { get; init; }
+    public required int NewCurrentHp { get; init; }
+    /// <summary>via 镜像工坊 (docs/20 §S9b) — copied an in-装 module, bypassing 同名唯一.</summary>
+    public bool Mirrored { get; init; }
+}
+
+/// <summary>保险舱 待继承 (docs/20 §S7): a freshly placed turret auto-installed the modules a triggered 自毁保险舱
+/// saved for it. Public.</summary>
+public sealed record TurretModulesInheritedEvent : GameEvent
+{
+    public required int Seat { get; init; }
+    public required int UnitEntityId { get; init; }
+    public required IReadOnlyList<string> ModuleCardIds { get; init; }
+}
+
+/// <summary>自毁保险舱 触发 (docs/20 §S7): the turret was destroyed while carrying a 保险舱, which saved these
+/// modules for the seat's next turret (and then 作废 itself, leaving the history pool). Public.</summary>
+public sealed record TurretFailsafeEvent : GameEvent
+{
+    public required int Seat { get; init; }
+    public required IReadOnlyList<string> SavedModuleCardIds { get; init; }
+}
+
+/// <summary>影子炮台 (docs/20 §S15) vanished at its owner's turn end. Public.</summary>
+public sealed record ShadowTurretExpiredEvent : GameEvent
+{
+    public required int Seat { get; init; }
+    public required int UnitEntityId { get; init; }
+}
 
 public sealed record GameEndedEvent : GameEvent
 {

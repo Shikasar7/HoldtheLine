@@ -1,0 +1,20 @@
+{
+  "_name": "游群·围猎重压 — 围猎爆发中速:啃骨/潜袭/头领/母狼王,合围拆点",
+  "leader": "leader_wp_saen",
+  "cards": [
+    "wp_fang_rider", "wp_fang_rider",
+    "wp_raider", "wp_raider", "wp_raider", "wp_raider",
+    "wp_bone_gnawer", "wp_bone_gnawer", "wp_bone_gnawer",
+    "wp_stalker", "wp_stalker",
+    "wp_shadow_pouncer", "wp_shadow_pouncer", "wp_shadow_pouncer",
+    "wp_dire_wolf", "wp_dire_wolf",
+    "wp_pack_alpha", "wp_pack_alpha",
+    "wp_alpha_matriarch", "wp_alpha_matriarch",
+    "wp_windrunner",
+    "wp_packlord",
+    "wp_wild_instinct", "wp_wild_instinct",
+    "wp_blood_scent", "wp_blood_scent", "wp_blood_scent",
+    "wp_pounce", "wp_pounce",
+    "wp_pack_call"
+  ]
+}

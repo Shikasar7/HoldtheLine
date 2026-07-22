@@ -1,0 +1,19 @@
+{
+  "_name": "游群·疾风血迹 — self_moved 引擎:循迹/血迹/荒野之魂,移动即成长",
+  "leader": "leader_wp_saen",
+  "cards": [
+    "wp_trail_sniffer", "wp_trail_sniffer", "wp_trail_sniffer", "wp_trail_sniffer",
+    "wp_pup", "wp_pup",
+    "wp_flanker", "wp_flanker", "wp_flanker",
+    "wp_night_prowler", "wp_night_prowler",
+    "wp_blood_tracker", "wp_blood_tracker", "wp_blood_tracker",
+    "wp_howler", "wp_howler",
+    "wp_hunt_matron", "wp_hunt_matron", "wp_hunt_matron",
+    "wp_dire_wolf", "wp_dire_wolf",
+    "wp_ghost_of_wilds", "wp_ghost_of_wilds",
+    "wp_moon_huntress",
+    "wp_hunt_signal", "wp_hunt_signal",
+    "wp_encircle", "wp_encircle",
+    "wp_wild_heart", "wp_wild_heart"
+  ]
+}

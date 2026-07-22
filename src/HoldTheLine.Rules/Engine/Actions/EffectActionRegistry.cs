@@ -46,6 +46,11 @@ public static class EffectActionRegistry
             new SacrificeEquipAction(),
             // docs/21 §3.1: 薪火回响 (门德) passive marker — resolver-driven, never executed by RunTrigger.
             new EchoOrderAction(),
+            // docs/20: 掘世匠会 领袖 铸炮 + 高级指令 (战地重构/镜像工坊, resolver-driven markers) + 维尔达 影子炮台.
+            new PlaceTurretAction(),
+            new FieldRebuildAction(),
+            new MirrorModuleAction(),
+            new SummonShadowTurretAction(),
         };
         ByName = new Dictionary<string, IEffectAction>(StringComparer.Ordinal);
         foreach (var h in handlers)

@@ -40,8 +40,16 @@ public static class RulesInfo
     /// (additive — old logs replay unchanged) so the caster RE-AIMS the once-per-turn recast at a target of their
     /// choice, and may 空放/取消 (EchoRecast=false). CommandEnumerator forks echo variants only in 门德 games.
     /// Card tuning (DataHash changes): 熔剑祭士 hp 4→6, 焰术学徒 2/1→1/3, all 引导 order texts reworded to
-    /// "需友方随从引导(施法距离 N)". Client + server must ship this same data.</remarks>
-    public const string Version = "0.9.1";
+    /// "需友方随从引导(施法距离 N)". Client + server must ship this same data.
+    /// 0.10.0 (2026-07-22): 掘世匠会 整阵营重做 (docs/20) — 单核炮台 + 模块升级. New card class Equipment enabled;
+    /// CardDefinition gains ModuleSpec; UnitInstance gains a派生分层 TurretState (Modules/External layers/DamageTaken/
+    /// IsShadow), PlayerState gains InstalledHistory + PendingModules. New actions place_turret/field_rebuild/
+    /// mirror_module/summon_shadow_turret + a friendly_turret selector; PlayCardCommand gains ReplacedModuleCardId/
+    /// TargetModuleCardId (additive — old logs replay unchanged);领袖 布罗姆 铸炮 replaces 加农校准. New events
+    /// module_installed/turret_modules_inherited/turret_failsafe/shadow_turret_expired. PlayerView adds turret
+    /// loadout + history/pending passthrough. Turret is 架设效果伤豁免 (§1.2). 掘世匠会 pool 31→33; 迟缓 reuses 定身.
+    /// DataHash changes — client and server must ship this same data (server + client 同步重部署).</remarks>
+    public const string Version = "0.10.0";
 
     /// <summary>压力潮汐 start round, forwarded from the (internal) <see cref="Engine.TurnFlow"/> so the client
     /// HUD can show the tide countdown (docs/17) without hardcoding 8 and drifting from the rule. Read-only

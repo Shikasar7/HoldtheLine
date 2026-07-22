@@ -1,0 +1,20 @@
+{
+  "_name": "教团·灼蚀控场 — 加深/减费引导体系,灼痕/燔火/烬蚀点杀控盘",
+  "leader": "leader_dw_vela",
+  "cards": [
+    "dw_flame_adept", "dw_flame_adept", "dw_flame_adept",
+    "dw_pyre_channeler", "dw_pyre_channeler",
+    "dw_dusk_warden", "dw_dusk_warden",
+    "dw_vesper_cantor", "dw_vesper_cantor", "dw_vesper_cantor",
+    "dw_pyroclast", "dw_pyroclast",
+    "dw_flame_caster", "dw_flame_caster",
+    "dw_molten_sword_priest",
+    "dw_first_ritualist",
+    "dw_searing_brand", "dw_searing_brand", "dw_searing_brand",
+    "dw_spark", "dw_spark", "dw_spark",
+    "dw_flame_lash", "dw_flame_lash",
+    "dw_conflagrate", "dw_conflagrate", "dw_conflagrate",
+    "dw_cinder_storm", "dw_cinder_storm",
+    "dw_ember_trap"
+  ]
+}

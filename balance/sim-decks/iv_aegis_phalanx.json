@@ -1,0 +1,21 @@
+{
+  "_name": "铁誓·圣盾方阵 — 持盾/福泽铺开,薇兰蒂+典范双圣盾压轴",
+  "leader": "leader_iv_valen",
+  "cards": [
+    "iv_gate_ward", "iv_gate_ward",
+    "iv_shieldbearer", "iv_shieldbearer", "iv_shieldbearer",
+    "iv_garrison_guard", "iv_garrison_guard",
+    "iv_oathguard", "iv_oathguard", "iv_oathguard",
+    "iv_bastion_archer", "iv_bastion_archer",
+    "iv_wall_crossbow", "iv_wall_crossbow",
+    "iv_aegis_sergeant", "iv_aegis_sergeant", "iv_aegis_sergeant",
+    "iv_siege_anchor", "iv_siege_anchor",
+    "iv_gate_titan", "iv_gate_titan",
+    "iv_aegis_paragon", "iv_aegis_paragon",
+    "iv_saint_warden",
+    "iv_fortress_lord",
+    "iv_shield_wall", "iv_shield_wall",
+    "iv_oath_banner", "iv_oath_banner",
+    "iv_last_bastion"
+  ]
+}

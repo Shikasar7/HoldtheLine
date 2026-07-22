@@ -18,13 +18,13 @@ public class ContentTests
     public void All_shipped_cards_load_and_validate()
     {
         var db = Cards();
-        // Second batch (docs/10): 163. docs/21 补丁#4 adds 7 new cards → 170:
-        // +5 duskweaver (熔剑祭士/烟幕弹/灰缚/焰誓反制/烬火陷阱), +2 neutral (匿踪/法术护体).
-        Assert.Equal(170, db.All.Count);
+        // Second batch (docs/10): 163. 补丁#4 (docs/21): 170. docs/20 匠会重做: undervault 31 → 33 (+2), pool → 172.
+        Assert.Equal(172, db.All.Count);
         Assert.Equal(30, db.All.Count(c => c.Faction == "iron_vow"));
         Assert.Equal(30, db.All.Count(c => c.Faction == "wildpack"));
         Assert.Equal(36, db.All.Count(c => c.Faction == "duskweaver"));  // 30 + chick token + 5 (docs/21)
-        Assert.Equal(31, db.All.Count(c => c.Faction == "undervault"));  // 30 + sentry token
+        // docs/20 掘世匠会 重做: 14 模块 + 12 单位 + 5 指令 + 2 衍生物 (工造炮台 + 哨戒炮) = 33.
+        Assert.Equal(33, db.All.Count(c => c.Faction == "undervault"));
         Assert.Equal(43, db.All.Count(c => c.Faction == "neutral"));     // 40 + coin token + 2 (docs/21)
     }
 

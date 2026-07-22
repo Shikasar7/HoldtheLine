@@ -1,0 +1,19 @@
+{
+  "_name": "教团·献祭轮回 — 白送小体+献祭抽牌+凤凰循环,奥菲兰收尾",
+  "leader": "leader_dw_vela",
+  "cards": [
+    "dw_ash_whelp", "dw_ash_whelp", "dw_ash_whelp",
+    "dw_scorch_zealot", "dw_scorch_zealot", "dw_scorch_zealot",
+    "dw_choir_acolyte", "dw_choir_acolyte",
+    "dw_ash_acolyte", "dw_ash_acolyte", "dw_ash_acolyte",
+    "dw_pyre_channeler", "dw_pyre_channeler",
+    "dw_ashen_courier", "dw_ashen_courier", "dw_ashen_courier",
+    "dw_ember_seer", "dw_ember_seer",
+    "dw_flare_summoner", "dw_flare_summoner",
+    "dw_ash_phoenix", "dw_ash_phoenix",
+    "dw_dusk_matriarch",
+    "dw_immolate", "dw_immolate", "dw_immolate",
+    "dw_spark", "dw_spark",
+    "dw_rekindle", "dw_rekindle"
+  ]
+}

@@ -63,8 +63,28 @@ public sealed class CardDatabase
             throw new InvalidDataException($"Card '{card.Id}' has invalid cost {card.Cost}.");
         if (card.Type == CardType.Unit && card.Hp <= 0)
             throw new InvalidDataException($"Unit '{card.Id}' must have Hp > 0.");
-        if (card.Type is CardType.Structure or CardType.Equipment)
-            throw new InvalidDataException($"Card '{card.Id}': type {card.Type} is reserved and not implemented in the prototype.");
+        if (card.Type == CardType.Structure)
+            throw new InvalidDataException($"Card '{card.Id}': type Structure is reserved and not implemented in the prototype.");
+        // 掘世匠会 模块卡 (docs/20 §2.1): Equipment is now enabled — its behaviour lives entirely in the ModuleSpec,
+        // read by the turret's derived-panel recompute; it carries no Hp requirement and no effects/triggers.
+        if (card.Type == CardType.Equipment)
+        {
+            if (card.Module is null)
+                throw new InvalidDataException($"Equipment '{card.Id}' must carry a module spec.");
+            if (card.Faction != "undervault")
+                throw new InvalidDataException($"Equipment '{card.Id}': modules are 掘世匠会-only (faction=undervault).");
+            if (card.Effects.Count > 0)
+                throw new InvalidDataException($"Equipment '{card.Id}': modules carry no effects — behaviour lives in the module spec.");
+            var m = card.Module;
+            if (!ModuleSpec.KnownOnHit.Contains(m.OnHit))
+                throw new InvalidDataException($"Equipment '{card.Id}': unknown module on_hit '{m.OnHit}'.");
+            if (!ModuleSpec.KnownLifesteal.Contains(m.Lifesteal))
+                throw new InvalidDataException($"Equipment '{card.Id}': unknown module lifesteal '{m.Lifesteal}'.");
+            if (!ModuleSpec.KnownDeathrattle.Contains(m.Deathrattle))
+                throw new InvalidDataException($"Equipment '{card.Id}': unknown module deathrattle '{m.Deathrattle}'.");
+        }
+        else if (card.Module is not null)
+            throw new InvalidDataException($"Card '{card.Id}': only Equipment cards carry a module spec.");
         if (card.Growth is { Turns: < 1 })
             throw new InvalidDataException($"Card '{card.Id}': growth turns must be >= 1.");
 

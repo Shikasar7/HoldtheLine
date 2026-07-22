@@ -124,7 +124,7 @@
 	"type": "unit",
 	"rarity": "epic",
 	"cost": 6,
-	"atk": 5,
+	"atk": 4,
 	"hp": 7,
 	"keywords": [{ "keyword": "shield" }],
 	"text": "持盾。",
@@ -137,7 +137,7 @@
 	"type": "unit",
 	"rarity": "epic",
 	"cost": 7,
-	"atk": 6,
+	"atk": 5,
 	"hp": 8,
 	"keywords": [{ "keyword": "taunt" }, { "keyword": "shield" }],
 	"text": "嘲讽,持盾。",
@@ -173,7 +173,7 @@
 	"faction": "iron_vow",
 	"type": "order",
 	"rarity": "common",
-	"cost": 2,
+	"cost": 3,
 	"effects": [{ "trigger": "play", "action": "grant_keyword", "target": "target_unit", "keyword": "shield", "duration": "permanent" }],
 	"text": "使一个友方随从获得持盾。",
 	"art_prompt": "a line of shields snapping together into an interlocked wall, sparks deflecting"
@@ -370,7 +370,7 @@
 	"type": "unit",
 	"rarity": "rare",
 	"cost": 5,
-	"atk": 3,
+	"atk": 2,
 	"hp": 5,
 	"keywords": [
 	  {
@@ -468,7 +468,7 @@
 	"rarity": "legendary",
 	"cost": 7,
 	"atk": 4,
-	"hp": 8,
+	"hp": 7,
 	"keywords": [
 	  {
 		"keyword": "taunt"

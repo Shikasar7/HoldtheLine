@@ -62,17 +62,15 @@
     "id": "leader_uv_brom",
     "name": "总工·布罗姆·铆歌",
     "faction": "undervault",
-    "skill_cost": 2,
-    "skill_name": "加农校准",
-    "text": "加农校准(2费):一个友方随从本回合射程 +1(叠加到其当前射程上)。",
+    "skill_cost": 1,
+    "skill_name": "铸炮",
+    "text": "铸炮(1费):在你的底线行选择一个空格,放置一座工造炮台。场上已有你的炮台时不可使用。",
     "art_prompt": "a grizzled dwarf chief engineer with a brass monocle, soot-streaked beard, blueprints under one arm",
     "skill_effects": [
       {
         "trigger": "leader_skill",
-        "action": "boost_range",
-        "target": "target_unit_ally",
-        "amount": 1,
-        "duration": "end_of_turn"
+        "action": "place_turret",
+        "target": "cell"
       }
     ]
   }

@@ -1,0 +1,20 @@
+{
+  "_name": "铁誓·越线重压 — 亡语/战列buff滚雪球,锤卫巨像碾过中线",
+  "leader": "leader_iv_valen",
+  "cards": [
+    "iv_oath_squire", "iv_oath_squire",
+    "iv_shield_brother", "iv_shield_brother", "iv_shield_brother",
+    "iv_garrison_guard", "iv_garrison_guard",
+    "iv_line_sergeant", "iv_line_sergeant", "iv_line_sergeant",
+    "iv_bulwark_smith", "iv_bulwark_smith",
+    "iv_oath_avenger", "iv_oath_avenger", "iv_oath_avenger",
+    "iv_rampart_hammer", "iv_rampart_hammer", "iv_rampart_hammer",
+    "iv_overline_judge", "iv_overline_judge",
+    "iv_stone_sentinel", "iv_stone_sentinel",
+    "iv_bulwark",
+    "iv_adamant_colossus",
+    "iv_fortify", "iv_fortify",
+    "iv_oath_prayer", "iv_oath_prayer",
+    "iv_hold_the_line", "iv_hold_the_line"
+  ]
+}

@@ -64,6 +64,23 @@ public static class GreedyAi
             case MoveUnitCommand m:
             {
                 var unit = s.FindUnit(m.UnitEntityId)!;
+
+                // S16 (docs/20): the turret is the faction's whole bankroll — never march it forward for
+                // generic "progress", and never nominate it as the tide body (班组 cross, the gun stays).
+                // It only repositions to bring more enemies into its own firing arc.
+                if (unit.Turret is { IsShadow: false })
+                {
+                    int reach = unit.HasKeyword(Keyword.Range) ? unit.KeywordValue(Keyword.Range) : 1;
+                    int inRangeNow = s.Units.Count(u => u.OwnerSeat != m.Seat && BoardGeometry.StepDistance(unit.Cell, u.Cell) <= reach);
+                    int inRangeAfter = s.Units.Count(u => u.OwnerSeat != m.Seat && BoardGeometry.StepDistance(m.To, u.Cell) <= reach);
+                    double tScore = (inRangeAfter - inRangeNow) * 1.0 - 0.3;
+                    if (s.CellStates.Any(cs => cs.Kind == "trap" && cs.Revealed && cs.Cell == m.To))
+                        tScore -= 6;
+                    if (s.IsSmoked(m.To))
+                        tScore -= 3;
+                    return tScore;
+                }
+
                 int enemyHome = BoardGeometry.EnemyHomeRow(m.Seat);
                 int progress = Math.Abs(unit.Cell.Row - enemyHome) - Math.Abs(m.To.Row - enemyHome);
                 double score = progress * 1.5 + 0.2;
@@ -117,7 +134,12 @@ public static class GreedyAi
             case PlayCardCommand p:
             {
                 var def = db.Get(s.Player(p.Seat).Hand.First(h => h.EntityId == p.CardEntityId).CardId);
-                return def.Type == CardType.Unit ? ScoreDeploy(s, db, p, def) : ScoreOrder(s, db, p, def);
+                return def.Type switch
+                {
+                    CardType.Unit => ScoreDeploy(s, db, p, def),
+                    CardType.Equipment => ScoreInstallModule(s, db, p, def), // 掘世匠会 装配 (docs/20)
+                    _ => ScoreOrder(s, db, p, def),
+                };
             }
 
             default:
@@ -168,6 +190,28 @@ public static class GreedyAi
         foreach (var e in def.Effects.Where(e => e.Trigger == "battlecry"))
             score += ScoreEffect(s, db, p.Seat, e, p.TargetUnitId, p.TargetCell, def.Cost);
         return score;
+    }
+
+    /// <summary>掘世匠会 装配 (docs/20 §S16): value a module by its stat/keyword contribution to the turret, minus the
+    /// value of any件 it 顶替. Keeps the AI investing in the turret instead of ending the turn (S16-d 呆滞局零出现).</summary>
+    private static double ScoreInstallModule(GameState s, CardDatabase db, PlayCardCommand p, CardDefinition def)
+    {
+        var turret = s.Units.FirstOrDefault(u => u.OwnerSeat == p.Seat && u.Turret is { IsShadow: false });
+        if (turret is null || def.Module is not { } m)
+            return -1; // no turret → the enumerator should never offer this
+        double v = 3 + m.Atk * 1.5 + m.Hp + m.Range * 1.2 + m.Move * 0.8;
+        if (m.GrantKeywords.Contains(Keyword.Pierce)) v += 1.5;
+        v += m.OnHit switch { "blast" => 2.5, "frag" or "split" => 1.5, "concussion" => 1.0, _ => 0 };
+        v += m.Lifesteal switch { "half" => 2, "fixed" => 1, _ => 0 };
+        if (m.ExtraAttacks > 0) v += turret.Atk * 1.2;  // 快装 doubles the turret's output
+        if (m.Deathrattle == "failsafe_pod") v += 2;    // insurance against a lost investment
+        // S16-b: 模块价值 × 炮台存活预期 — a gun about to die is a bad place for more attack; hp件 first.
+        if (turret.CurrentHp <= 2 && m.Hp == 0) v -= 2.5;
+        if (turret.CurrentHp <= 2 && m.Hp > 0) v += 2;
+        // 顶替 (docs/20 §S2): scrapping a decent module is a real cost.
+        if (p.ReplacedModuleCardId is { } scrap && db.Get(scrap).Module is { } old)
+            v -= old.Atk * 1.5 + old.Hp + old.Range * 1.2;
+        return v;
     }
 
     private static double ScoreOrder(GameState s, CardDatabase db, PlayCardCommand p, CardDefinition def)
@@ -314,5 +358,8 @@ public static class GreedyAi
             .Sum(o => o.Amount);
     }
 
-    private static double UnitValue(UnitInstance u) => u.Atk * 1.5 + u.CurrentHp;
+    // S16-c (docs/20): a live turret is worth its panel PLUS the module investment riding on it —
+    // killing it erases every installed件, so both sides must price that in (集火炮台加分).
+    private static double UnitValue(UnitInstance u) =>
+        u.Atk * 1.5 + u.CurrentHp + (u.Turret is { IsShadow: false } t ? 2 + t.Modules.Count * 1.5 : 0);
 }

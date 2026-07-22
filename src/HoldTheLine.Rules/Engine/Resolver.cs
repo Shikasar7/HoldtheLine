@@ -88,8 +88,88 @@ public sealed class Resolver
         {
             CardType.Unit => ResolveDeployUnit(ctx, cmd, player, card, def),
             CardType.Order => ResolveOrder(ctx, cmd, player, card, def),
+            CardType.Equipment => ResolveInstallModule(ctx, cmd, player, card, def),
             _ => new RuleError(RuleErrorCode.NotImplemented, $"Card type {def.Type} is not implemented."),
         };
+    }
+
+    /// <summary>掘世匠会 装配 (docs/20 §2): play an Equipment card onto your 工造炮台. Needs a turret in play + a free
+    /// slot, OR (满位, S2) a named in-装 module to 报废. 同名唯一 (S9): a module already installed can't be re-added.
+    /// A play that would need a 报废 target but supplies none is rejected outright — the whole play rolls back,
+    /// mana untouched (the client's 取消 path). The module leaves the hand and becomes turret state (not graveyard).</summary>
+    private RuleError? ResolveInstallModule(ResolutionContext ctx, PlayCardCommand cmd, PlayerState player, CardInstance card, CardDefinition def)
+    {
+        var turret = ctx.FriendlyTurret(cmd.Seat);
+        if (turret?.Turret is not { } t)
+            return new RuleError(RuleErrorCode.InvalidTarget, "需要一座在场的炮台来装配模块。");
+
+        if (t.Modules.Contains(def.Id))
+            return new RuleError(RuleErrorCode.InvalidCommand, "该模块已在装(同名唯一)。");
+
+        string? replaced = null;
+        if (t.Modules.Count >= ResolutionContext.TurretModuleCap)
+        {
+            // 满位顶替 (S2): must name an in-装 module to scrap; no/invalid choice rejects (rolls back, 不扣费).
+            if (cmd.ReplacedModuleCardId is not { } scrapId || !t.Modules.Contains(scrapId))
+                return new RuleError(RuleErrorCode.InvalidTarget, "炮台已满,需选择一件在装模块报废。");
+            replaced = scrapId;
+        }
+        else if (cmd.ReplacedModuleCardId is not null)
+            return new RuleError(RuleErrorCode.InvalidCommand, "炮台未满,无需报废模块。");
+
+        player.Mana -= def.Cost;
+        player.Hand.Remove(card);
+        ctx.Emit(new CardPlayedEvent { Seat = cmd.Seat, CardEntityId = card.EntityId, CardId = def.Id, ManaSpent = def.Cost });
+        ctx.InstallModuleOnTurret(turret, def.Id, replaced, mirrored: false);
+        ctx.CheckGameEnd();
+        return null;
+    }
+
+    /// <summary>镜像工坊 (docs/20 §S9b): copy one in-装 module (无视同名唯一) into a free slot. Needs a turret, a free
+    /// slot, and a TargetModuleCardId naming an in-装 module. 开关类复制无增益 falls out of the multiset recompute.</summary>
+    private RuleError? ResolveMirrorWorks(ResolutionContext ctx, PlayCardCommand cmd, PlayerState player, CardInstance card, CardDefinition def, int cost)
+    {
+        var turret = ctx.FriendlyTurret(cmd.Seat);
+        if (turret?.Turret is not { } t)
+            return new RuleError(RuleErrorCode.InvalidTarget, "需要一座在场的炮台。");
+        if (t.Modules.Count >= ResolutionContext.TurretModuleCap)
+            return new RuleError(RuleErrorCode.InvalidCommand, "炮台已满,镜像需要一个空位。");
+        if (cmd.TargetModuleCardId is not { } moduleId || !t.Modules.Contains(moduleId))
+            return new RuleError(RuleErrorCode.InvalidTarget, "需要选择一件在装模块复制。");
+
+        player.Mana -= cost;
+        player.Hand.Remove(card);
+        if (def.Rarity != Rarity.Token)
+            player.Graveyard.Add(def.Id);
+        ctx.Emit(new CardPlayedEvent { Seat = cmd.Seat, CardEntityId = card.EntityId, CardId = def.Id, ManaSpent = cost });
+        ctx.InstallModuleOnTurret(turret, moduleId, replacedCardId: null, mirrored: true);
+        ctx.FireAllyOrderPlayed(cmd.Seat, def.Cost);
+        ctx.CheckGameEnd();
+        return null;
+    }
+
+    /// <summary>战地重构 (docs/20 §S8): install 2 RANDOM history modules not currently in装 (与在装不同名) into the
+    /// turret's free slots. Needs a turret, a free slot, and a non-empty pool (无合法目标 → 置灰).</summary>
+    private RuleError? ResolveFieldRebuild(ResolutionContext ctx, PlayCardCommand cmd, PlayerState player, CardInstance card, CardDefinition def, int cost)
+    {
+        var turret = ctx.FriendlyTurret(cmd.Seat);
+        if (turret?.Turret is not { } t)
+            return new RuleError(RuleErrorCode.InvalidTarget, "需要一座在场的炮台。");
+        if (t.Modules.Count >= ResolutionContext.TurretModuleCap)
+            return new RuleError(RuleErrorCode.InvalidCommand, "炮台已满。");
+        var pool = player.InstalledHistory.Where(id => !t.Modules.Contains(id)).ToList();
+        if (pool.Count == 0)
+            return new RuleError(RuleErrorCode.InvalidTarget, "没有可重构的模块。");
+
+        player.Mana -= cost;
+        player.Hand.Remove(card);
+        if (def.Rarity != Rarity.Token)
+            player.Graveyard.Add(def.Id);
+        ctx.Emit(new CardPlayedEvent { Seat = cmd.Seat, CardEntityId = card.EntityId, CardId = def.Id, ManaSpent = cost });
+        ctx.FieldRebuild(turret, pool, count: 2);
+        ctx.FireAllyOrderPlayed(cmd.Seat, def.Cost);
+        ctx.CheckGameEnd();
+        return null;
     }
 
     /// <summary>晚祷领唱 (docs/21 §1.2): a 引导者 carrying a channel 'discount' marker shaves that much mana off
@@ -247,6 +327,14 @@ public sealed class Resolver
             return null;
         }
 
+        // 掘世匠会 高级指令 (docs/20): 镜像工坊 / 战地重构 read command-level module fields the effect pipeline never
+        // sees, so — like add_secret / 献祭 — they resolve in the order pipeline, not via RunTrigger. Their registered
+        // action handlers are inert markers; the real work + legality live here.
+        if (def.Effects.Any(e => e.Trigger == "play" && e.Action == "mirror_module"))
+            return ResolveMirrorWorks(ctx, cmd, player, card, def, cost);
+        if (def.Effects.Any(e => e.Trigger == "play" && e.Action == "field_rebuild"))
+            return ResolveFieldRebuild(ctx, cmd, player, card, def, cost);
+
         // 焰誓反制 (docs/21 §3.2): an order that selected an ENEMY minion may be voided by that minion's owner's
         // counter secret — the caster still pays and discards, but the order's effects never happen.
         // (the reactive half of Actions/AddSecretAction — interception is order-pipeline timing, kept here)
@@ -403,8 +491,8 @@ public sealed class Resolver
             return new RuleError(RuleErrorCode.NotYourUnit, "That unit is not yours.");
         if (IsSummoningSick(ctx.State, attacker) && !attacker.HasKeyword(Keyword.Charge) && !attacker.HasKeyword(Keyword.Assault))
             return new RuleError(RuleErrorCode.SummoningSickness, "This unit is still mustering (集结中).");
-        if (attacker.AttacksUsed >= 1)
-            return new RuleError(RuleErrorCode.NoAttacksLeft, "This unit has already attacked.");
+        if (attacker.AttacksUsed >= MaxAttacksPerTurn(ctx, attacker))
+            return new RuleError(RuleErrorCode.NoAttacksLeft, "This unit has no attacks left this turn.");
         // 烟幕 (docs/21 §1.6): a unit standing in a smoke zone cannot attack (offensive lock).
         if (ctx.State.IsSmoked(attacker.Cell))
             return new RuleError(RuleErrorCode.Smoked, "烟幕中的随从无法攻击。");
@@ -413,11 +501,23 @@ public sealed class Resolver
             ? ResolveLeaderAttack(ctx, cmd, attacker)
             : ResolveUnitAttack(ctx, cmd, attacker);
 
-        // 潜行 (docs/21 §2): attacking reveals a Hidden attacker (if it survived retaliation).
-        if (error is null && ctx.State.FindUnit(attacker.EntityId) is { } alive && alive.HasKeyword(Keyword.Hidden))
-            ctx.RevealUnit(alive);
+        if (error is null && ctx.State.FindUnit(attacker.EntityId) is { } alive)
+        {
+            // 吸血 (docs/20 §2.1): the turret heals after an attack that dealt damage — after retaliation, so a
+            // turret that died to a counter does not heal. 分级取最高 (S5b).
+            if (alive.Turret is not null)
+                ApplyTurretSiphon(ctx, alive);
+            // 潜行 (docs/21 §2): attacking reveals a Hidden attacker (if it survived retaliation).
+            if (alive.HasKeyword(Keyword.Hidden))
+                ctx.RevealUnit(alive);
+        }
         return error;
     }
+
+    /// <summary>Attacks allowed per turn: 1, plus 1 for a turret carrying 快速装填机 (docs/20 §2.1; 开关 — 镜像 gives
+    /// no extra). Every non-turret unit is 1.</summary>
+    private static int MaxAttacksPerTurn(ResolutionContext ctx, UnitInstance unit) =>
+        unit.Turret is { } t && t.Modules.Any(id => ctx.Db.Get(id).Module is { ExtraAttacks: > 0 }) ? 2 : 1;
 
     private static RuleError? ResolveLeaderAttack(ResolutionContext ctx, AttackCommand cmd, UnitInstance attacker)
     {
@@ -511,10 +611,76 @@ public sealed class Resolver
             ctx.DamageUnit(behindUnit, attacker.Atk);
         }
 
+        // 掘世匠会 炮台命中管线 (docs/20 §2.1): 分裂/溅射/迟缓 fire on the target's neighbours after a turret hit.
+        if (attacker.Turret is not null)
+            ApplyTurretOnHit(ctx, attacker, target);
+
         ctx.ProcessDeaths();
         ctx.CheckGameEnd();
         return null;
     }
+
+    /// <summary>掘世匠会 炮台命中管线 (docs/20 §2.1): after a turret attack, its 分裂/溅射/迟缓 modules fire on the
+    /// target's neighbours. 分级取最高 逐次比较 (S5b): 溅射Ⅰ(固定1) vs 溅射Ⅱ(⌈atk/2⌉) per victim. Splash is ATTACK
+    /// damage — physical, 无架设+1, 无反击 (溅射是践踏的远程表亲, §5) — enemies only. Deaths swept by the caller.</summary>
+    private static void ApplyTurretOnHit(ResolutionContext ctx, UnitInstance turret, UnitInstance target)
+    {
+        int atk = turret.Atk;
+        int half = (atk + 1) / 2; // ⌈atk/2⌉
+        bool split = false, frag = false, blast = false, concussion = false;
+        foreach (var id in turret.Turret!.Modules)
+            switch (ctx.Db.Get(id).Module?.OnHit)
+            {
+                case "split": split = true; break;
+                case "frag": frag = true; break;
+                case "blast": blast = true; break;
+                case "concussion": concussion = true; break;
+            }
+
+        // 溅射 (frag/blast, 取最高): every enemy adjacent to the target takes max(固定1, ⌈atk/2⌉).
+        if (frag || blast)
+        {
+            int splash = Math.Max(frag ? 1 : 0, blast ? half : 0);
+            if (splash > 0)
+                foreach (var v in AdjacentEnemies(ctx, turret, target).ToList())
+                    ctx.DamageUnit(v, splash);
+        }
+
+        // 分裂 (split): one RANDOM other adjacent enemy takes ⌈atk/2⌉ (match Rng → replay-deterministic).
+        if (split && half > 0)
+        {
+            var neighbours = AdjacentEnemies(ctx, turret, target).ToList();
+            if (neighbours.Count > 0)
+                ctx.DamageUnit(neighbours[ctx.State.Rng.NextInt(neighbours.Count)], half);
+        }
+
+        // 迟缓 (震撼弹, docs/20 §S12): the target 下回合无法移动 — 定身 until the owner's next turn (灰缚 原语).
+        if (concussion && ctx.State.FindUnit(target.EntityId) is { CurrentHp: > 0 } t)
+            ctx.GrantKeyword(t, Keyword.Rooted, 0, "your_next_turn", turret.OwnerSeat);
+    }
+
+    /// <summary>吸血 (docs/20 §2.1): heal the turret by 分级取最高 (S5b) — 吸血Ⅰ固定1 vs 吸血Ⅱ⌊atk/2⌋ (基于炮台攻击力,
+    /// 非落地伤害, per S5b's "攻 6 时Ⅱ回 3"). Both installed → max. No-op without a siphon module.</summary>
+    private static void ApplyTurretSiphon(ResolutionContext ctx, UnitInstance turret)
+    {
+        int atk = turret.Atk;
+        bool fixedTier = false, halfTier = false;
+        foreach (var id in turret.Turret!.Modules)
+            switch (ctx.Db.Get(id).Module?.Lifesteal)
+            {
+                case "fixed": fixedTier = true; break;
+                case "half": halfTier = true; break;
+            }
+        int heal = Math.Max(fixedTier ? 1 : 0, halfTier ? atk / 2 : 0);
+        if (heal > 0)
+            ctx.HealUnit(turret, heal);
+    }
+
+    private static IEnumerable<UnitInstance> AdjacentEnemies(ResolutionContext ctx, UnitInstance turret, UnitInstance target) =>
+        BoardGeometry.AdjacentCells(target.Cell)
+            .Select(ctx.State.UnitAt)
+            .Where(u => u != null && u.OwnerSeat != turret.OwnerSeat && u.EntityId != target.EntityId)
+            .Select(u => u!);
 
     // ---- leader skill (GDD §2.2) ----
 
@@ -529,6 +695,11 @@ public sealed class Resolver
             return new RuleError(RuleErrorCode.NotEnoughMana, $"Leader skill costs {leader.SkillCost}, you have {player.Mana}.");
         if (EffectEngine.ValidateTargets(ctx, cmd.Seat, leader.SkillEffects, "leader_skill", cmd.TargetUnitId, cmd.TargetCell) is { } targetError)
             return targetError;
+        // 铸炮 (docs/20 §1.1): the 落点 must be an empty home-row cell AND the seat must have no turret yet
+        // (唯一 — 场上已有你的炮台时置灰). This board-legality is not derivable by ValidateTargets' generic checks.
+        if (leader.SkillEffects.Any(e => e.Action == "place_turret")
+            && PlaceTurretLegality(ctx.State, cmd) is { } turretError)
+            return turretError;
 
         player.Mana -= leader.SkillCost;
         player.LeaderSkillUsedThisTurn = true;
@@ -538,10 +709,28 @@ public sealed class Resolver
         return null;
     }
 
+    /// <summary>铸炮 (docs/20 §1.1): the 落点 must be an empty cell on the caster's home row, and the caster must
+    /// have NO 工造炮台 in play (唯一). 影子炮台 (IsShadow) doesn't count against uniqueness (docs/20 §S15).</summary>
+    private static RuleError? PlaceTurretLegality(GameState state, UseLeaderSkillCommand cmd)
+    {
+        if (cmd.TargetCell is not { } cell)
+            return new RuleError(RuleErrorCode.InvalidTarget, "铸炮需要一个目标格子。");
+        if (!BoardGeometry.IsInside(cell))
+            return new RuleError(RuleErrorCode.CellOutsideBoard, $"{cell} is outside the board.");
+        if (cell.Row != BoardGeometry.HomeRow(cmd.Seat))
+            return new RuleError(RuleErrorCode.NotHomeRow, "工造炮台只能放在你的底线行。");
+        if (state.UnitAt(cell) != null)
+            return new RuleError(RuleErrorCode.CellOccupied, $"{cell} is occupied.");
+        if (state.Units.Any(u => u.OwnerSeat == cmd.Seat && u.Turret is { IsShadow: false }))
+            return new RuleError(RuleErrorCode.InvalidCommand, "场上已有你的炮台。");
+        return null;
+    }
+
     // ---- turn / concede ----
 
     private static RuleError? ResolveEndTurn(ResolutionContext ctx)
     {
+        ctx.ExpireShadowTurrets(ctx.State.ActiveSeat); // 影子炮台 vanishes at its owner's turn end (docs/20 §S15)
         ctx.ExpireEndOfTurnGrants(); // pounce, etc. lapse before control passes
         ctx.TickTraps();             // 烬火陷阱: revealed fire re-ticks its occupant + counts down (docs/21 §1.7)
         ctx.Emit(new TurnEndedEvent { Seat = ctx.State.ActiveSeat, TurnNumber = ctx.State.TurnNumber });

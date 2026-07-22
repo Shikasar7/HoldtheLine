@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace HoldTheLine.Rules.Cards;
 
 public enum CardType
@@ -31,6 +33,9 @@ public sealed record CardDefinition
     public IReadOnlyList<EffectSpec> Effects { get; init; } = [];
     /// <summary>成长 (docs/21 §1.8): if set, this unit transforms into another card after enough steps (雏凤→凤凰).</summary>
     public GrowthSpec? Growth { get; init; }
+    /// <summary>模块规格 (docs/20 §2.1): set on 掘世匠会 Equipment cards — how this module contributes when installed
+    /// on the 工造炮台. Null on every non-module card.</summary>
+    public ModuleSpec? Module { get; init; }
     public string Text { get; init; } = "";
     /// <summary>Prompt fragment for the AI-art pipeline (plan §9.4). Lives with the card so art is regenerable.</summary>
     public string ArtPrompt { get; init; } = "";
@@ -55,4 +60,45 @@ public sealed record GrowthSpec
     public required int Turns { get; init; }
     [System.Text.Json.Serialization.JsonPropertyName("into_card_id")]
     public required string IntoCardId { get; init; }
+}
+
+/// <summary>
+/// 模块规格 (docs/20 §2.1): a 掘世匠会 Equipment card's contribution when installed on the 工造炮台. The turret
+/// derives its whole panel from the union of its installed modules' specs (RecomputeTurret), so a module needs
+/// no Effects/triggers. Numeric fields (Atk/Hp/Range/Move) stack across installed modules (镜像叠加);
+/// GrantKeywords/OnHit/Lifesteal/ExtraAttacks/Immobile/Deathrattle are switches (镜像重复不叠加, §2.1 规则3).
+/// </summary>
+public sealed record ModuleSpec
+{
+    /// <summary>数值类 (可叠): 攻/上限血/射程/移速 加成.</summary>
+    public int Atk { get; init; }
+    public int Hp { get; init; }
+    public int Range { get; init; }
+    public int Move { get; init; }
+
+    /// <summary>开关类关键词 (贯穿 …) granted to the turret while installed.</summary>
+    [JsonPropertyName("grant_keywords")]
+    public IReadOnlyList<Keyword> GrantKeywords { get; init; } = [];
+
+    /// <summary>远程命中后触发: none | split(分裂) | frag(溅射Ⅰ 固定1) | blast(溅射Ⅱ ⌈atk/2⌉) | concussion(震撼弹迟缓).
+    /// frag/blast 同系分级, 同装取最高 (S5b).</summary>
+    [JsonPropertyName("on_hit")]
+    public string OnHit { get; init; } = "none";
+
+    /// <summary>吸血分级: none | fixed(吸血Ⅰ 固定回1) | half(吸血Ⅱ 回 ⌊atk/2⌋). 同装取最高 (S5b).</summary>
+    public string Lifesteal { get; init; } = "none";
+
+    /// <summary>快速装填机: +1 次每回合攻击 (开关; 镜像无增益, S9b).</summary>
+    [JsonPropertyName("extra_attacks")]
+    public int ExtraAttacks { get; init; }
+
+    /// <summary>架设平台: 授予 架设(不能移动)+坚守. 炮台仍豁免架设的效果伤 +1 (S10).</summary>
+    public bool Immobile { get; init; }
+
+    /// <summary>模块亡语: none | failsafe_pod (自毁保险舱). Fires when the TURRET dies (docs/20 §S7).</summary>
+    public string Deathrattle { get; init; } = "none";
+
+    public static readonly IReadOnlySet<string> KnownOnHit = new HashSet<string> { "none", "split", "frag", "blast", "concussion" };
+    public static readonly IReadOnlySet<string> KnownLifesteal = new HashSet<string> { "none", "fixed", "half" };
+    public static readonly IReadOnlySet<string> KnownDeathrattle = new HashSet<string> { "none", "failsafe_pod" };
 }
