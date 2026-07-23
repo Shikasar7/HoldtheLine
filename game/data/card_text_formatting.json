@@ -435,11 +435,11 @@
     "generated": true
   },
   "wp_flanker": {
-    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u75BE\u884C[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u56F4\u730E[/font][/color](\u653B\u51FB\u4E00\u4E2A\u4E0E\u4F60\u53E6\u4E00\u53CB\u65B9\u76F8\u90BB\u7684\u654C\u65B9\u968F\u4ECE\u65F6,\u4F24\u5BB3 [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B2[/font][/color])",
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u75BE\u884C[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u56F4\u730E[/font][/color](\u8FD1\u6218\u653B\u51FB\u65F6,\u6BCF\u6709\u4E00\u4E2A\u53CB\u65B9\u4E0E\u76EE\u6807\u76F8\u90BB,\u4F24\u5BB3 [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B2[/font][/color],\u53EF\u53E0\u52A0)",
     "generated": true
   },
   "wp_raider": {
-    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u51B2\u950B[/font][/color],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u56F4\u730E[/font][/color](\u653B\u51FB\u4E00\u4E2A\u4E0E\u4F60\u53E6\u4E00\u53CB\u65B9\u76F8\u90BB\u7684\u654C\u65B9\u968F\u4ECE\u65F6,\u4F24\u5BB3 [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B2[/font][/color])",
+    "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u51B2\u950B[/font][/color],[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u56F4\u730E[/font][/color](\u8FD1\u6218\u653B\u51FB\u65F6,\u6BCF\u6709\u4E00\u4E2A\u53CB\u65B9\u4E0E\u76EE\u6807\u76F8\u90BB,\u4F24\u5BB3 [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B2[/font][/color],\u53EF\u53E0\u52A0)",
     "generated": true
   },
   "wp_stalker": {
