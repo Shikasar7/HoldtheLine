@@ -71,6 +71,7 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 
 	private MulliganPanel _mulligan = null!; // 起手重抽 overlay (docs/11 §6), offline + online — panels/MulliganPanel.cs (docs/22 批次E3)
 	private MatchEndPanel _matchEnd = null!; // 结算面板 (胜负/战报/排位评分) — panels/MatchEndPanel.cs (docs/22 批次E3)
+	private DevCheatPanel? _devPanel;        // 开发者测试修改器 (Ctrl+Alt+0), 仅 DevCheats.Available + 单机 — panels/DevCheatPanel.cs
 
 	// 回放导演 (docs/22 批次E1): owns the presentation queue and the whole "consume GameEvent → animation"
 	// layer (beats, staged attacks, projectiles, FX, shake, floaters). BattleScene feeds it events and
@@ -169,6 +170,9 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 			onSurrender: ConcedeMatch,
 			onLeaveAsConcede: LeaveAsConcede,
 			onExitToMenu: () => SceneFx.ChangeScene(this, "res://scenes/menu/Menu.tscn"));
+
+		if (DevCheats.Available) // 开发者测试修改器 (Ctrl+Alt+0); 单机直接改本地 host, 联机走服务器(好友房+服务端开关)
+			_devPanel = new DevCheatPanel(_overlayLayer, _sfx, _cards);
 
 		if (_online)
 		{
@@ -1309,6 +1313,13 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 
 	public override void _Input(InputEvent @event)
 	{
+		// 开发者测试修改器: Ctrl+Alt+0 切换作弊面板 (仅 DevCheats.Available 的构建 + 单机局). 数字键 0 与小键盘 0 都收.
+		if (@event is InputEventKey { Pressed: true, CtrlPressed: true, AltPressed: true, Keycode: Key.Key0 or Key.Kp0 })
+		{
+			GetViewport().SetInputAsHandled();
+			ToggleDevCheatPanel();
+			return;
+		}
 		if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape })
 		{
 			GetViewport().SetInputAsHandled(); // consume Esc so it can't also reach a focused overlay button
@@ -1473,6 +1484,58 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 		return _host.GetView(0).Result == null;
 	}
 
+	// ---------- 开发者测试修改器 (dev-only, Ctrl+Alt+0) ----------
+
+	/// <summary>Toggle the dev cheat panel. No-op unless dev mode is available (DevCheats.Available gated the
+	/// panel's creation). Two backends behind one UI: offline mutates the in-process <see cref="_localHost"/>
+	/// synchronously; online sends dev_cheat requests to the server (honoured according to the server's friend
+	/// room / ranked dev switches) and the results flow back through the ordinary event pump.</summary>
+	private void ToggleDevCheatPanel()
+	{
+		if (_devPanel is null)
+			return;
+		if (_devPanel.IsOpen) { _devPanel.Close(); return; }
+
+		if (_localHost is { } local)          // 单机 (人机 / 同屏)
+		{
+			_devPanel.Toggle(
+				onRefill: () =>
+				{
+					int restored = local.DevRefillMana(ViewSeat);
+					_devPanel!.SetStatus(restored > 0 ? $"辉尘补满 (+{restored})" : "辉尘已是满的");
+					if (restored > 0) _ = _director.RunPlayback();
+					_devPanel!.SetDeck(local.DevDeckCards(ViewSeat));
+				},
+				onTutor: id =>
+				{
+					var entry = local.DevDeckCards(ViewSeat).FirstOrDefault(c => c.EntityId == id);
+					string name = entry.CardId is { Length: > 0 } cid && _cards.TryGet(cid, out var def) ? def.Name : "卡牌";
+					bool ok = local.DevTutorCard(ViewSeat, id);
+					_devPanel!.SetStatus(ok ? $"已加入手牌：{name}" : "手牌已满 (9)，无法加入");
+					if (ok) _ = _director.RunPlayback();
+					_devPanel!.SetDeck(local.DevDeckCards(ViewSeat));
+				});
+			_devPanel.SetDeck(local.DevDeckCards(ViewSeat)); // sync: fill immediately
+			return;
+		}
+
+		if (_remoteHost is { } remote)        // 联机 (好友房；开发服显式开启时也支持排位)
+		{
+			_devPanel.Toggle(
+				onRefill: () => { _ = remote.DevRefillManaAsync(); _devPanel!.SetStatus("已请求：回费"); },
+				onTutor: id =>
+				{
+					_ = remote.DevTutorCardAsync(id);
+					_ = remote.RequestDevDeckAsync(); // socket-ordered: reflects the deck AFTER the tutor applies
+					_devPanel!.SetStatus("已请求：加入手牌");
+				});
+			_ = remote.RequestDevDeckAsync();   // async: DevDeckReceived → SetDeck (marshalled in WireRemoteEvents)
+			return;
+		}
+
+		Log("修改器当前不可用");
+	}
+
 	/// <summary>Drives the AI seat: pick → apply → repeat until it ends its turn or the game ends.</summary>
 	private async Task RunAiTurn()
 	{
@@ -1541,6 +1604,9 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 		remote.OpponentStatusChanged += (connected, grace) => Callable.From(() => OnOpponentStatus(connected)).CallDeferred();
 		remote.TurnTimerReceived += (seat, secs) => Callable.From(() => OnTurnTimer(seat, secs)).CallDeferred();
 		remote.MulliganTimerReceived += secs => Callable.From(() => OnMulliganTimer(secs)).CallDeferred();
+		// 开发者测试修改器 (dev-only): server replies arrive on the WS thread → marshal before touching the panel.
+		remote.DevDeckReceived += cards => Callable.From(() => _devPanel?.SetDeck(cards)).CallDeferred();
+		remote.DevCheatFailed += msg => Callable.From(() => _devPanel?.SetStatus(msg)).CallDeferred();
 	}
 
 	/// <summary>Main-thread handoff once the server's match_started is in. Sets the local seat and

@@ -230,7 +230,7 @@ public sealed class ClientConnection(WebSocket socket, ILogger<ClientConnection>
                 _rooms.OnDisconnect(this);
                 break;
 
-            case SubmitCommand or Resync:
+            case SubmitCommand or Resync or DevCheat: // DevCheat (dev-only) is honoured by the session only under gates
                 var session = Room?.Session ?? throw new ProtocolError("not_in_match", "No active match on this connection.");
                 session.Enqueue(Seat, msg);
                 break;

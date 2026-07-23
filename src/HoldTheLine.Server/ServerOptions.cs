@@ -53,4 +53,15 @@ public sealed class ServerOptions
     /// the default, so tests and local runs don't spawn the service. Production sets
     /// <c>/var/lib/holdtheline/backups</c> via HTL_Server__BackupDir.</summary>
     public string? BackupDir { get; set; }
+
+    /// <summary>开发者测试修改器 (dev-only): when true, the server honours <c>dev_cheat</c> requests (一键回费 /
+    /// 从牌库取牌) in unranked friend rooms. Default false: production ignores dev_cheat entirely. Enable per
+    /// test session via <c>HTL_Server__DevCheatsEnabled=true</c>, then turn it back off.</summary>
+    public bool DevCheatsEnabled { get; set; }
+
+    /// <summary>Allow an enabled developer modifier inside ranked queue matches too. Kept as a separate,
+    /// default-false switch so accidentally leaving <see cref="DevCheatsEnabled"/> on cannot affect the live
+    /// ladder. Development servers may explicitly set
+    /// <c>HTL_Server__DevCheatsAllowRanked=true</c>.</summary>
+    public bool DevCheatsAllowRanked { get; set; }
 }

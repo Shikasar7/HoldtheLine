@@ -69,6 +69,14 @@ public sealed class RemoteGameHost : IGameHost
     /// a mulligan countdown. There is no separate mulligan-timer message — it rides the snapshot.</summary>
     public event Action<int>? MulliganTimerReceived;
 
+    /// <summary>开发者测试修改器 (dev-only): the reply to <see cref="RequestDevDeckAsync"/> — this seat's own deck
+    /// (EntityId, CardId). Fires on the receive loop; marshal to the UI thread before touching Godot nodes.</summary>
+    public event Action<IReadOnlyList<(int EntityId, string CardId)>>? DevDeckReceived;
+
+    /// <summary>开发者测试修改器 (dev-only): the server refused / could not apply a dev cheat (flag off, ranked
+    /// switch off, hand full…). Carries the human-readable reason. Fires on the receive loop.</summary>
+    public event Action<string>? DevCheatFailed;
+
     public RemoteGameHost(GameServerClient client)
     {
         _client = client;
@@ -136,6 +144,20 @@ public sealed class RemoteGameHost : IGameHost
         return await tcs.Task.WaitAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
     }
 
+    // ---- 开发者测试修改器 (dev-only) ---------------------------------------------------------------
+    // Fire-and-forget over the same socket. The server (when its relevant dev switches permit them)
+    // fans the results back as an ordinary EventsMsg, so refill/tutor animate + refresh through the normal
+    // event pump. A refusal comes back as a dev_* ErrorMsg → DevCheatFailed. list_deck → DevDeckReceived.
+
+    /// <summary>Ask the server for this seat's own deck contents (to populate the tutor picker).</summary>
+    public Task RequestDevDeckAsync() => _client.SendAsync(new DevCheat { Kind = "list_deck" });
+
+    /// <summary>一键回费: ask the server to top this seat's mana to max.</summary>
+    public Task DevRefillManaAsync() => _client.SendAsync(new DevCheat { Kind = "refill_mana" });
+
+    /// <summary>从牌库取牌: ask the server to move the given deck card (by EntityId) into this seat's hand.</summary>
+    public Task DevTutorCardAsync(int cardEntityId) => _client.SendAsync(new DevCheat { Kind = "tutor_card", CardEntityId = cardEntityId });
+
     /// <summary>Ask the server to resend the authoritative snapshot (used on a detected event gap).</summary>
     public Task RequestResyncAsync()
     {
@@ -200,6 +222,13 @@ public sealed class RemoteGameHost : IGameHost
             case TurnTimer tt when started: TurnTimerReceived?.Invoke(tt.Seat, tt.SecondsLeft); break;
             case ErrorMsg err when !_matchStarted.Task.IsCompleted && IsMatchRequestReply(err.Seq):
                 _matchStarted.TrySetException(new InvalidOperationException($"server error: {err.Code}: {err.Message}"));
+                break;
+            // 开发者测试修改器 (dev-only): the deck list reply, and a dev cheat refusal (in-match dev_* error).
+            case DevDeckList dl when started:
+                DevDeckReceived?.Invoke(dl.Cards.Select(c => (c.EntityId, c.CardId)).ToList());
+                break;
+            case ErrorMsg err when started && err.Code.StartsWith("dev_", StringComparison.Ordinal):
+                DevCheatFailed?.Invoke(err.Message);
                 break;
         }
     }

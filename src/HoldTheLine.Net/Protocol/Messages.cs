@@ -39,6 +39,10 @@ namespace HoldTheLine.Net.Protocol;
 // --- docs/16 (login flow): rename the display name in place, no reconnect. Additive like ClientVersion —
 //     an old server just skips the unknown "set_name" tag, so it is NOT a protocol-version bump.
 [JsonDerivedType(typeof(SetName), "set_name")]
+// --- 开发者测试修改器 (dev-only). Additive/tolerant like set_name (an old server log-and-skips the unknown
+//     tag) → NOT a ProtocolVersion bump. Server only acts on it when ServerOptions.DevCheatsEnabled; ranked
+//     matches additionally require ServerOptions.DevCheatsAllowRanked.
+[JsonDerivedType(typeof(DevCheat), "dev_cheat")]
 public abstract record ClientMessage
 {
     /// <summary>Client-assigned, monotonic per connection. Server echoes it in the matching reply
@@ -155,6 +159,19 @@ public sealed record SetName : ClientMessage
     public required string Name { get; init; }
 }
 
+/// <summary>开发者测试修改器 (dev-only): one in-match request from the sending seat. <see cref="Kind"/> is
+/// <c>refill_mana</c> (top this seat's 辉尘 to max), <c>tutor_card</c> (move <see cref="CardEntityId"/> from
+/// this seat's deck to hand), or <c>list_deck</c> (server replies with a <see cref="DevDeckList"/> of this
+/// seat's OWN deck — its own hidden info, so no leak). The server acts only when it has DevCheatsEnabled;
+/// ranked matches additionally require DevCheatsAllowRanked. Otherwise it replies with an
+/// <see cref="ErrorMsg"/> (code dev_*).</summary>
+public sealed record DevCheat : ClientMessage
+{
+    public required string Kind { get; init; }
+    /// <summary>Target card EntityId for <c>tutor_card</c>; ignored by the other kinds.</summary>
+    public int? CardEntityId { get; init; }
+}
+
 // ---------------------------------------------------------------------------------------------
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "t")]
@@ -179,6 +196,8 @@ public sealed record SetName : ClientMessage
 [JsonDerivedType(typeof(RatingChange), "rating_change")]
 // --- protocol v5 (docs/12 B1) ---
 [JsonDerivedType(typeof(AuthOk), "auth_ok")]
+// --- 开发者测试修改器 (dev-only). Additive/tolerant → NOT a ProtocolVersion bump. Reply to DevCheat{list_deck}.
+[JsonDerivedType(typeof(DevDeckList), "dev_deck_list")]
 public abstract record ServerMessage
 {
     /// <summary>Echoes the client <see cref="ClientMessage.Seq"/> this is a direct reply to; 0 for
@@ -360,4 +379,18 @@ public sealed record RatingChange : ServerMessage
     public required int Old { get; init; }
     public required int New { get; init; }
     public required int Season { get; init; }
+}
+
+/// <summary>开发者测试修改器 (dev-only): the reply to a <see cref="DevCheat"/> with kind <c>list_deck</c> —
+/// the requesting seat's OWN deck contents, so its client's tutor picker can list them (the client otherwise
+/// only knows its DeckCount). Sent to the requesting connection only.</summary>
+public sealed record DevDeckList : ServerMessage
+{
+    public required IReadOnlyList<DevDeckCard> Cards { get; init; }
+}
+
+public sealed record DevDeckCard
+{
+    public required int EntityId { get; init; }
+    public required string CardId { get; init; }
 }

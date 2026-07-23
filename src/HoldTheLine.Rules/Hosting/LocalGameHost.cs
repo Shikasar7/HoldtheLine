@@ -165,6 +165,79 @@ public sealed class LocalGameHost : IGameHost
             return _eventLog.Select(e => Redact(e, seat)).ToList();
     }
 
+    // ---------- 开发者测试作弊 (dev-only, single-player). Gated at the call site by Game.DevCheats. ----------
+    // These mutate authoritative state OUT-OF-BAND and emit the ordinary events (mana_gained / card_drawn), so
+    // the presentation refreshes exactly as it would for a real gain / draw. They are NOT commands: nothing
+    // enters the replay/command log or crosses the wire. The online path runs on a different host (server
+    // authority), so a networked match can never see these — cheating is physically a single-player affair.
+
+    /// <summary>The seat's current deck (top-of-deck last), for the dev tutor picker. Copy, not live refs.</summary>
+    public IReadOnlyList<(int EntityId, string CardId)> DevDeckCards(int seat)
+    {
+        lock (_gate)
+        {
+            if (seat is not (0 or 1))
+                return [];
+            return _state.Player(seat).Deck.Select(c => (c.EntityId, c.CardId)).ToList();
+        }
+    }
+
+    /// <summary>一键回费: top the seat's 辉尘 up to its current max. Returns the amount restored (0 = already full).</summary>
+    public int DevRefillMana(int seat)
+    {
+        lock (_gate)
+        {
+            if (seat is not (0 or 1))
+                return 0;
+            var next = _state.Clone();
+            var p = next.Player(seat);
+            int delta = p.ManaMax - p.Mana;
+            if (delta <= 0)
+                return 0;
+            p.Mana = p.ManaMax;
+            CommitDev(next, new ManaGainedEvent { Seat = seat, Amount = delta, NewMana = p.Mana });
+            return delta;
+        }
+    }
+
+    /// <summary>从牌库取牌: tutor a specific card (by EntityId) from the seat's deck straight to hand. Returns
+    /// false if that card isn't in the deck, or the hand is already at the 9-card cap (refused, not burned).</summary>
+    public bool DevTutorCard(int seat, int cardEntityId)
+    {
+        lock (_gate)
+        {
+            if (seat is not (0 or 1))
+                return false;
+            var next = _state.Clone();
+            var p = next.Player(seat);
+            int idx = p.Deck.FindIndex(c => c.EntityId == cardEntityId);
+            if (idx < 0)
+                return false;
+            if (p.Hand.Count >= DevMaxHandSize)
+                return false;
+            var card = p.Deck[idx];
+            p.Deck.RemoveAt(idx);
+            p.Hand.Add(card);
+            CommitDev(next, new CardDrawnEvent { Seat = seat, CardEntityId = card.EntityId, CardId = card.CardId });
+            return true;
+        }
+    }
+
+    /// <summary>Mirrors the engine's MaxHandSize (ResolutionContext) — kept in sync manually; the tutor refuses
+    /// rather than overflow-burns, since a burned tutor helps no one.</summary>
+    private const int DevMaxHandSize = 9;
+
+    // Callers hold _gate. Stamp the synthetic dev event on the new state, swap state in (the reference change
+    // invalidates the legal-command cache), log it, and dispatch — the same tail SubmitCommandAsync runs, minus
+    // the command log so replays stay clean.
+    private void CommitDev(GameState next, GameEvent ev)
+    {
+        ev.Sequence = next.EventSequence++;
+        _state = next;
+        _eventLog.Add(ev);
+        Dispatch([ev]);
+    }
+
     private void Dispatch(IReadOnlyList<GameEvent> events)
     {
         foreach (var (seat, handler) in _subscribers.ToList())

@@ -20,7 +20,11 @@ public static class ProtocolConstants
     /// reconnect), and dropped QueueStatus.<c>bot_fallback_in</c>. All NOT a bump, same reasoning — an old
     /// server skips the unknown set_name tag / sends a null username, and an old client skips the extra /
     /// now-absent properties (System.Text.Json ignores unmapped members), so mixed v5 builds stay compatible
-    /// while both ends are re-shipped.</summary>
+    /// while both ends are re-shipped.
+    /// 开发者测试修改器 (dev-only): added the <c>dev_cheat</c> C→S message and the <c>dev_deck_list</c> S→C
+    /// reply. NOT a bump for the same reason — an old peer log-and-skips the unknown tag (TryDecode is
+    /// tolerant), and the server only acts on it under its developer-cheat switches. Both are absent
+    /// from ordinary play.</summary>
     public const int ProtocolVersion = 5;
 }
 

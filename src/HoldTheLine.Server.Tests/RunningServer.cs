@@ -20,7 +20,7 @@ public sealed class RunningServer : IAsyncDisposable
         Ws = ws;
     }
 
-    public static async Task<RunningServer> StartAsync(int? disconnectGraceSeconds = null, int? turnSeconds = null, string? commandLogDir = null, string? dbPath = null, bool mulliganEnabled = false, int? mulliganSeconds = null, string? minClientVersion = null, bool enforceMinClientVersion = false)
+    public static async Task<RunningServer> StartAsync(int? disconnectGraceSeconds = null, int? turnSeconds = null, string? commandLogDir = null, string? dbPath = null, bool mulliganEnabled = false, int? mulliganSeconds = null, string? minClientVersion = null, bool enforceMinClientVersion = false, bool devCheatsEnabled = false, bool devCheatsAllowRanked = false)
     {
         // Mulligan defaults OFF for tests so the pre-mulligan turn-flow suites stay unchanged; the dedicated
         // mulligan flow tests opt in. Production ServerOptions defaults it ON.
@@ -32,6 +32,8 @@ public sealed class RunningServer : IAsyncDisposable
         opts.DbPath = dbPath; // null → private in-memory db (isolated per server); a path persists across restarts
         opts.MinClientVersion = minClientVersion;               // docs/15 §2 soft update-gate (null = disabled)
         opts.EnforceMinClientVersion = enforceMinClientVersion; // false = log-only, true = hard-reject
+        opts.DevCheatsEnabled = devCheatsEnabled;               // 开发者测试修改器 (dev-only); off in production
+        opts.DevCheatsAllowRanked = devCheatsAllowRanked;       // 排位需额外显式开启，避免误伤正式天梯
         var app = ServerApp.Build(opts);
         await app.StartAsync();
 

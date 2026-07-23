@@ -52,6 +52,8 @@ public sealed class MatchSession
     private bool _over;
     private string? _endReasonOverride;
     private readonly string? _logPath;   // per-match JSONL command log (null = disabled)
+    private readonly bool _devCheatsEnabled;     // 开发者测试修改器总开关
+    private readonly bool _devCheatsAllowRanked; // 排位额外开关；默认 false，避免测试配置污染正式天梯
     // Ranked settlement hook (winnerSeat, reason) → the per-seat follow-up to deliver (rating_change).
     // Returning the messages (rather than sending them itself) lets the session route them to the LIVE
     // _conns[seat] — a player who reconnected mid-match has a swapped-in connection, and the closure that
@@ -61,7 +63,7 @@ public sealed class MatchSession
     private enum Signal { Client, Dropped, Reattach, Forfeit, TurnBegin, TurnTimeout, MulliganTimeout }
     private readonly record struct Envelope(Signal Kind, int Seat, ClientMessage? Message, ClientConnection? Conn, string? Reason, int Gen);
 
-    private MatchSession(LocalGameHost host, ClientConnection[] conns, string[] resumeTokens, int graceSeconds, int turnSeconds, int mulliganSeconds, string? logDir, Func<int, string, (ServerMessage?, ServerMessage?)>? onEnded)
+    private MatchSession(LocalGameHost host, ClientConnection[] conns, string[] resumeTokens, int graceSeconds, int turnSeconds, int mulliganSeconds, string? logDir, bool devCheatsEnabled, bool devCheatsAllowRanked, Func<int, string, (ServerMessage?, ServerMessage?)>? onEnded)
     {
         Host = host;
         _conns = conns;
@@ -71,6 +73,8 @@ public sealed class MatchSession
         _turnSeconds = turnSeconds;
         _mulliganSeconds = mulliganSeconds;
         _onEnded = onEnded;
+        _devCheatsEnabled = devCheatsEnabled;
+        _devCheatsAllowRanked = devCheatsAllowRanked;
         _logPath = OpenLog(logDir, host.Config);
         _buffers = [new List<GameEvent>(), new List<GameEvent>()];
 
@@ -107,7 +111,7 @@ public sealed class MatchSession
         var host = new LocalGameHost(content.Cards, content.Leaders, config);
         var conns = new[] { seat0, seat1 };
         var tokens = new[] { SessionAuth.NewResumeToken(), SessionAuth.NewResumeToken() };
-        return new MatchSession(host, conns, tokens, opts.DisconnectGraceSeconds, opts.TurnSeconds, opts.MulliganSeconds, opts.CommandLogDir, onEnded);
+        return new MatchSession(host, conns, tokens, opts.DisconnectGraceSeconds, opts.TurnSeconds, opts.MulliganSeconds, opts.CommandLogDir, opts.DevCheatsEnabled, opts.DevCheatsAllowRanked, onEnded);
     }
 
     /// <summary>Start a JSONL log for this match (config header, then one accepted command per line).
@@ -226,6 +230,7 @@ public sealed class MatchSession
                     {
                         case Signal.Client when env.Message is SubmitCommand sc: await HandleSubmitAsync(env.Seat, sc); break;
                         case Signal.Client when env.Message is Resync: await HandleResyncAsync(env.Seat); break;
+                        case Signal.Client when env.Message is DevCheat dc: await HandleDevCheatAsync(env.Seat, dc); break;
                         case Signal.Dropped: await HandleDroppedAsync(env.Conn!); break;
                         case Signal.Reattach: await HandleReattachAsync(env.Seat, env.Conn!); break;
                         case Signal.Forfeit: await HandleForfeitAsync(env.Seat, env.Reason!); break;
@@ -282,6 +287,50 @@ public sealed class MatchSession
         await FanOutAsync();
         await CheckMatchEndAsync();
         await SyncTurnTimerAsync();
+    }
+
+    // 开发者测试修改器 (dev-only): a seat asked to refill its mana, tutor a deck card, or list its deck.
+    // DevCheatsEnabled is the master gate. Ranked matches (_onEnded != null) additionally require the explicit
+    // DevCheatsAllowRanked gate, so a dev server can test the complete queue flow without making the ordinary
+    // friend-room switch dangerous to leave on. Runs on the pump thread and shares _buffers with commands.
+    private async Task HandleDevCheatAsync(int seat, DevCheat dc)
+    {
+        bool isRanked = _onEnded is not null;
+        if (!_devCheatsEnabled || (isRanked && !_devCheatsAllowRanked))
+        {
+            string scope = isRanked ? "（排位测试开关未开启）" : "";
+            await _conns[seat].SendAsync(new ErrorMsg { Code = "dev_disabled", Message = $"开发者修改器未在此服务器/对局启用{scope}。" });
+            return;
+        }
+        if (_over)
+            return;
+
+        if (dc.Kind == "list_deck")
+        {
+            var cards = Host.DevDeckCards(seat)
+                .Select(c => new DevDeckCard { EntityId = c.EntityId, CardId = c.CardId })
+                .ToList();
+            await _conns[seat].SendAsync(new DevDeckList { Cards = cards });
+            return;
+        }
+
+        _buffers[0].Clear();
+        _buffers[1].Clear();
+        switch (dc.Kind)
+        {
+            case "refill_mana":
+                Host.DevRefillMana(seat);
+                break;
+            case "tutor_card" when dc.CardEntityId is int id:
+                if (!Host.DevTutorCard(seat, id))
+                    await _conns[seat].SendAsync(new ErrorMsg { Code = "dev_tutor_failed", Message = "无法加入手牌(手牌已满或不在牌库)。" });
+                break;
+            default:
+                await _conns[seat].SendAsync(new ErrorMsg { Code = "dev_bad_kind", Message = $"未知作弊类型:{dc.Kind}" });
+                return;
+        }
+        // Fan out whatever the cheat emitted (empty batch when it was a no-op — harmless: same view, no gap).
+        await FanOutAsync();
     }
 
     private async Task FanOutAsync()
