@@ -124,10 +124,13 @@ public static class CommandEnumerator
         var turret = state.Units.FirstOrDefault(u => u.OwnerSeat == seat && u.Turret is { IsShadow: false });
         if (turret?.Turret is not { } t || t.Modules.Contains(def.Id))
             yield break;
-        if (t.Modules.Count < ResolutionContext.TurretModuleCap)
+        // 自毁保险舱 不占模块位 (patch #5): the pod always installs bare (no 顶替). Upgrade modules count only the
+        // non-pod slots; a 满位 turret 顶替s one distinct in-装 upgrade (scrapping the pod frees no slot, so 排除它).
+        bool isPod = def.Id == ResolutionContext.FailsafePodCardId;
+        if (isPod || ResolutionContext.TurretSlotsUsed(t) < ResolutionContext.TurretModuleCap)
             yield return new PlayCardCommand { Seat = seat, CardEntityId = cardEntityId };
         else
-            foreach (var scrap in t.Modules.Distinct())
+            foreach (var scrap in t.Modules.Distinct().Where(id => id != ResolutionContext.FailsafePodCardId))
                 yield return new PlayCardCommand { Seat = seat, CardEntityId = cardEntityId, ReplacedModuleCardId = scrap };
     }
 

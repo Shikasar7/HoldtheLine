@@ -584,9 +584,13 @@
 	"keywords": [
 	  {
 		"keyword": "charge"
+	  },
+	  {
+		"keyword": "swift",
+		"value": 1
 	  }
 	],
-	"text": "冲锋。",
+	"text": "冲锋,疾行 1。牌组上限 1 张。",
 	"art_prompt": "a gilded royal lancer at full gallop, pennoned lance couched, sunlight on plate"
   },
   {

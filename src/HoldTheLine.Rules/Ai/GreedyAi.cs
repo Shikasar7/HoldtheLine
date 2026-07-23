@@ -343,16 +343,15 @@ public static class GreedyAi
         return r == 0 ? BoardGeometry.AreAdjacent(u.Cell, cell) : BoardGeometry.StepDistance(u.Cell, cell) <= r;
     }
 
-    // Attack-damage estimate: pack-tactics +2 on flanked prey, then the engine's own reduction chain via
-    // DamageMath.Predict (守护 redirect spares the target, 坚守/福泽 shave, 持盾 absorbs). Returns the damage
-    // the TARGET itself takes — a redirected hit counts 0 here. No 架设 +1: attacks are not effect damage.
+    // Attack-damage estimate: pack-tactics +2 PER friendly adjacent to the flanked prey (可叠加), then the engine's
+    // own reduction chain via DamageMath.Predict (守护 redirect spares the target, 坚守/福泽 shave, 持盾 absorbs).
+    // Returns the damage the TARGET itself takes — a redirected hit counts 0 here. No 架设 +1: attacks aren't effect damage.
     private static int EstimateDamage(GameState s, UnitInstance attacker, UnitInstance target, bool melee)
     {
         int dmg = attacker.Atk;
-        if (melee && attacker.HasKeyword(Keyword.PackTactics)
-            && BoardGeometry.AdjacentCells(target.Cell).Select(s.UnitAt)
-                .Any(u => u != null && u.OwnerSeat == attacker.OwnerSeat && u.EntityId != attacker.EntityId))
-            dmg += 2;
+        if (melee && attacker.HasKeyword(Keyword.PackTactics))
+            dmg += BoardGeometry.AdjacentCells(target.Cell).Select(s.UnitAt)
+                .Count(u => u != null && u.OwnerSeat == attacker.OwnerSeat && u.EntityId != attacker.EntityId) * 2;
         return DamageMath.Predict(s, target, dmg)
             .Where(o => o.Victim.EntityId == target.EntityId)
             .Sum(o => o.Amount);

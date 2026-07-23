@@ -314,6 +314,24 @@ public class KeywordTests
         Assert.Equal(1, result.State!.FindUnit(holder.EntityId)!.CurrentHp); // 4 - (2+2-1)
     }
 
+    [Fact]
+    public void PackTactics_flank_bonus_stacks_per_adjacent_friendly()
+    {
+        var state = TestKit.NewGame();
+        var hunter = TestKit.Place(state, 0, "t_pack", new Cell(2, 1));   // 2/2 围猎, attacker (adjacent, excluded)
+        TestKit.Place(state, 0, "t_vanilla", new Cell(1, 2));             // friendly flanker #1 beside the prey
+        TestKit.Place(state, 0, "t_vanilla", new Cell(3, 2));             // friendly flanker #2 beside the prey
+        var prey = TestKit.Place(state, 1, "t_big", new Cell(2, 2));
+        prey.MaxHp = 12; prey.CurrentHp = 12;                            // big enough to read the exact number
+
+        var result = TestKit.NewResolver().Execute(state, new AttackCommand
+        { Seat = 0, AttackerEntityId = hunter.EntityId, TargetUnitId = prey.EntityId });
+
+        Assert.True(result.Success, result.Error?.Message);
+        // 2 atk + 2×2 flank (TWO friendlies adjacent to the prey) = 6 damage — the bonus stacks (可叠加).
+        Assert.Equal(6, result.State!.FindUnit(prey.EntityId)!.CurrentHp); // 12 - 6
+    }
+
     // ---- 战吼 / 亡语 / 指令 ----
 
     [Fact]

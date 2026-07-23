@@ -1968,7 +1968,9 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 		strip.AddThemeStyleboxOverride("panel", BattleTheme.Box(new Color(0.06f, 0.05f, 0.05f, 0.94f), BattleTheme.Accent, 1, 8));
 		_detailPanel.AddChild(strip);
 
-		string head = isShadow ? $"影子炮台 · 复制装配  {mods.Count}/5" : $"装配模块  {mods.Count}/5";
+		// 自毁保险舱 不占位 (patch #5): it rides free, so the X/5 count excludes it (but it still lists below).
+		int slots = mods.Count(id => id != "uv_mod_failsafe_pod");
+		string head = isShadow ? $"影子炮台 · 复制装配  {slots}/5" : $"装配模块  {slots}/5";
 		var title = BattleTheme.MakeLabel(head, 18, BattleTheme.TextMain, HorizontalAlignment.Left);
 		title.AddThemeFontOverride("font", BattleTheme.UiFontBold);
 		title.Position = new Vector2(12, 8); title.Size = new Vector2(DetailW - 48, 26);
@@ -2193,13 +2195,18 @@ public partial class BattleScene : Control, IPlaybackHost, ITargetingHost
 		}
 	}
 
-	/// <summary>The three statuses whose corner NUMBER is engine-computed on UnitView (docs/22 D5) — the client
-	/// just reads ChannelDeepen / ChannelDiscount / GrowthTurnsLeft instead of re-deriving from card effects.</summary>
+	/// <summary>The statuses whose corner NUMBER is computed client-side rather than driven by a bound keyword:
+	/// 成长/引导增伤/引导减费 read the engine-computed UnitView fields (ChannelDeepen / ChannelDiscount /
+	/// GrowthTurnsLeft, docs/22 D5); 疾行 (swift) reads the Swift value straight off the unit's live keywords.</summary>
 	private static bool ComputedStatus(string id, UnitView u, out string? corner)
 	{
 		corner = null;
 		switch (id)
 		{
+			case "swift":
+				var sw = u.Keywords.FirstOrDefault(s => s.Keyword == Keyword.Swift);
+				if (sw is not null) { corner = sw.Value.ToString(); return true; }                             // 疾行 N → 疾N
+				return false;
 			case "growth":
 				if (u.GrowthTurnsLeft is { } turnsLeft) { corner = turnsLeft.ToString(); return true; }
 				return false;

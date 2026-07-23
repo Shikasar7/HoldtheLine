@@ -207,7 +207,7 @@ public partial class DeckScene : Control
     {
         if (_deck.Count >= DeckValidator.DeckSize) { Flash("卡组已满 (30)"); return; }
         int have = _deck.Count(id => id == def.Id);
-        int cap = DeckValidator.MaxCopies(def.Rarity);
+        int cap = DeckValidator.MaxCopies(def);
         if (have >= cap) { Flash($"{def.Name} 最多 {cap} 张"); return; }
 
         string cur = DeckFaction();

@@ -176,7 +176,7 @@ public class UndervaultTurretTests
         // atk 6 = 1(base) + heavy(2) + grand(3); 吸血 Ⅰ(+1) vs Ⅱ(+⌊6/2⌋=3) → +0/+3. 用户改版: 直接加生命,可超上限.
         var (s, _, t) = Build(HeavyBore, GrandCannon, SiphonShell, SiphonCore);
         Assert.Equal(6, t.Atk);
-        int maxBefore = t.MaxHp;                 // 6 = base 3 + grand 3
+        int maxBefore = t.MaxHp;                 // 5 = base 3 + grand 2 (patch #5: 贯日 +3/+2)
         Assert.Equal(maxBefore, t.CurrentHp);    // 满血起手
 
         var resolver = new Resolver(Db, Leaders);
@@ -342,6 +342,29 @@ public class UndervaultTurretTests
         Assert.Contains(AnchorPlatform, t2.Turret.Modules);
     }
 
+    [Fact]
+    public void FailsafePod_doesNotCountTowardModuleCap()
+    {
+        var s = MinimalState();
+        var ctx = new ResolutionContext(s, Db);
+        ctx.PlaceTurret(0, new Cell(2, BoardGeometry.HomeRow(0)));
+        var t = Turret(s, 0);
+        foreach (var m in new[] { HeavyBore, LongBarrel, RifledBore, FragShell, SiphonShell }) // 5 升级模块 → 占满
+            ctx.InstallModuleOnTurret(t, m, null, false);
+        Assert.Equal(5, ResolutionContext.TurretSlotsUsed(t.Turret!));
+
+        // 自毁保险舱 不占位 (patch #5): installs on a full (5-upgrade) turret with NO 报废 → 6 in-装 / 5 占位.
+        var resolver = new Resolver(Db, Leaders);
+        s.Player(0).Mana = 10;
+        int pod = GiveCard(s, 0, FailsafePod);
+        var ok = resolver.Execute(s, new PlayCardCommand { Seat = 0, CardEntityId = pod });
+        Assert.True(ok.Success, ok.Error?.Message);
+        var t2 = Turret(ok.State!, 0);
+        Assert.Equal(6, t2.Turret!.Modules.Count);                       // 6 件在装
+        Assert.Equal(5, ResolutionContext.TurretSlotsUsed(t2.Turret!));  // 只占 5 个升级位
+        Assert.Contains(FailsafePod, t2.Turret.Modules);
+    }
+
     // ---- S9b 镜像工坊 ----
 
     [Fact]
@@ -481,21 +504,23 @@ public class UndervaultTurretTests
     // ---- S15 影子炮台 ----
 
     [Fact]
-    public void S15_ShadowTurret_copiesPanel_fullHp_assault_persistent()
+    public void S15_ShadowTurret_copiesCurrentState_noAssault_persistent()
     {
         var (s, ctx, t) = Build(AnchorPlatform); // atk 2, maxHp 6
         t.Turret!.DamageTaken = 2;
         ctx.RecomputeTurret(t);
+        ctx.GrantKeyword(t, Keyword.Rooted, 0, "your_next_turn", 0); // a debuff on the source turret (定身)
         Assert.Equal(4, t.CurrentHp);
 
         ctx.SummonShadowTurret(0, t, new Cell(2, 1));
         var shadow = s.Units.First(u => u.Turret is { IsShadow: true });
         Assert.Equal(t.Atk, shadow.Atk);
         Assert.Equal(6, shadow.MaxHp);
-        Assert.Equal(6, shadow.CurrentHp);                // 满血落地
-        Assert.True(shadow.HasKeyword(Keyword.Assault));  // 突袭
+        Assert.Equal(4, shadow.CurrentHp);                 // 用户改版: 复制当前残血 (DamageTaken 2), 不再满血
+        Assert.False(shadow.HasKeyword(Keyword.Assault));  // 用户改版: 拆掉附带的突袭
+        Assert.True(shadow.HasKeyword(Keyword.Rooted));    // 用户改版: 连同减益一起复制 (定身)
         Assert.Contains(AnchorPlatform, shadow.Turret!.Modules);
-        // 长期存在版 (用户改版): the shadow persists (no turn-end expiry) but is still IsShadow — 唯一/模块指向 仍是本体.
+        // 长期存在版: the shadow persists (no turn-end expiry) but is still IsShadow — 唯一/模块指向 仍是本体.
         Assert.Same(t, ctx.FriendlyTurret(0));            // 本体炮台仍是"你的炮台"
         Assert.NotSame(shadow, ctx.FriendlyTurret(0));    // 影子不占本体位
     }

@@ -7,7 +7,7 @@
     "rarity": "common",
     "cost": 1,
     "atk": 1,
-    "hp": 1,
+    "hp": 2,
     "effects": [
       {
         "trigger": "ally_order_played",
@@ -16,7 +16,7 @@
         "atk": 1
       }
     ],
-    "text": "你每施放一张指令牌后,本随从 +1/+0。",
+    "text": "你每施放一张指令牌后,本随从 +1/+0(每回合最多 2 次)。",
     "art_prompt": "a young hooded acolyte in ash-grey robes, cupping a small growing flame in both hands"
   },
   {
@@ -28,6 +28,12 @@
     "cost": 1,
     "atk": 0,
     "hp": 2,
+    "keywords": [
+      {
+        "keyword": "swift",
+        "value": 1
+      }
+    ],
     "effects": [
       {
         "trigger": "deathrattle",
@@ -37,7 +43,7 @@
         "school": "spell.kindle"
       }
     ],
-    "text": "亡语:相邻敌方随从受到 3 点薪炎伤害。",
+    "text": "疾行 1。亡语:相邻敌方随从受到 3 点薪炎伤害。",
     "art_prompt": "a giant moth with smoldering ember wings, sparks drifting off its dust trail"
   },
   {
@@ -119,7 +125,7 @@
         "hp": 1
       }
     ],
-    "text": "你每施放一张指令牌后,本随从 +1/+1。",
+    "text": "你每施放一张指令牌后,本随从 +1/+1(每回合最多 2 次)。",
     "art_prompt": "a blindfolded seer, ember light glowing through the cloth, heat runes hanging in the air"
   },
   {
@@ -318,7 +324,7 @@
     "faction": "duskweaver",
     "type": "order",
     "rarity": "rare",
-    "cost": 5,
+    "cost": 4,
     "effects": [
       {
         "trigger": "play",
@@ -383,7 +389,13 @@
     "cost": 1,
     "atk": 2,
     "hp": 1,
-    "text": "",
+    "keywords": [
+      {
+        "keyword": "swift",
+        "value": 1
+      }
+    ],
+    "text": "疾行 1。",
     "art_prompt": "a small ember-elemental whelp trailing sparks, eager and flickering"
   },
   {
@@ -412,8 +424,8 @@
     "type": "unit",
     "rarity": "common",
     "cost": 2,
-    "atk": 3,
-    "hp": 1,
+    "atk": 1,
+    "hp": 3,
     "effects": [
       {
         "trigger": "ally_died_your_turn",
@@ -441,7 +453,7 @@
         "hp": 1
       }
     ],
-    "text": "你每施放一张指令牌后,本随从 +0/+1。",
+    "text": "你每施放一张指令牌后,本随从 +0/+1(每回合最多 2 次)。",
     "art_prompt": "a hooded choir acolyte chanting, ash swirling, growing steadier with each verse"
   },
   {
@@ -583,7 +595,7 @@
     "faction": "duskweaver",
     "type": "order",
     "rarity": "epic",
-    "cost": 5,
+    "cost": 4,
     "effects": [
       {
         "trigger": "play",

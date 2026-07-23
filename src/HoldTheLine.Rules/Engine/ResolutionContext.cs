@@ -167,6 +167,10 @@ internal sealed class ResolutionContext
     public const int TurretRangeCap = 4;   // 射程封顶 (docs/20 §2.1)
     public const int TurretModuleCap = 5;  // 装配上限 (docs/20 §2.1 / §0.3-10)
 
+    /// <summary>装配位占用 (patch #5): 自毁保险舱 rides along free (不占模块位), so the 5-slot cap counts only the OTHER
+    /// (non-pod) modules — 5 个升级模块 + 1 个保险舱 is legal. Every 满位 check keys on this, not raw Modules.Count.</summary>
+    public static int TurretSlotsUsed(TurretState t) => t.Modules.Count(id => id != FailsafePodCardId);
+
     /// <summary>Re-derives a turret's whole panel from its layers (docs/20 §4): 基础(uv_turret_core 卡面, U0 校准
     /// 的数据源) + Σ在装模块 + 外部累积层. Rewrites Atk/MaxHp/Keywords and re-derives CurrentHp = max(1, MaxHp −
     /// DamageTaken) — the module/外部 recompute FLOOR (装配永不杀炮台、无换装洗伤, S3). Combat damage never comes
@@ -239,7 +243,7 @@ internal sealed class ResolutionContext
         bool inherited = pending.Count > 0;
         foreach (var id in pending)
         {
-            if (unit.Turret.Modules.Count >= TurretModuleCap)
+            if (TurretSlotsUsed(unit.Turret) >= TurretModuleCap)
                 break;
             unit.Turret.Modules.Add(id);
             AddInstalledHistory(seat, id);
@@ -337,11 +341,13 @@ internal sealed class ResolutionContext
         Emit(new TurretFailsafeEvent { Seat = seat, SavedModuleCardIds = saved });
     }
 
-    /// <summary>影子炮台 (维尔达, docs/20 §S15, 用户改版: 长期存在版): a runtime SNAPSHOT of <paramref name="source"/>
-    /// turret — same modules (so RecomputeTurret yields the same panel) + external layers, 满血, 突袭 (Assault). It is
-    /// a PERSISTENT independent copy (no longer expires at turn end): it stays on the board until killed. Flagged
-    /// IsShadow so it does NOT count toward turret uniqueness (领袖 铸炮 still allowed), can't be
-    /// module/镜像/重构-targeted, its death does not trigger 保险舱, and it never enters the history pool.</summary>
+    /// <summary>影子炮台 (维尔达, docs/20 §S15, 用户改版: 长期存在 + 完整状态复制版): a runtime SNAPSHOT of
+    /// <paramref name="source"/> turret — same modules (so RecomputeTurret yields the same panel) + external layers,
+    /// AND its CURRENT state: the same已损失生命 (DamageTaken → 残血落地) and every temporary 增益/减益 (TempGrants:
+    /// 定身/迟缓…). NO 突袭 — it lands with 召唤失调 like any other unit (拆掉附带突袭, 不再超模). It is a PERSISTENT
+    /// independent copy (no turn-end expiry): it stays on the board until killed. Flagged IsShadow so it does NOT
+    /// count toward turret uniqueness (领袖 铸炮 still allowed), can't be module/镜像/重构-targeted, its death does
+    /// not trigger 保险舱, and it never enters the history pool.</summary>
     public void SummonShadowTurret(int seat, UnitInstance source, Cell cell)
     {
         var st = source.Turret!;
@@ -352,17 +358,18 @@ internal sealed class ResolutionContext
             OwnerSeat = seat,
             Cell = cell,
             DeployedOnTurn = State.TurnNumber,
+            TempGrants = source.TempGrants.Select(g => g.Clone()).ToList(), // 复制减益/临时增益 (定身/迟缓…)
             Turret = new TurretState
             {
                 Modules = new List<string>(st.Modules),
                 ExternalAtk = st.ExternalAtk,
                 ExternalHp = st.ExternalHp,
-                ExternalKeywords = new List<KeywordSpec>(st.ExternalKeywords) { new(Keyword.Assault) }, // 突袭
-                DamageTaken = 0,        // 满血落地
+                ExternalKeywords = new List<KeywordSpec>(st.ExternalKeywords),
+                DamageTaken = st.DamageTaken,   // 复制当前已损失生命 (残血落地, 与本体同样受损)
                 IsShadow = true,
             },
         };
-        RecomputeTurret(unit);          // derives the same panel + folds in 突袭
+        RecomputeTurret(unit);          // derives the same panel; CurrentHp = MaxHp − DamageTaken
         State.Units.Add(unit);
         Emit(new UnitDeployedEvent
         {
@@ -379,7 +386,7 @@ internal sealed class ResolutionContext
     {
         var t = turret.Turret!;
         var bag = new List<string>(pool);
-        for (int i = 0; i < count && bag.Count > 0 && t.Modules.Count < TurretModuleCap; i++)
+        for (int i = 0; i < count && bag.Count > 0 && TurretSlotsUsed(t) < TurretModuleCap; i++)
         {
             int idx = State.Rng.NextInt(bag.Count);
             string id = bag[idx];

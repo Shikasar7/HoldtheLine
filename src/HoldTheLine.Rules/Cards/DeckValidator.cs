@@ -17,6 +17,18 @@ public static class DeckValidator
         _ => 0, // tokens (e.g. the coin) can never be deck-built
     };
 
+    /// <summary>Per-card copy overrides that trump the rarity cap (balance). 御前枪骑 is an Epic (rarity cap 2)
+    /// held to 1 (patch #5, 2026-07-23) — its 冲锋+疾行 burst is too swingy to run in multiples.</summary>
+    private static readonly IReadOnlyDictionary<string, int> CopyOverrides = new Dictionary<string, int>(StringComparer.Ordinal)
+    {
+        ["nl_royal_lancer"] = 1,
+    };
+
+    /// <summary>The copy cap for a specific card — its per-card override if any, else the rarity default.
+    /// Prefer this over <see cref="MaxCopies(Rarity)"/> so overrides apply everywhere (client + server).</summary>
+    public static int MaxCopies(CardDefinition def) =>
+        CopyOverrides.TryGetValue(def.Id, out var n) ? n : MaxCopies(def.Rarity);
+
     /// <summary>Returns null when the deck is legal, otherwise the first violation found.</summary>
     public static RuleError? Validate(IReadOnlyList<string> deck, CardDatabase db)
     {
@@ -28,7 +40,7 @@ public static class DeckValidator
         {
             if (!db.TryGet(group.Key, out var def))
                 return new RuleError(RuleErrorCode.InvalidDeck, $"Unknown card id '{group.Key}'.");
-            int cap = MaxCopies(def.Rarity);
+            int cap = MaxCopies(def);
             if (group.Count() > cap)
                 return new RuleError(RuleErrorCode.InvalidDeck,
                     $"Card '{group.Key}' ({def.Rarity}) appears {group.Count()} times; the cap is {cap}.");

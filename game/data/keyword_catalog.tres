@@ -75,7 +75,7 @@ Description = "移动时可跨过一个随从,直线跳跃 2 格。"
 script = ExtResource("1_kdef")
 KeywordName = "PackTactics"
 DisplayName = "围猎"
-Description = "近战攻击一个与你另一友方相邻的敌人时,伤害 +2。"
+Description = "近战攻击时,每有一个友方与目标相邻,伤害 +2(可叠加)。"
 
 [sub_resource type="Resource" id="Resource_hidden"]
 script = ExtResource("1_kdef")

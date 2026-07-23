@@ -54,8 +54,17 @@ public static class RulesInfo
     /// occupant-owner's turn end and never on the step turn itself, so a unit takes the entry hit, sits safely
     /// through its own turn end + the enemy turn, and is re-seared at its NEXT turn end. CellState gains an
     /// internal LastSearTurn guard (server-side only; not in PlayerView, DataHash unchanged). Old command logs
-    /// replay under the new timing. Server + client must ship this same version (Hello handshake gates on it).</remarks>
-    public const string Version = "0.10.1";
+    /// replay under the new timing. Server + client must ship this same version (Hello handshake gates on it).
+    /// 0.11.0 (2026-07-23): balance patch #5 + 状态/机制微调. 围猎 (PackTactics) flank now STACKS — +2 for each
+    /// friendly adjacent to the target (was a flat +2 for any one flanker); 首席大匠 影子炮台 copies the turret's
+    /// CURRENT state (已损失生命 DamageTaken + 临时增益/减益 TempGrants) and no longer gains 突袭; 自毁保险舱
+    /// 不占模块位 (a turret may hold 5 upgrade modules PLUS the pod — TurretSlotsUsed excludes it from the cap).
+    /// Card tuning (DataHash changes): 分裂弹药 3→2费, 移动要塞 hp 10→9, 贯日 +3/+3→+3/+2, 御前枪骑 +疾行1 且
+    /// 牌组上限 1 张 (DeckValidator per-card override), 母狼王 hp→6, 游群之王 hp→7, 掠猎巨狼 4/4→3/5,
+    /// 掠群幼狼 1/1→1/2, 灼誓狂徒 3/1→1/3, 灰烬侍徒 1/1→1/2, 烬爆蛾/灰烬幼灵 +疾行1, 烬蚀之列/焰幕 5→4费;
+    /// 烬火唱徒/烬眼先知/灰烬侍徒 texts now advertise the pre-existing 每回合 2 次 self-growth cap. Client adds a
+    /// 疾行 status badge (疾N). Client + server must ship this same data + version (Hello handshake gates on it).</remarks>
+    public const string Version = "0.11.0";
 
     /// <summary>压力潮汐 start round, forwarded from the (internal) <see cref="Engine.TurnFlow"/> so the client
     /// HUD can show the tide countdown (docs/17) without hardcoding 8 and drifting from the rule. Read-only

@@ -106,12 +106,16 @@ public sealed class Resolver
         if (t.Modules.Contains(def.Id))
             return new RuleError(RuleErrorCode.InvalidCommand, "该模块已在装(同名唯一)。");
 
+        // 自毁保险舱 不占模块位 (patch #5): the pod always fits and never needs a 报废 target, even on a full turret.
+        bool isPod = def.Id == ResolutionContext.FailsafePodCardId;
         string? replaced = null;
-        if (t.Modules.Count >= ResolutionContext.TurretModuleCap)
+        if (!isPod && ResolutionContext.TurretSlotsUsed(t) >= ResolutionContext.TurretModuleCap)
         {
-            // 满位顶替 (S2): must name an in-装 module to scrap; no/invalid choice rejects (rolls back, 不扣费).
-            if (cmd.ReplacedModuleCardId is not { } scrapId || !t.Modules.Contains(scrapId))
-                return new RuleError(RuleErrorCode.InvalidTarget, "炮台已满,需选择一件在装模块报废。");
+            // 满位顶替 (S2): must name an in-装 UPGRADE (non-pod) module to scrap; scrapping the pod frees no slot,
+            // so it is rejected here. No/invalid choice rolls the whole play back (不扣费).
+            if (cmd.ReplacedModuleCardId is not { } scrapId || !t.Modules.Contains(scrapId)
+                || scrapId == ResolutionContext.FailsafePodCardId)
+                return new RuleError(RuleErrorCode.InvalidTarget, "炮台已满,需选择一件在装升级模块报废。");
             replaced = scrapId;
         }
         else if (cmd.ReplacedModuleCardId is not null)
@@ -132,7 +136,7 @@ public sealed class Resolver
         var turret = ctx.FriendlyTurret(cmd.Seat);
         if (turret?.Turret is not { } t)
             return new RuleError(RuleErrorCode.InvalidTarget, "需要一座在场的炮台。");
-        if (t.Modules.Count >= ResolutionContext.TurretModuleCap)
+        if (ResolutionContext.TurretSlotsUsed(t) >= ResolutionContext.TurretModuleCap)
             return new RuleError(RuleErrorCode.InvalidCommand, "炮台已满,镜像需要一个空位。");
         if (cmd.TargetModuleCardId is not { } moduleId || !t.Modules.Contains(moduleId))
             return new RuleError(RuleErrorCode.InvalidTarget, "需要选择一件在装模块复制。");
@@ -155,7 +159,7 @@ public sealed class Resolver
         var turret = ctx.FriendlyTurret(cmd.Seat);
         if (turret?.Turret is not { } t)
             return new RuleError(RuleErrorCode.InvalidTarget, "需要一座在场的炮台。");
-        if (t.Modules.Count >= ResolutionContext.TurretModuleCap)
+        if (ResolutionContext.TurretSlotsUsed(t) >= ResolutionContext.TurretModuleCap)
             return new RuleError(RuleErrorCode.InvalidCommand, "炮台已满。");
         var pool = player.InstalledHistory.Where(id => !t.Modules.Contains(id)).ToList();
         if (pool.Count == 0)
@@ -576,14 +580,14 @@ public sealed class Resolver
             && !attacker.HasKeyword(Keyword.CheapShot)
             && !ctx.State.IsSmoked(target.Cell) // 烟幕: a smoked defender does not strike back (docs/21 §1.6)
             && ReachesCell(target, attacker.Cell);
-        // 围猎 (PackTactics): melee attacks on flanked prey — another friendly unit adjacent to the
-        // target — deal +2 damage. Speed buys the surround; the surround buys the kill.
-        bool packFlank = range == 0
-            && attacker.HasKeyword(Keyword.PackTactics)
-            && BoardGeometry.AdjacentCells(target.Cell)
+        // 围猎 (PackTactics): a melee attack on flanked prey deals +2 for EACH friendly unit adjacent to the
+        // target (the attacker excepted) — the more of the pack surrounds it, the deeper the bite (可叠加).
+        int packBonus = range == 0 && attacker.HasKeyword(Keyword.PackTactics)
+            ? BoardGeometry.AdjacentCells(target.Cell)
                 .Select(ctx.State.UnitAt)
-                .Any(u => u != null && u.OwnerSeat == cmd.Seat && u.EntityId != attacker.EntityId);
-        ctx.DamageUnit(target, attacker.Atk + (packFlank ? 2 : 0));
+                .Count(u => u != null && u.OwnerSeat == cmd.Seat && u.EntityId != attacker.EntityId) * 2
+            : 0;
+        ctx.DamageUnit(target, attacker.Atk + packBonus);
         if (retaliates)
             ctx.DamageUnit(attacker, target.Atk);
 

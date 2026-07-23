@@ -7,7 +7,7 @@
 	"rarity": "common",
 	"cost": 1,
 	"atk": 1,
-	"hp": 1,
+	"hp": 2,
 	"keywords": [{ "keyword": "swift", "value": 2 }],
 	"text": "疾行 2。",
 	"art_prompt": "a small fast wolf-pup with glowing eyes, dashing across dust"
@@ -35,7 +35,7 @@
 	"atk": 2,
 	"hp": 2,
 	"keywords": [{ "keyword": "swift", "value": 2 }, { "keyword": "pack_tactics" }],
-	"text": "疾行 2,围猎(攻击一个与你另一友方相邻的敌方随从时,伤害 +2)。",
+	"text": "疾行 2,围猎(近战攻击时,每有一个友方与目标相邻,伤害 +2,可叠加)。",
 	"art_prompt": "a mounted flanker wheeling around the side, war-paint streaks"
   },
   {
@@ -48,7 +48,7 @@
 	"atk": 3,
 	"hp": 2,
 	"keywords": [{ "keyword": "charge" }, { "keyword": "pack_tactics" }],
-	"text": "冲锋,围猎(攻击一个与你另一友方相邻的敌方随从时,伤害 +2)。",
+	"text": "冲锋,围猎(近战攻击时,每有一个友方与目标相邻,伤害 +2,可叠加)。",
 	"art_prompt": "a feral orc raider mid-leap swinging a jagged axe"
   },
   {
@@ -84,8 +84,8 @@
 	"type": "unit",
 	"rarity": "common",
 	"cost": 4,
-	"atk": 4,
-	"hp": 4,
+	"atk": 3,
+	"hp": 5,
 	"keywords": [{ "keyword": "swift", "value": 2 }],
 	"text": "疾行 2。",
 	"art_prompt": "a huge dire wolf with battle harness, muscles coiled to spring"
@@ -150,7 +150,7 @@
 	"rarity": "legendary",
 	"cost": 7,
 	"atk": 6,
-	"hp": 6,
+	"hp": 7,
 	"keywords": [{ "keyword": "charge" }, { "keyword": "trample" }, { "keyword": "pack_tactics" }],
 	"text": "冲锋,践踏,围猎。落地,冲锋,大地为之震颤。",
 	"art_prompt": "a towering warlord beast-king with a crown of tusks, pack surging at his heels"
@@ -196,7 +196,7 @@
 	"rarity": "rare",
 	"cost": 3,
 	"effects": [{ "trigger": "play", "action": "summon", "summon_card_id": "wp_pup", "amount": 2 }],
-	"text": "在你的底线行召唤两只掠群幼狼(1/1,疾行2)。",
+	"text": "在你的底线行召唤两只掠群幼狼(1/2,疾行2)。",
 	"art_prompt": "a horn-call summoning two wolf pups bounding out of the dust to the back line"
   },
   {
@@ -270,7 +270,7 @@
 		"summon_card_id": "wp_pup"
 	  }
 	],
-	"text": "战吼:在你的底线行召唤一只 1/1 掠群幼狼。",
+	"text": "战吼:在你的底线行召唤一只 1/2 掠群幼狼。",
 	"art_prompt": "a great she-wolf standing over her den, a single pup bounding out to her side"
   },
   {
@@ -448,7 +448,7 @@
 	"rarity": "epic",
 	"cost": 6,
 	"atk": 5,
-	"hp": 5,
+	"hp": 6,
 	"keywords": [
 	  {
 		"keyword": "charge"

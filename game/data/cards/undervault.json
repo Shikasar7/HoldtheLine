@@ -85,7 +85,7 @@
     "faction": "undervault",
     "type": "equipment",
     "rarity": "rare",
-    "cost": 3,
+    "cost": 2,
     "module": {
       "on_hit": "split"
     },
@@ -208,7 +208,7 @@
     "module": {
       "deathrattle": "failsafe_pod"
     },
-    "text": "亡语(炮台被击毁时):随机保住其余在装模块中的 2 件,你的下一座炮台落成时自动装上;随后本保险舱作废。",
+    "text": "不占模块位(炮台仍可另装 5 个升级模块)。亡语(炮台被击毁时):随机保住其余在装模块中的 2 件,你的下一座炮台落成时自动装上;随后本保险舱作废。",
     "art_prompt": "a sealed welded-shut armored failsafe capsule with heavy latches and a blinking safety light, prop centered on dark ground"
   },
   {
@@ -220,13 +220,13 @@
     "cost": 6,
     "module": {
       "atk": 3,
-      "hp": 3,
+      "hp": 2,
       "range": 1,
       "grant_keywords": [
         "pierce"
       ]
     },
-    "text": "装配:+3/+3,射程 +1(上限 4),贯穿。",
+    "text": "装配:+3/+2,射程 +1(上限 4),贯穿。",
     "art_prompt": "a colossal fortress cannon core with a brass sun emblem, barrel longer than a house, anchored on iron legs"
   },
   {
@@ -427,7 +427,7 @@
     "rarity": "epic",
     "cost": 8,
     "atk": 5,
-    "hp": 10,
+    "hp": 9,
     "keywords": [
       {
         "keyword": "guardian"
@@ -455,7 +455,7 @@
         "target": "none"
       }
     ],
-    "text": "战吼:若你的炮台在场,在维尔达相邻的空格放置一座影子炮台(复制你炮台当前的面板与模块,获得突袭;长期存在,直到被消灭)。",
+    "text": "战吼:若你的炮台在场,在维尔达相邻的空格放置一座影子炮台(完整复制你炮台当前的面板、模块与状态——含已损失的生命与所有增益/减益;长期存在,直到被消灭)。",
     "art_prompt": "a master artificer-woman surrounded by deploying gun parts and blueprints, the whole line lighting up"
   },
   {
