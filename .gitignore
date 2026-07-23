@@ -19,6 +19,10 @@ export_presets.cfg.secret
 Thumbs.db
 .DS_Store
 
+# Python (tools/ 脚本的字节码缓存)
+__pycache__/
+*.pyc
+
 # AI art working files (generated candidates before curation)
 art_work/
 

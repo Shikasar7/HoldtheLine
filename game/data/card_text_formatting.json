@@ -1,6 +1,6 @@
 {
   "dw_ash_acolyte": {
-    "bbcode": "\u4F60\u6BCF\u65BD\u653E\u4E00\u5F20\u6307\u4EE4\u724C\n\u672C\u968F\u4ECE [font=res://assets/fonts/SourceHanSerifSC-Bold.otf][color=#55c7b8]\u002B1[/color]/\u002B0[/font] \u6BCF\u56DE\u5408\u6700\u591A\u4E24\u6B21"
+    "bbcode": "\u4F60\u6BCF\u65BD\u653E\u4E00\u5F20\u6307\u4EE4\u724C\n\u672C\u968F\u4ECE [font=res://assets/fonts/SourceHanSerifSC-Bold.otf][color=#55c7b8]\u002B1[/color]/\u002B0[/font] \u6BCF\u56DE\u5408\u6700\u591A [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u6B21"
   },
   "dw_cinder_moth": {
     "bbcode": "[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u4EA1\u8BED[/font][/color]:\u76F8\u90BB\u654C\u65B9\u968F\u4ECE\u53D7\u5230 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]3[/font] \u70B9[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u4F24\u5BB3[/font][/color]"
@@ -17,7 +17,7 @@
     "generated": true
   },
   "dw_ember_seer": {
-    "bbcode": "\u4F60\u6BCF\u65BD\u653E\u4E00\u5F20\u6307\u4EE4\u724C\n\u672C\u968F\u4ECE [font=res://assets/fonts/SourceHanSerifSC-Bold.otf][color=#55c7b8]\u002B1/\u002B1[/color][/font] \u6BCF\u56DE\u5408\u6700\u591A\u4E24\u6B21"
+    "bbcode": "\u4F60\u6BCF\u65BD\u653E\u4E00\u5F20\u6307\u4EE4\u724C\n\u672C\u968F\u4ECE [font=res://assets/fonts/SourceHanSerifSC-Bold.otf][color=#55c7b8]\u002B1/\u002B1[/color][/font] \u6BCF\u56DE\u5408\u6700\u591A [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u6B21"
   },
   "dw_flare_dancer": {
     "bbcode": "[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u7A81\u88AD[/font][/color]\u3002\n[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u6218\u543C[/font][/color]:[color=#e0b24a][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u84C4\u80FD[/font][/color] [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font](\u4F60\u7684\u4E0B\u4E00\u5F20[color=#df7467][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u85AA\u708E\u4F24\u5BB3[/font][/color]\u6307\u4EE4 [color=#55c7b8][font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B2[/font][/color])\u3002",
@@ -64,7 +64,7 @@
     "bbcode": "[font=res://assets/fonts/SourceHanSerifSC-Bold.otf][color=#e0b24a]\u5F52\u9B42[/color][/font]:\u4F60\u7684\u56DE\u5408\u5185\u53CB\u65B9\u968F\u4ECE\u6B7B\u4EA1\u65F6,\u83B7\u5F97 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u70B9\u672C\u56DE\u5408\u8F89\u5C18(\u6BCF\u56DE\u5408\u6700\u591A 2 \u6B21)"
   },
   "dw_choir_acolyte": {
-    "bbcode": "\u4F60\u6BCF\u65BD\u653E\u4E00\u5F20\u6307\u4EE4\u724C\n\u672C\u968F\u4ECE [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B0/[color=#55c7b8]\u002B1[/color][/font] \u6BCF\u56DE\u5408\u6700\u591A\u4E24\u6B21"
+    "bbcode": "\u4F60\u6BCF\u65BD\u653E\u4E00\u5F20\u6307\u4EE4\u724C\n\u672C\u968F\u4ECE [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]\u002B0/[color=#55c7b8]\u002B1[/color][/font] \u6BCF\u56DE\u5408\u6700\u591A [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]2[/font] \u6B21"
   },
   "dw_ashen_courier": {
     "bbcode": "[font=res://assets/fonts/SourceHanSerifSC-Bold.otf][color=#e0b24a]\u6218\u543C[/color][/font]:\u5C06 [font=res://assets/fonts/SourceHanSerifSC-Bold.otf]1[/font] \u5F20\u968F\u673A\u6307\u4EE4\u724C\u4ECE\u4F60\u7684\u5893\u5730\u79FB\u56DE\u624B\u724C"
